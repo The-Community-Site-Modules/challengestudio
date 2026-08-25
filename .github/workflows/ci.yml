@@ -15,6 +15,19 @@ jobs:
     name: Lint, type-check, build
     runs-on: ubuntu-latest
 
+    # Job-level, not step-level. `postinstall` runs `prisma generate`, which
+    # loads prisma.config.ts, which throws if DIRECT_URL is unset — so these
+    # must already exist during `pnpm install`, not just at build time.
+    # CI never reaches a database: DATABASE_URL is read at request time, and
+    # `prisma generate` only needs the value to be present, not reachable.
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/postgres
+      DIRECT_URL: postgresql://user:pass@localhost:5432/postgres
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      SUPABASE_SECRET_KEY: sb_secret_placeholder
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,14 +49,5 @@ jobs:
       - name: Type-check
         run: pnpm type-check
 
-      # DATABASE_URL is only read at request time, never at build time, so a
-      # placeholder is enough to keep `prisma generate` and `next build` happy.
       - name: Build
         run: pnpm build
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/postgres
-          DIRECT_URL: postgresql://user:pass@localhost:5432/postgres
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
-          SUPABASE_SECRET_KEY: sb_secret_placeholder
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
