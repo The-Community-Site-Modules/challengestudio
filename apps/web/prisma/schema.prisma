@@ -1,0 +1,267 @@
+// Prisma schema for Challenge Studio
+// Database: Supabase (PostgreSQL) via shared pooler
+//
+// Runtime queries  → DATABASE_URL  (transaction-mode, port 6543, pgbouncer=true)
+// Migrations       → DIRECT_URL    (session-mode, port 5432)
+//
+// Run after any schema change:
+//   npx prisma generate          ← regenerate client types
+//   npx prisma migrate dev       ← apply migration locally
+//   npx prisma migrate deploy    ← apply migration in CI/production
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ChallengeStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ChallengeMode {
+  SELF_PACED
+  COHORT
+  LIVE_EVENT
+  DRIP
+  SPRINT
+  EVERGREEN
+  CERTIFICATION
+  CHALLENGE_LADDER
+}
+
+enum StepBlockType {
+  HEADING
+  TEXT_RESPONSE
+  FILE_UPLOAD
+  VIDEO
+  IMAGE
+  DOWNLOAD
+  CHECKLIST
+  ASSIGNMENT
+  REFLECTION
+  DISCUSSION_PROMPT
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS & WORKSPACES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Profile {
+  id        String   @id // matches auth.users.id from Supabase Auth
+  email     String   @unique
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  workspaceMemberships WorkspaceMember[]
+  ownedWorkspaces      Workspace[]
+  participations       Participant[]
+  sentInvitations      WorkspaceInvitation[]
+
+  @@map("profiles")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  logoUrl     String?  @map("logo_url")
+  timezone    String   @default("UTC") @map("timezone")
+  ownerId     String   @map("owner_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner      Profile           @relation(fields: [ownerId], references: [id])
+  members    WorkspaceMember[]
+  challenges Challenge[]
+  invitations WorkspaceInvitation[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
+  profileId   String        @map("profile_id")
+  role        WorkspaceRole @default(MEMBER)
+  invitedAt   DateTime?     @map("invited_at")
+  joinedAt    DateTime?     @map("joined_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, profileId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  token       String        @unique @default(cuid())
+  invitedById String        @map("invited_by_id")
+  expiresAt   DateTime      @map("expires_at")
+  acceptedAt  DateTime?     @map("accepted_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   Profile   @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@map("workspace_invitations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHALLENGES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Challenge {
+  id          String          @id @default(cuid())
+  workspaceId String          @map("workspace_id")
+  slug        String
+  title       String
+  description String?
+
+  // Outcome (Step 2)
+  promise            String?  @map("promise")
+  outcome            String?  @map("outcome")
+  startingPoint      String?  @map("starting_point")
+  successDefinition  String?  @map("success_definition")
+
+  mode        ChallengeMode   @default(SELF_PACED)
+  status      ChallengeStatus @default(DRAFT)
+  coverImageUrl String?       @map("cover_image_url")
+
+  // Schedule (Step 4)
+  registrationOpensAt  DateTime? @map("registration_opens_at")
+  registrationClosesAt DateTime? @map("registration_closes_at")
+  startsAt    DateTime? @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  timezone    String?
+
+  // Audience (Step 5)
+  maxParticipants  Int?     @map("max_participants")
+  isPublic         Boolean  @default(true) @map("is_public")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+
+  // Settings catch-all: feature flags, email triggers, offer config (Steps 6–8)
+  settings Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps        ChallengeStep[]
+  participants Participant[]
+
+  @@unique([workspaceId, slug])
+  @@map("challenges")
+}
+
+model ChallengeStep {
+  id          String  @id @default(cuid())
+  challengeId String  @map("challenge_id")
+  title       String
+  description String?
+  order       Int
+  stepType    String  @default("day") @map("step_type") // orientation|day|graduation|bonus
+  isRequired  Boolean @default(true) @map("is_required")
+  isPublished Boolean @default(false) @map("is_published")
+
+  // Builder settings
+  estimatedMinutes Int?    @map("estimated_minutes")
+  completionMethod String? @map("completion_method") // manual|required_blocks
+  pointsXp         Int?    @map("points_xp")
+
+  // Schedule (for drip mode)
+  availableAt DateTime? @map("available_at")
+  dueAt       DateTime? @map("due_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  challenge    Challenge      @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  contentBlocks ContentBlock[]
+  submissions   Submission[]
+
+  @@map("challenge_steps")
+}
+
+model ContentBlock {
+  id     String        @id @default(cuid())
+  stepId String        @map("step_id")
+  type   StepBlockType
+  order  Int
+  data   Json          // block-type-specific content
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  step ChallengeStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("content_blocks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARTICIPANTS & SUBMISSIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Participant {
+  id          String            @id @default(cuid())
+  challengeId String            @map("challenge_id")
+  profileId   String            @map("profile_id")
+  status      ParticipantStatus @default(REGISTERED)
+  registeredAt DateTime         @default(now()) @map("registered_at")
+  completedAt  DateTime?        @map("completed_at")
+
+  challenge   Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@unique([challengeId, profileId])
+  @@map("participants")
+}
+
+model Submission {
+  id            String   @id @default(cuid())
+  participantId String   @map("participant_id")
+  stepId        String   @map("step_id")
+  data          Json     // submitted content
+  submittedAt   DateTime @default(now()) @map("submitted_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  participant Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  step        ChallengeStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, stepId])
+  @@map("submissions")
+}
