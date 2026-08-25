@@ -1,6 +1,9 @@
 'use client'
 
+import Link from 'next/link'
+import { useTransition } from 'react'
 import { Bell, HelpCircle, LogOut, User, Settings } from 'lucide-react'
+import { signOutAction } from '@/app/(auth)/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -21,6 +24,8 @@ export function WorkspaceHeader({
   userAvatar,
   pageTitle,
 }: WorkspaceHeaderProps) {
+  const [isSigningOut, startSignOut] = useTransition()
+
   const initials = userName
     .split(' ')
     .map((n) => n[0])
@@ -58,15 +63,33 @@ export function WorkspaceHeader({
               <p className="text-xs font-normal text-muted-foreground">{userEmail}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" /> Profile
+            {/* asChild so the item renders as the link itself — a DropdownMenuItem
+                wrapping a Link swallows keyboard activation. */}
+            <DropdownMenuItem asChild>
+              <Link href="/account/profile">
+                <User className="mr-2 h-4 w-4" /> Profile
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" /> Settings
+            <DropdownMenuItem asChild>
+              <Link href="/account/notifications">
+                <Settings className="mr-2 h-4 w-4" /> Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
+            {/* preventDefault, then run the action: Radix closes the menu on
+                select, and an unmounting form never gets to submit. The menu
+                needs JS to open at all, so there is nothing to progressively
+                enhance here. */}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={isSigningOut}
+              onSelect={(event) => {
+                event.preventDefault()
+                startSignOut(() => signOutAction())
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              {isSigningOut ? 'Signing out…' : 'Sign out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
