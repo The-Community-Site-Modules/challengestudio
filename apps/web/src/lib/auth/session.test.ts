@@ -10,14 +10,24 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const profile = { findUnique: vi.fn(), upsert: vi.fn() }
+const profile = { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() }
+const queryRaw = vi.fn()
 vi.mock('@/lib/db', () => ({
   db: {
     profile,
+    $queryRaw: (...a: unknown[]) => queryRaw(...a),
     workspace: { findUnique: vi.fn() },
     workspaceMember: { findUnique: vi.fn(), findMany: vi.fn() },
   },
 }))
+
+/** The shape Prisma throws when a unique constraint is violated. */
+function uniqueViolation(field: string) {
+  return Object.assign(new Error('Unique constraint failed'), {
+    code: 'P2002',
+    meta: { target: [field] },
+  })
+}
 
 let authUser: Record<string, unknown> | null = null
 vi.mock('@/lib/supabase/server', () => ({
@@ -118,5 +128,70 @@ describe('getCurrentUser', () => {
 
     expect(user?.fullName).toBeNull()
     expect(user?.avatarUrl).toBeNull()
+  })
+})
+
+/**
+ * Deleting an account used to leave its profiles row behind — profiles.id is
+ * text and auth.users.id is uuid, so no foreign key ties them. Because
+ * profiles.email is unique, signing up again with the same address collided
+ * with the leftover row and every page load failed on P2002.
+ */
+describe('getCurrentUser when a leftover profile holds the email', () => {
+  beforeEach(() => {
+    authUser = { id: 'new-auth-id', email: 'reused@example.com' }
+    // No row under the new id; the insert then trips the unique email index.
+    profile.findUnique.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      args.where.email === 'reused@example.com' ? { id: 'dead-auth-id' } : null
+    )
+    profile.upsert.mockRejectedValue(uniqueViolation('email'))
+    profile.update.mockImplementation(async (args: { data: Record<string, unknown> }) => ({
+      id: args.data.id, email: 'reused@example.com', fullName: null, avatarUrl: null,
+    }))
+  })
+
+  it('moves the leftover row onto the new id when the old account is gone', async () => {
+    queryRaw.mockResolvedValue([]) // no live auth user owns it
+
+    const user = await getCurrentUser()
+
+    expect(profile.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'dead-auth-id' }, data: expect.objectContaining({ id: 'new-auth-id' }) })
+    )
+    expect(user?.id).toBe('new-auth-id')
+  })
+
+  it('refuses to move a row that a live account still owns', async () => {
+    // Handing one person's workspaces to another is not something to guess at.
+    queryRaw.mockResolvedValue([{ one: 1 }])
+
+    await expect(getCurrentUser()).rejects.toThrow(/already belongs to active account/)
+    expect(profile.update).not.toHaveBeenCalled()
+  })
+
+  it('rethrows a unique violation on any other field', async () => {
+    profile.upsert.mockRejectedValue(uniqueViolation('id'))
+
+    await expect(getCurrentUser()).rejects.toThrow(/Unique constraint/)
+    expect(profile.update).not.toHaveBeenCalled()
+  })
+
+  it('rethrows errors that are not unique violations', async () => {
+    profile.upsert.mockRejectedValue(new Error('connection reset'))
+
+    await expect(getCurrentUser()).rejects.toThrow(/connection reset/)
+  })
+
+  it('retries the upsert if the colliding row disappeared first', async () => {
+    // A concurrent request cleared it between the failed insert and the read.
+    profile.findUnique.mockResolvedValue(null)
+    profile.upsert
+      .mockRejectedValueOnce(uniqueViolation('email'))
+      .mockResolvedValueOnce({ id: 'new-auth-id', email: 'reused@example.com', fullName: null, avatarUrl: null })
+
+    const user = await getCurrentUser()
+
+    expect(user?.id).toBe('new-auth-id')
+    expect(profile.update).not.toHaveBeenCalled()
   })
 })

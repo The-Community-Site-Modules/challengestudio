@@ -69,12 +69,79 @@ async function ensureProfile(input: {
   // email (phone sign-in), which this app does not offer — but if one appears,
   // derive a stable placeholder rather than crashing on the insert.
   const email = input.email ?? `${input.id}@no-email.local`
+  const select = { id: true, email: true, fullName: true, avatarUrl: true } as const
 
-  return db.profile.upsert({
-    where:  { id: input.id },
-    update: {},
-    create: { id: input.id, email, fullName: input.fullName, avatarUrl: input.avatarUrl },
-    select: { id: true, email: true, fullName: true, avatarUrl: true },
+  try {
+    return await db.profile.upsert({
+      where:  { id: input.id },
+      update: {},
+      create: { id: input.id, email, fullName: input.fullName, avatarUrl: input.avatarUrl },
+      select,
+    })
+  } catch (error) {
+    if (!isUniqueEmailViolation(error)) throw error
+    return reclaimProfileByEmail({ ...input, email }, select)
+  }
+}
+
+/** Prisma P2002 — a unique constraint failed, and the field was email. */
+function isUniqueEmailViolation(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const e = error as { code?: string; meta?: { target?: unknown } }
+  if (e.code !== 'P2002') return false
+  const target = e.meta?.target
+  return Array.isArray(target) ? target.includes('email') : target === 'email'
+}
+
+/**
+ * A profiles row already holds this email under a different id.
+ *
+ * That means the row was left behind by an account that no longer exists —
+ * profiles.id is text and auth.users.id is uuid, so no foreign key ties them,
+ * and before the on_auth_user_deleted trigger existed, deleting an account left
+ * its profile in place. Signing up again with the same address then collided
+ * with the leftover row.
+ *
+ * Move the surviving row onto the new id rather than deleting it: every foreign
+ * key into profiles is ON UPDATE CASCADE, so any workspaces and memberships
+ * follow, and the person gets their data back instead of losing it.
+ *
+ * Guarded, because handing one account's data to another is not something to do
+ * on a guess. If a live auth user still owns that row, this is a genuine
+ * conflict and should surface rather than resolve itself quietly.
+ */
+async function reclaimProfileByEmail(
+  input: { id: string; email: string; fullName: string | null; avatarUrl: string | null },
+  select: { id: true; email: true; fullName: true; avatarUrl: true }
+): Promise<SessionUser> {
+  const existing = await db.profile.findUnique({
+    where: { email: input.email },
+    select: { id: true },
+  })
+  if (!existing) {
+    // The colliding row vanished between the insert and this read — a
+    // concurrent request already dealt with it. Retrying the upsert is enough.
+    return db.profile.upsert({
+      where:  { id: input.id },
+      update: {},
+      create: { id: input.id, email: input.email, fullName: input.fullName, avatarUrl: input.avatarUrl },
+      select,
+    })
+  }
+
+  const stillLive = await db.$queryRaw<Array<{ one: number }>>`
+    SELECT 1 AS one FROM auth.users WHERE id::text = ${existing.id} LIMIT 1
+  `
+  if (stillLive.length > 0) {
+    throw new Error(
+      `Cannot create a profile for ${input.id}: ${input.email} already belongs to active account ${existing.id}.`
+    )
+  }
+
+  return db.profile.update({
+    where: { id: existing.id },
+    data:  { id: input.id, fullName: input.fullName, avatarUrl: input.avatarUrl },
+    select,
   })
 }
 

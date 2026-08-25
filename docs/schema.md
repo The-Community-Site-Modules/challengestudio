@@ -40,6 +40,7 @@ by hand.
 | `add_workspace_invitations.sql` | Invitations table + RLS | ⚠️ **Not run** |
 | `rls_policies.sql` | RLS across the base tables | ⚠️ **Not run** — RLS is ON but zero policies exist |
 | `auth_trigger.sql` | Auto-create profile on signup + backfill | ✅ Applied 2026-08-25 |
+| `auth_delete_trigger.sql` | Delete profile when account is deleted | ✅ Applied 2026-08-25 |
 | `fix_invitation_rls.sql` | **Drops a world-readable policy** | ⚠️ **Not yet run** |
 
 ## What RLS does and does not cover
