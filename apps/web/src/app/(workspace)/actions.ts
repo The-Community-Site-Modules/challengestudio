@@ -4,8 +4,15 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
-import { requirePermission } from '@/lib/permissions'
+import { requirePermission, getMembership } from '@/lib/permissions'
+import { sendEmail, renderWorkspaceInvitation } from '@/lib/email'
 import { WorkspaceRole } from '.prisma/client'
+
+const ROLE_LABELS: Record<WorkspaceRole, string> = {
+  OWNER:  'an owner',
+  ADMIN:  'an admin',
+  MEMBER: 'a member',
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +24,19 @@ function slugify(name: string) {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 50)
+}
+
+/**
+ * Validate a client-supplied role string against the enum.
+ *
+ * `formData.get('role') as WorkspaceRole` is a lie the compiler cannot catch —
+ * the value arrives from the network. Returns null for anything unrecognised
+ * so callers can reject rather than hand an invalid value to Prisma.
+ */
+function parseRole(value: FormDataEntryValue | null): WorkspaceRole | null {
+  if (typeof value !== 'string') return null
+  const upper = value.toUpperCase()
+  return upper in WorkspaceRole ? (upper as WorkspaceRole) : null
 }
 
 // ── Create Workspace ──────────────────────────────────────────────────────────
@@ -102,14 +122,22 @@ export async function inviteMemberAction(workspaceId: string, formData: FormData
   const user = await requireUser()
   await requirePermission(user.id, workspaceId, 'workspace.team.manage')
 
-  const email   = (formData.get('email') as string).trim().toLowerCase()
-  const roleRaw = (formData.get('role')  as string) ?? 'MEMBER'
-  const role    = (roleRaw.toUpperCase() as WorkspaceRole) || WorkspaceRole.MEMBER
+  const email = (formData.get('email') as string).trim().toLowerCase()
+  const role  = parseRole(formData.get('role')) ?? WorkspaceRole.MEMBER
 
   const workspace = await db.workspace.findUniqueOrThrow({
     where: { id: workspaceId },
     select: { slug: true, name: true },
   })
+
+  // Same ownership rule as updateMemberRoleAction — an admin must not be able
+  // to mint a new owner by way of an invitation.
+  if (role === WorkspaceRole.OWNER) {
+    const actorRole = (await getMembership(user.id, workspaceId))?.role
+    if (actorRole !== WorkspaceRole.OWNER) {
+      return redirect(`/ws/${workspace.slug}/team?error=` + encodeURIComponent('Only a workspace owner can invite another owner.'))
+    }
+  }
 
   // If this person already has an account, add them directly
   const existingProfile = await db.profile.findUnique({
@@ -135,17 +163,34 @@ export async function inviteMemberAction(workspaceId: string, formData: FormData
   // No account yet — create invitation token
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
-  await db.workspaceInvitation.upsert({
+  const invitation = await db.workspaceInvitation.upsert({
     where: { workspaceId_email: { workspaceId, email } },
     update: { role, invitedById: user.id, expiresAt, acceptedAt: null },
     create: { workspaceId, email, role, invitedById: user.id, expiresAt },
+    select: { token: true },
   })
 
-  // TODO (Milestone 8): send invitation email via Resend
-  // await sendInvitationEmail({ email, workspaceName: workspace.name, token, inviterName: user.fullName })
+  const result = await sendEmail(
+    renderWorkspaceInvitation({
+      to: email,
+      workspaceName: workspace.name,
+      inviterName: user.fullName ?? user.email,
+      roleLabel: ROLE_LABELS[role],
+      acceptUrl: `${process.env.NEXT_PUBLIC_APP_URL}/auth/invitation/${invitation.token}`,
+      expiresAt,
+    })
+  )
 
   revalidatePath(`/ws/${workspace.slug}/team`)
-  redirect(`/ws/${workspace.slug}/team?message=` + encodeURIComponent(`Invitation sent to ${email}.`))
+
+  // Be honest about what happened. The invitation row exists either way, but
+  // telling someone "invitation sent" when no mail left the building leaves
+  // them waiting on an email that is never coming.
+  const notice = result.sent
+    ? `Invitation sent to ${email}.`
+    : `Invitation created for ${email}, but the email could not be sent. Share the invite link from the list below.`
+
+  redirect(`/ws/${workspace.slug}/team?${result.sent ? 'message' : 'error'}=` + encodeURIComponent(notice))
 }
 
 // ── Accept Invitation ─────────────────────────────────────────────────────────
@@ -162,6 +207,15 @@ export async function acceptInvitationAction(token: string) {
   if (invitation.acceptedAt)    return redirect(`/ws/${invitation.workspace.slug}`)
   if (invitation.expiresAt < new Date()) {
     return redirect('/auth/login?error=' + encodeURIComponent('This invitation has expired. Ask your workspace owner to resend it.'))
+  }
+
+  // The token alone must not be enough. It travels by email and can be
+  // forwarded, logged, or leaked; binding it to the invited address means a
+  // stray link cannot be redeemed by whoever happens to hold it.
+  if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
+    return redirect('/dashboard?error=' + encodeURIComponent(
+      `This invitation was sent to ${invitation.email}. Sign in with that address to accept it.`
+    ))
   }
 
   // Add member
@@ -185,13 +239,17 @@ export async function acceptInvitationAction(token: string) {
 export async function removeMemberAction(workspaceId: string, memberId: string) {
   const user = await requireUser()
 
-  // Users can always remove themselves; others need team.manage
-  const membership = await db.workspaceMember.findUnique({
-    where: { id: memberId },
+  // Scope the lookup to workspaceId. Server action arguments come from the
+  // client, so a memberId belonging to another workspace must not resolve —
+  // otherwise a team manager here could remove members of a workspace they
+  // have no access to.
+  const membership = await db.workspaceMember.findFirst({
+    where: { id: memberId, workspaceId },
     select: { profileId: true, role: true },
   })
   if (!membership) return
 
+  // Users can always remove themselves; others need team.manage
   const isSelf = membership.profileId === user.id
   if (!isSelf) await requirePermission(user.id, workspaceId, 'workspace.team.manage')
 
@@ -221,15 +279,45 @@ export async function updateMemberRoleAction(workspaceId: string, memberId: stri
   const user = await requireUser()
   await requirePermission(user.id, workspaceId, 'workspace.team.manage')
 
-  const roleRaw = formData.get('role') as string
-  const role = roleRaw.toUpperCase() as WorkspaceRole
+  const ws = await db.workspace.findUnique({ where: { id: workspaceId }, select: { slug: true } })
+  const fail = (msg: string) => redirect(`/ws/${ws?.slug}/team?error=` + encodeURIComponent(msg))
+
+  const role = parseRole(formData.get('role'))
+  if (!role) return fail('Unknown role.')
+
+  // Scope to workspaceId — memberId alone is client-supplied and could name a
+  // membership in a workspace the caller has no rights over.
+  const target = await db.workspaceMember.findFirst({
+    where: { id: memberId, workspaceId },
+    select: { id: true, role: true },
+  })
+  if (!target) return fail('Member not found in this workspace.')
+
+  const actorRole = (await getMembership(user.id, workspaceId))?.role
+
+  // Only an owner may grant or revoke ownership. Without this an admin — who
+  // holds team.manage — could promote themselves to OWNER and pick up
+  // workspace.delete and billing along with it.
+  if (role === WorkspaceRole.OWNER && actorRole !== WorkspaceRole.OWNER) {
+    return fail('Only a workspace owner can grant ownership.')
+  }
+  if (target.role === WorkspaceRole.OWNER && actorRole !== WorkspaceRole.OWNER) {
+    return fail('Only a workspace owner can change another owner’s role.')
+  }
+
+  // Never leave the workspace ownerless.
+  if (target.role === WorkspaceRole.OWNER && role !== WorkspaceRole.OWNER) {
+    const ownerCount = await db.workspaceMember.count({
+      where: { workspaceId, role: WorkspaceRole.OWNER },
+    })
+    if (ownerCount <= 1) return fail('Promote another owner before changing this role.')
+  }
 
   await db.workspaceMember.update({
-    where: { id: memberId },
+    where: { id: target.id },
     data: { role },
   })
 
-  const ws = await db.workspace.findUnique({ where: { id: workspaceId }, select: { slug: true } })
   revalidatePath(`/ws/${ws?.slug}/team`)
   redirect(`/ws/${ws?.slug}/team?message=` + encodeURIComponent('Role updated.'))
 }
@@ -240,7 +328,9 @@ export async function cancelInvitationAction(workspaceId: string, invitationId: 
   const user = await requireUser()
   await requirePermission(user.id, workspaceId, 'workspace.team.manage')
 
-  await db.workspaceInvitation.delete({ where: { id: invitationId } })
+  // deleteMany, not delete: it takes a full where clause, so the invitation is
+  // matched on workspaceId too and a foreign id simply deletes nothing.
+  await db.workspaceInvitation.deleteMany({ where: { id: invitationId, workspaceId } })
 
   const ws = await db.workspace.findUnique({ where: { id: workspaceId }, select: { slug: true } })
   revalidatePath(`/ws/${ws?.slug}/team`)

@@ -1,0 +1,69 @@
+-- ═══════════════════════════════════════════════════════════════════════
+-- FIX: workspace_invitations was world-readable
+-- Run once in Supabase SQL Editor (Project → SQL Editor → New query)
+-- ═══════════════════════════════════════════════════════════════════════
+--
+-- WHAT WAS WRONG
+--
+-- add_workspace_invitations.sql created this policy:
+--
+--     CREATE POLICY "workspace_invitations: token read"
+--       ON workspace_invitations FOR SELECT USING (true);
+--
+-- `USING (true)` means every row is readable by every role that reaches the
+-- table through PostgREST — including `anon`. The publishable key is served to
+-- every browser by design, so anyone could read every invitation row:
+--
+--     GET /rest/v1/workspace_invitations?select=*
+--       apikey: <publishable key from the page source>
+--
+-- That returns every pending token and invited email address across every
+-- tenant. Redeeming one then only required signing up and visiting
+-- /auth/invitation/<token>, which is enough to land inside another
+-- organisation's workspace at whatever role the invitation carried.
+--
+-- WHY THE POLICY IS NOT NEEDED
+--
+-- Its comment says "for the accept flow — no auth required". The accept flow
+-- does not use PostgREST: /auth/invitation/[token] is a server component and
+-- acceptInvitationAction is a server action, and both reach the table through
+-- Prisma. Prisma connects as the table owner, which bypasses RLS entirely, so
+-- dropping this policy does not affect the accept flow at all.
+--
+-- The application-side companion to this change is the email check added to
+-- acceptInvitationAction: a token now only works for the address it was sent
+-- to. The two together close the chain.
+
+DROP POLICY IF EXISTS "workspace_invitations: token read" ON workspace_invitations;
+
+-- Verify: this should list only the three admin-scoped policies
+-- (admin read / admin insert / admin delete), and no permissive one.
+--
+--   SELECT policyname, cmd, qual
+--   FROM pg_policies
+--   WHERE tablename = 'workspace_invitations'
+--   ORDER BY policyname;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- NOTE ON WHAT RLS DOES AND DOES NOT PROTECT HERE
+-- ═══════════════════════════════════════════════════════════════════════
+--
+-- Two different paths reach these tables, and RLS only governs one of them:
+--
+--   Browser → PostgREST, publishable key, role `anon` / `authenticated`
+--       → RLS APPLIES. This is the surface these policies defend.
+--
+--   Server → Prisma, DATABASE_URL, role `postgres` (the table owner)
+--       → RLS DOES NOT APPLY. Postgres exempts a table's owner from its
+--         policies unless the table is set to FORCE ROW LEVEL SECURITY.
+--
+-- Do NOT "fix" that by adding FORCE ROW LEVEL SECURITY. Every policy here is
+-- written against auth.uid(), which reads a Supabase JWT claim. Prisma's pooler
+-- connection carries no JWT, so auth.uid() is NULL and forcing RLS would make
+-- every application query return nothing.
+--
+-- The consequence: for anything the app itself does, the capability checks in
+-- src/lib/permissions are the enforcement layer, not a second line of defence.
+-- Every server action that touches tenant data must scope its queries by
+-- workspace_id. See src/lib/permissions/__tests__/tenant-isolation.test.ts.

@@ -11,7 +11,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
-    "db:studio": "turbo run db:studio"
+    "db:studio": "turbo run db:studio",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

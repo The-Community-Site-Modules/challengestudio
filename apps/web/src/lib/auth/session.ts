@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
+import { isPlatformAdmin } from '@/lib/permissions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,23 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login?message=' + encodeURIComponent('Please sign in to continue.'))
+  }
+  return user
+}
+
+// ─── requirePlatformAdmin ─────────────────────────────────────────────────────
+
+/**
+ * Returns the current user, redirecting away unless they are a platform admin.
+ *
+ * Use at the top of every /admin route. Middleware already blocks anonymous
+ * requests to /admin, but middleware only sees the session cookie — this is the
+ * authoritative check and the one that must not be skipped.
+ */
+export async function requirePlatformAdmin(): Promise<SessionUser> {
+  const user = await requireUser()
+  if (!isPlatformAdmin(user.email)) {
+    redirect('/dashboard?error=' + encodeURIComponent('You do not have access to that area.'))
   }
   return user
 }

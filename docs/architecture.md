@@ -36,7 +36,7 @@ challenge-studio/
 |---|---|---|
 | OD-1 | Database provider | ✅ Supabase |
 | OD-2 | File storage (Cloudflare R2) | Pending |
-| OD-3 | Email provider (Resend) | Pending |
+| OD-3 | Email provider (Resend) | ✅ Resend — driver built, awaiting API key |
 | OD-4 | Background jobs (Inngest) | Pending |
 | OD-5 | Git repository location | ✅ GitHub (see decisions/OD-05) |
 | OD-6 | Challenge slug namespace (global vs workspace-scoped) | Pending |
@@ -47,7 +47,7 @@ challenge-studio/
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Foundation | ✅ Structure created |
-| 2 | Identity & Tenancy | 🔲 Not started |
+| 2 | Identity & Tenancy | ✅ Complete |
 | 3 | Workspace & Branding | 🔲 Not started |
 | 4 | Challenge Domain | 🔲 Not started |
 | 5 | Builder | 🔲 Not started |

@@ -11,7 +11,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 // Routes that require a logged-in user
-const PROTECTED_PREFIXES = ['/dashboard', '/ws/', '/account/']
+const PROTECTED_PREFIXES = ['/dashboard', '/ws/', '/account/', '/admin']
+
+// Platform-owner tooling. Spans every tenant, so workspace membership cannot
+// grant it — access is an allow-list of emails in PLATFORM_ADMIN_EMAIL.
+// An unset variable denies everyone; the allow-list fails closed.
+const PLATFORM_ADMIN_PREFIX = '/admin'
+
+function isPlatformAdminEmail(email: string | undefined): boolean {
+  if (!email) return false
+  const allowed = (process.env.PLATFORM_ADMIN_EMAIL ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+  return allowed.length > 0 && allowed.includes(email.trim().toLowerCase())
+}
 
 // Auth pages — authenticated users shouldn't see these
 const AUTH_ROUTES = ['/auth/login', '/auth/signup']
@@ -48,6 +62,14 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('message', 'Please sign in to continue.')
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Signed in but not a platform admin → /admin is not theirs to see.
+  // Each /admin page also calls requirePlatformAdmin(); this is the outer gate.
+  if (pathname.startsWith(PLATFORM_ADMIN_PREFIX) && user && !isPlatformAdminEmail(user.email)) {
+    const url = new URL('/dashboard', request.url)
+    url.searchParams.set('error', 'You do not have access to that area.')
+    return NextResponse.redirect(url)
   }
 
   // Authenticated → skip auth pages, go straight to dashboard

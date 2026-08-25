@@ -130,3 +130,30 @@ export async function getMembership(userId: string, workspaceId: string) {
     select: { role: true, joinedAt: true },
   })
 }
+
+// ─── Platform admin ───────────────────────────────────────────────────────────
+//
+// The /admin surface sits outside the workspace model — it spans every tenant,
+// so workspace membership cannot grant it. Access is keyed off an allow-list of
+// email addresses in PLATFORM_ADMIN_EMAIL (comma-separated for more than one).
+//
+// If the variable is unset, nobody is a platform admin. That is deliberate: an
+// empty allow-list must fail closed, never open.
+
+export function getPlatformAdminEmails(): string[] {
+  return (process.env.PLATFORM_ADMIN_EMAIL ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+/**
+ * Is this email address a platform administrator?
+ * Comparison is case-insensitive; an empty allow-list denies everyone.
+ */
+export function isPlatformAdmin(email: string | null | undefined): boolean {
+  if (!email) return false
+  const allowed = getPlatformAdminEmails()
+  if (allowed.length === 0) return false
+  return allowed.includes(email.trim().toLowerCase())
+}
