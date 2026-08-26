@@ -1,115 +1,146 @@
+import Link from 'next/link'
 import {
-  Building2, Users, Zap, Activity,
-  TrendingUp, AlertTriangle, CheckCircle,
+  Building2, Users, Zap, TrendingUp, Activity,
+  AlertTriangle, CheckCircle, MinusCircle, XCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatCard } from '@/components/shared/stat-card'
 import { MiniBarChart } from '@/components/shared/mini-bar-chart'
+import {
+  getPlatformTotals, getWorkspaceSignups, getWorkspaceRows,
+  getRecentEvents, getServiceStatus, type ServiceStatus,
+} from './_lib/queries'
 
-const WORKSPACE_SIGNUPS = [
-  { label: 'Mon', value: 3 }, { label: 'Tue', value: 7 }, { label: 'Wed', value: 5 },
-  { label: 'Thu', value: 11 }, { label: 'Fri', value: 9 }, { label: 'Sat', value: 4 },
-  { label: 'Sun', value: 6 },
-]
+export const metadata = { title: 'Platform Overview — Challenge Studio' }
 
-const RECENT_EVENTS = [
-  { type: 'workspace', text: 'New workspace created — "Mindset Mastery Co."',    time: '4m ago',  color: 'bg-primary' },
-  { type: 'challenge', text: 'Challenge published — "30-Day Fitness Sprint"',     time: '18m ago', color: 'bg-green-500' },
-  { type: 'alert',     text: 'Email bounce rate spike on workspace "FitLife Pro"',time: '1h ago',  color: 'bg-yellow-500' },
-  { type: 'user',      text: '14 new user registrations today',                    time: '2h ago',  color: 'bg-purple-500' },
-  { type: 'challenge', text: 'Challenge "5-Day Launch" reached 250 participants',  time: '3h ago',  color: 'bg-green-500' },
-  { type: 'alert',     text: 'Storage usage at 82% on workspace "AgencyPro"',      time: '5h ago',  color: 'bg-orange-500' },
-]
+// Always fresh: an operator looking at this wants the current state, not a
+// snapshot from whenever the page was last built.
+export const dynamic = 'force-dynamic'
 
-const TOP_WORKSPACES = [
-  { name: 'Acme Coaching',   challenges: 4, participants: 612, status: 'active' },
-  { name: 'FitLife Pro',     challenges: 7, participants: 1840, status: 'active' },
-  { name: 'Mindset Masters', challenges: 2, participants: 189, status: 'active' },
-  { name: 'AgencyPro',       challenges: 12, participants: 3402, status: 'active' },
-  { name: 'Launch Academy',  challenges: 3, participants: 441, status: 'trial' },
-]
+const EVENT_COLOR: Record<string, string> = {
+  workspace:   'bg-primary',
+  challenge:   'bg-emerald-500',
+  participant: 'bg-purple-500',
+}
 
-export default function AdminOverviewPage() {
+const STATE_ICON: Record<ServiceStatus['state'], React.ReactNode> = {
+  'ok':             <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />,
+  'not-configured': <MinusCircle className="h-3.5 w-3.5 text-muted-foreground" />,
+  'error':          <XCircle className="h-3.5 w-3.5 text-destructive" />,
+}
+
+function ago(date: Date, now: Date) {
+  const mins = Math.round((now.getTime() - date.getTime()) / 60_000)
+  if (mins < 1)     return 'just now'
+  if (mins < 60)    return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24)   return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 30)    return `${days}d ago`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export default async function AdminOverviewPage() {
+  const now = new Date()
+  const [totals, signups, workspaces, events, services] = await Promise.all([
+    getPlatformTotals(),
+    getWorkspaceSignups(),
+    getWorkspaceRows(10),
+    getRecentEvents(8),
+    getServiceStatus(),
+  ])
+
+  const topWorkspaces = [...workspaces].sort((a, b) => b.participants - a.participants).slice(0, 5)
+  const signupTotal = signups.reduce((sum, d) => sum + d.value, 0)
+  const degraded = services.filter((s) => s.state !== 'ok')
+
   return (
     <main className="flex-1 overflow-y-auto p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground">Platform Overview</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Real-time snapshot of Challenge Studio across all workspaces.
+        <p className="mt-1 text-sm text-muted-foreground">
+          Every workspace on this deployment, read live.
         </p>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <StatCard label="Total workspaces"   value="47"    trend={{ value: 12, label: 'this month' }} icon={<Building2 className="h-5 w-5" />} />
-        <StatCard label="Total users"        value="8,241" trend={{ value: 8,  label: 'this month' }} icon={<Users className="h-5 w-5" />} />
-        <StatCard label="Active challenges"  value="134"   sub="23 published today"                   icon={<Zap className="h-5 w-5" />} />
-        <StatCard label="Total participants" value="62.4k" trend={{ value: 19, label: 'this month' }} icon={<TrendingUp className="h-5 w-5" />} />
+      {/* KPIs. Deltas are "in the last 30 days" from created timestamps — a
+          month-over-month comparison would need snapshots nothing records. */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Workspaces" value={totals.workspaces.toLocaleString()}
+          sub={`${totals.newWorkspaces} in the last 30 days`}
+          icon={<Building2 className="h-5 w-5" />}
+        />
+        <StatCard
+          label="Users" value={totals.users.toLocaleString()}
+          sub={`${totals.newUsers} in the last 30 days`}
+          icon={<Users className="h-5 w-5" />}
+        />
+        <StatCard
+          label="Live challenges" value={totals.activeChallenges.toLocaleString()}
+          sub={`${totals.totalChallenges} total, all statuses`}
+          icon={<Zap className="h-5 w-5" />}
+        />
+        <StatCard
+          label="Participants" value={totals.participants.toLocaleString()}
+          sub={`${totals.newParticipants} in the last 30 days`}
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3 mb-8">
-        {/* Workspace signups */}
+      <div className="mb-8 grid gap-6 lg:grid-cols-3">
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">New workspaces (7d)</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-extrabold text-foreground mb-4">45</p>
-            <MiniBarChart bars={WORKSPACE_SIGNUPS} height={80} showLabels />
+            <p className="mb-4 text-3xl font-extrabold text-foreground tabular-nums">{signupTotal}</p>
+            {signupTotal > 0
+              ? <MiniBarChart bars={signups} height={80} showLabels />
+              : <p className="py-6 text-sm text-muted-foreground">No workspaces created this week.</p>}
           </CardContent>
         </Card>
 
-        {/* System health */}
+        {/* Not uptime monitoring — nothing here pings a provider. The database
+            row is a real round trip; the rest reports what is configured. */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-green-500" />
-              <CardTitle className="text-base">System health</CardTitle>
-              <Badge variant="success" className="ml-auto">All systems operational</Badge>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Services</CardTitle>
+              <Badge variant={degraded.length === 0 ? 'success' : 'warning'} className="ml-auto">
+                {degraded.length === 0 ? 'All configured' : `${degraded.length} not configured`}
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { name: 'API',             status: 'ok',   latency: '42ms' },
-              { name: 'Database',        status: 'ok',   latency: '8ms' },
-              { name: 'File storage',    status: 'ok',   latency: '120ms' },
-              { name: 'Email delivery',  status: 'warn', latency: '—' },
-              { name: 'Background jobs', status: 'ok',   latency: '—' },
-            ].map((s) => (
-              <div key={s.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${s.status === 'ok' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="text-foreground">{s.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {s.latency !== '—' && (
-                    <span className="text-xs text-muted-foreground">{s.latency}</span>
-                  )}
-                  {s.status === 'warn' && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-500" />
-                  )}
-                  {s.status === 'ok' && (
-                    <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                  )}
-                </div>
+            {services.map((s) => (
+              <div key={s.name} className="flex items-start justify-between gap-3 text-sm">
+                <span className="shrink-0 text-foreground">{s.name}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-right text-xs text-muted-foreground">{s.detail}</span>
+                  {STATE_ICON[s.state]}
+                </span>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        {/* Recent events */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Recent events</CardTitle>
+            <CardTitle className="text-base">Recent activity</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {RECENT_EVENTS.map((e, i) => (
+            {events.length === 0 ? (
+              <p className="py-6 text-sm text-muted-foreground">Nothing has happened yet.</p>
+            ) : events.map((e, i) => (
               <div key={i} className="flex items-start gap-2.5">
-                <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${e.color}`} />
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${EVENT_COLOR[e.kind]}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-foreground leading-snug line-clamp-2">{e.text}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{e.time}</p>
+                  <p className="line-clamp-2 text-xs leading-snug text-foreground">{e.text}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">{ago(e.at, now)}</p>
                 </div>
               </div>
             ))}
@@ -117,32 +148,54 @@ export default function AdminOverviewPage() {
         </Card>
       </div>
 
-      {/* Top workspaces */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Top workspaces by participants</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Top workspaces by participants</CardTitle>
+            <Link href="/admin/workspaces" className="text-sm font-medium text-primary hover:underline">
+              View all
+            </Link>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid grid-cols-[2fr_1fr_1fr_80px] gap-4 border-b border-border px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <span>Workspace</span>
-            <span>Challenges</span>
-            <span>Participants</span>
-            <span>Status</span>
-          </div>
-          <div className="divide-y divide-border">
-            {TOP_WORKSPACES.map((ws) => (
-              <div key={ws.name} className="grid grid-cols-[2fr_1fr_1fr_80px] items-center gap-4 px-5 py-3.5 hover:bg-muted/30">
-                <p className="text-sm font-medium text-foreground">{ws.name}</p>
-                <p className="text-sm text-muted-foreground">{ws.challenges}</p>
-                <p className="text-sm font-semibold text-foreground">{ws.participants.toLocaleString()}</p>
-                <Badge variant={ws.status === 'active' ? 'success' : 'secondary'} className="text-[10px] w-fit">
-                  {ws.status}
-                </Badge>
+          {topWorkspaces.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              No workspaces yet.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-border px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Workspace</span>
+                <span>Challenges</span>
+                <span>Members</span>
+                <span>Participants</span>
               </div>
-            ))}
-          </div>
+              <div className="divide-y divide-border">
+                {topWorkspaces.map((w) => (
+                  <div key={w.id} className="grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4 px-5 py-3.5 hover:bg-muted/30">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{w.name}</p>
+                      <p className="truncate font-mono text-xs text-muted-foreground">/ws/{w.slug}</p>
+                    </div>
+                    <p className="text-sm tabular-nums text-muted-foreground">{w.challenges}</p>
+                    <p className="text-sm tabular-nums text-muted-foreground">{w.members}</p>
+                    <p className="text-sm font-semibold tabular-nums text-foreground">
+                      {w.participants.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {degraded.some((s) => s.state === 'error') && (
+        <p className="mt-4 flex items-center gap-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" />
+          A service reported an error — see Services above.
+        </p>
+      )}
     </main>
   )
 }

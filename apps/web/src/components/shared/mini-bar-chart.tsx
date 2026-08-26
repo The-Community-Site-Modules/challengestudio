@@ -29,7 +29,10 @@ export function MiniBarChart({
         {bars.map((bar) => {
           const pct = (bar.value / max) * 100
           return (
-            <div key={bar.label} className="group flex flex-1 flex-col items-center gap-1">
+            // h-full + justify-end gives the bar's percentage height something
+            // to resolve against. Without it the column collapses to its content
+            // and every bar computes to 0px, however large its value.
+            <div key={bar.label} className="group flex h-full flex-1 flex-col items-center justify-end gap-1">
               {showValues && (
                 <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                   {bar.value}
