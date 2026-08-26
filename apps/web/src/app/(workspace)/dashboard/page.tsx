@@ -3,7 +3,7 @@ import { LayoutGrid, Zap, Users, UserRound } from 'lucide-react'
 import { requireUser } from '@/lib/auth/session'
 import { cn } from '@/lib/utils'
 import { UrlToast } from '@/components/shared/url-toast'
-import { AppHeader } from '@/components/shared/app-header'
+import { GlobalSidebar } from './_components/global-sidebar'
 import { createWorkspaceAction } from '../actions'
 import { CreateWorkspace } from './_components/create-workspace'
 import { WorkspaceBrowser, type WorkspaceCardData } from './_components/workspace-browser'
@@ -44,18 +44,20 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-slate-50">
+    <>
       <UrlToast />
 
-      <AppHeader
-        sectionLabel="Workspaces"
+      {/* Same shell as a workspace: a full-height sidebar and scrolling that
+          belongs to <main>, so the two levels read as one application. */}
+      <GlobalSidebar
+        workspaces={summaries.map((s) => ({ id: s.id, name: s.name, slug: s.slug }))}
         userName={user.fullName ?? ''}
         userEmail={user.email}
         {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
       />
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1280px] px-6 py-12 lg:px-8">
+      <main className="flex-1 overflow-y-auto bg-slate-50">
+        <div className="mx-auto w-full max-w-[1280px] px-6 py-10 lg:px-10 lg:py-12">
 
           <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
             <div>
@@ -144,6 +146,6 @@ export default async function DashboardPage() {
           )}
         </div>
       </main>
-    </div>
+    </>
   )
 }

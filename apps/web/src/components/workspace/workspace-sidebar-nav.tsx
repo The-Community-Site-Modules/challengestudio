@@ -16,15 +16,21 @@ interface NavItem {
   Icon: LucideIcon
   /** Rendered as a pill on the right — e.g. a pending-review count. */
   badge?: number
+  /**
+   * False when the route has no page yet. Four of these linked to segments
+   * that do not exist, so the sidebar's own items answered with a 404.
+   * Shown, but plainly not ready, rather than quietly broken.
+   */
+  built?: boolean
 }
 
 const workspaceNav: NavItem[] = [
   { label: 'Dashboard',    href: '',              Icon: LayoutDashboard },
   { label: 'Challenges',   href: '/challenges',   Icon: Zap },
-  { label: 'Participants', href: '/participants', Icon: Users },
-  { label: 'Submissions',  href: '/submissions',  Icon: Inbox },
-  { label: 'Analytics',    href: '/analytics',    Icon: BarChart3 },
-  { label: 'Templates',    href: '/templates',    Icon: LayoutTemplate },
+  { label: 'Participants', href: '/participants', Icon: Users,          built: false },
+  { label: 'Submissions',  href: '/submissions',  Icon: Inbox,          built: false },
+  { label: 'Analytics',    href: '/analytics',    Icon: BarChart3,      built: false },
+  { label: 'Templates',    href: '/templates',    Icon: LayoutTemplate, built: false },
 ]
 
 const managementNav: NavItem[] = [
@@ -60,6 +66,24 @@ export interface WorkspaceSidebarNavProps {
 
 function NavLink({ item, base, pathname }: { item: NavItem; base: string; pathname: string }) {
   const href = `${base}${item.href}`
+  const { Icon: ItemIcon } = item
+
+  if (item.built === false) {
+    return (
+      <span
+        aria-disabled="true"
+        title={`${item.label} is not built yet`}
+        className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/45"
+      >
+        <ItemIcon className="h-[18px] w-[18px] shrink-0" />
+        <span className="truncate">{item.label}</span>
+        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground/70">
+          Soon
+        </span>
+      </span>
+    )
+  }
+
   // Without the exact test, the empty-href Dashboard entry matches every child route.
   const active = item.href === '' ? pathname === base || pathname === `${base}/` : pathname.startsWith(href)
   const { Icon } = item
