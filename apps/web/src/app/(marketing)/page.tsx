@@ -293,7 +293,7 @@ export default function HomePage() {
       <footer className="border-t border-border bg-background py-12">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <Logo className="h-7" />
+            <Logo className="h-10" />
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
               <Link href="/features" className="hover:text-foreground">Features</Link>
               <Link href="/pricing" className="hover:text-foreground">Pricing</Link>

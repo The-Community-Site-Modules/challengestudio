@@ -38,7 +38,7 @@ export function AppHeader({ sectionLabel, userName = '', userEmail = '', userAva
   return (
     <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 lg:px-8">
       <Link href="/dashboard" className="flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
-        <Logo className="h-8" priority />
+        <Logo variant="lockup" className="h-7" priority />
       </Link>
 
       {/* Dropped on narrow screens — the page heading says the same thing, and

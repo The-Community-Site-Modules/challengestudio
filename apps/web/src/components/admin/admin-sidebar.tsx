@@ -27,7 +27,7 @@ export function AdminSidebar() {
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-border bg-card">
       {/* Brand */}
       <div className="border-b border-border px-4 py-4">
-        <Logo className="h-6" priority />
+        <Logo variant="lockup" className="h-6" priority />
         <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Platform Admin
         </p>

@@ -45,7 +45,9 @@ export async function updateProfileAction(formData: FormData) {
   })
 
   revalidatePath('/account/profile')
-  redirect('/account/profile?saved=true')
+  // UrlToast reads ?message and ?error. The old ?saved=true matched neither,
+  // so saving succeeded in silence.
+  redirect('/account/profile?message=' + encodeURIComponent('Profile updated.'))
 }
 
 // ── Request a password change ─────────────────────────────────────────────────

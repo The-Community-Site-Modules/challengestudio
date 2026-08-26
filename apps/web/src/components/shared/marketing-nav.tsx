@@ -21,7 +21,7 @@ export function MarketingNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center">
-          <Logo className="h-8" priority />
+          <Logo className="h-10" priority />
         </Link>
 
         {/* Desktop nav */}

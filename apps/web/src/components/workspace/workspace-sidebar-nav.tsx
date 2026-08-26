@@ -2,19 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTransition } from 'react'
 import {
   LayoutDashboard, Zap, Users, BarChart3, Mail, LayoutTemplate,
   Settings, Trophy, Radio, Gift, Inbox, Briefcase,
-  ChevronUp, LogOut, User as UserIcon, LucideIcon,
+  LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { signOutAction } from '@/app/(auth)/auth/actions'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
 
 interface NavItem {
   label: string
@@ -103,17 +97,8 @@ export function WorkspaceSidebarNav({
   submissionCount,
 }: WorkspaceSidebarNavProps) {
   const pathname = usePathname()
-  const [isSigningOut, startSignOut] = useTransition()
   const wsBase = `/ws/${workspaceSlug}`
 
-  const displayName = userName || userEmail
-  const initials = (displayName || '?')
-    .split(/[\s@._-]+/)
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
 
   const primaryNav = workspaceNav.map((item) =>
     item.label === 'Submissions' && submissionCount ? { ...item, badge: submissionCount } : item
@@ -167,53 +152,13 @@ export function WorkspaceSidebarNav({
         )}
       </nav>
 
-      {/* Account */}
-      <div className="border-t border-border p-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted">
-            <Avatar className="h-9 w-9 shrink-0">
-              {userAvatar && <AvatarImage src={userAvatar} alt={displayName} />}
-              <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-foreground">
-                {displayName || 'Account'}
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">{workspaceName}</span>
-            </span>
-            <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent side="top" align="start" className="w-[215px]">
-            <DropdownMenuItem asChild>
-              <Link href="/account/profile">
-                <UserIcon className="mr-2 h-4 w-4" /> Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`${wsBase}/settings`}>
-                <Settings className="mr-2 h-4 w-4" /> Workspace settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {/* preventDefault first — Radix closes the menu on select, and an
-                unmounting form never gets to submit. */}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              disabled={isSigningOut}
-              onSelect={(event) => {
-                event.preventDefault()
-                startSignOut(() => signOutAction())
-              }}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {isSigningOut ? 'Signing out…' : 'Sign out'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <SidebarAccountMenu
+        userName={userName}
+        userEmail={userEmail}
+        {...(userAvatar ? { userAvatar } : {})}
+        subLabel={workspaceName}
+        secondaryItem={{ href: `${wsBase}/settings`, label: 'Workspace settings', Icon: Settings }}
+      />
     </aside>
   )
 }

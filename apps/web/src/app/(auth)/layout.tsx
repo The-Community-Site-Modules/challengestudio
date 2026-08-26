@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Top nav */}
       <header className="flex h-14 items-center border-b border-border bg-background px-6">
         <Link href="/" className="flex items-center">
-          <Logo className="h-7" priority />
+          <Logo variant="lockup" className="h-7" priority />
         </Link>
       </header>
 

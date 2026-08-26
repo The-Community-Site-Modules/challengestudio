@@ -5,6 +5,7 @@ import { useTransition } from 'react'
 import { Bell, HelpCircle, LogOut, User, Settings } from 'lucide-react'
 import { signOutAction } from '@/app/(auth)/auth/actions'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/shared/logo'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -16,6 +17,12 @@ interface WorkspaceHeaderProps {
   userEmail?: string
   userAvatar?: string
   pageTitle?: string
+  /**
+   * Show the product logo on the left. The workspace shell carries branding in
+   * its sidebar; the account pages have no sidebar, so without this their
+   * header starts empty.
+   */
+  brand?: boolean
 }
 
 export function WorkspaceHeader({
@@ -23,6 +30,7 @@ export function WorkspaceHeader({
   userEmail = '',
   userAvatar,
   pageTitle,
+  brand = false,
 }: WorkspaceHeaderProps) {
   const [isSigningOut, startSignOut] = useTransition()
 
@@ -35,6 +43,11 @@ export function WorkspaceHeader({
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-6">
+      {brand && (
+        <Link href="/dashboard" className="flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+          <Logo variant="lockup" className="h-7" priority />
+        </Link>
+      )}
       {pageTitle && (
         <p className="text-sm font-medium text-muted-foreground">{pageTitle}</p>
       )}
