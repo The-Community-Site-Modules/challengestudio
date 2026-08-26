@@ -36,7 +36,7 @@ export default async function WelcomePage({ params }: Props) {
   // Verify enrollment
   const participant = await db.participant.findUnique({
     where: { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
-    select: { id: true, registeredAt: true },
+    select: { id: true, registeredAt: true, status: true },
   })
 
   if (!participant) {
@@ -44,6 +44,10 @@ export default async function WelcomePage({ params }: Props) {
   }
 
   const firstName = user.fullName?.split(' ')[0] ?? user.email.split('@')[0]
+
+  // Approval-gated challenges park people on PENDING. Telling them "you're in"
+  // and handing them the schedule would be a lie — they have not been let in yet.
+  const awaitingApproval = participant.status === 'PENDING'
 
   const startDate = challenge.startsAt
     ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -62,17 +66,31 @@ export default async function WelcomePage({ params }: Props) {
       <main className="mx-auto max-w-2xl px-4 py-12 space-y-8">
 
         {/* Welcome hero */}
-        <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-8 text-primary-foreground text-center space-y-3">
-          <Badge className="bg-white/20 text-white">You&apos;re in!</Badge>
-          <h1 className="text-3xl font-extrabold">
-            Welcome, {firstName}! 🎉
-          </h1>
-          <p className="text-primary-foreground/80">
-            You&apos;re registered for{' '}
-            <strong className="text-white">{challenge.title}</strong>.
-            {startDate && <><br />Challenge starts <strong className="text-white">{startDate}</strong>.</>}
-          </p>
-        </div>
+        {awaitingApproval ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center space-y-3">
+            <Badge className="bg-amber-100 text-amber-900">Awaiting approval</Badge>
+            <h1 className="text-3xl font-extrabold text-amber-950">
+              Thanks, {firstName} — you&apos;re on the list
+            </h1>
+            <p className="text-amber-900/80">
+              <strong className="text-amber-950">{challenge.title}</strong> is approved by its
+              organiser before you can start. We&apos;ll email you as soon as your place is
+              confirmed{startDate && <> — the challenge begins <strong className="text-amber-950">{startDate}</strong></>}.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-8 text-primary-foreground text-center space-y-3">
+            <Badge className="bg-white/20 text-white">You&apos;re in!</Badge>
+            <h1 className="text-3xl font-extrabold">
+              Welcome, {firstName}! 🎉
+            </h1>
+            <p className="text-primary-foreground/80">
+              You&apos;re registered for{' '}
+              <strong className="text-white">{challenge.title}</strong>.
+              {startDate && <><br />Challenge starts <strong className="text-white">{startDate}</strong>.</>}
+            </p>
+          </div>
+        )}
 
         {/* Setup checklist */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">

@@ -61,6 +61,7 @@ enum StepBlockType {
 }
 
 enum ParticipantStatus {
+  PENDING       // registered, awaiting creator approval
   REGISTERED
   ACTIVE
   COMPLETED

@@ -50,9 +50,17 @@ export async function GET(request: NextRequest) {
       const fullName = nameParam ? decodeURIComponent(nameParam) : (user.user_metadata?.full_name ?? '')
       try {
         await enrollAfterAuthAction(user.id, user.email ?? '', fullName, challengeId)
-      } catch {
-        // Non-fatal — profile/participant may already exist (idempotent upserts)
-        // Continue to redirect even if this fails
+      } catch (e) {
+        // The upserts are idempotent, so a failure here is not "already
+        // enrolled" — it means enrollment genuinely did not happen. Swallowing
+        // it silently dropped the user on the welcome page with no participant
+        // row and nobody any the wiser, so send them back to the challenge
+        // with something to act on.
+        console.error('[auth/callback] enrolment failed', { challengeId, userId: user.id, error: e })
+        return NextResponse.redirect(
+          `${origin}${next.replace(/\/welcome$/, '')}?error=` +
+          encodeURIComponent('We signed you in but could not complete your registration. Please try again.')
+        )
       }
     }
 

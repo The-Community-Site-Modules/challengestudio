@@ -30,6 +30,12 @@ export default async function ChallengeHubPage({ params }: Props) {
     redirect(`/c/${challengeSlug}`)
   }
 
+  // Registered but not yet approved — the hub is the challenge itself, so it
+  // stays shut until a creator lets them in. The welcome page explains the wait.
+  if (progress.participant.status === 'PENDING') {
+    redirect(`/c/${challengeSlug}/welcome`)
+  }
+
   const { steps, streak, xp, progressPct, completedCount, totalRequired } = progress
   const base = `/c/${challengeSlug}`
 

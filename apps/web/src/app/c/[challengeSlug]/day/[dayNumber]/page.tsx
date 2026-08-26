@@ -52,6 +52,11 @@ export default async function DayPage({ params }: Props) {
     redirect(`/c/${challengeSlug}`)
   }
 
+  // Registered but not yet approved: the welcome page explains the wait.
+  if (participant.status === 'PENDING') {
+    redirect(`/c/${challengeSlug}/welcome`)
+  }
+
   // Get step by dayNumber — order is 0-based, dayNumber is 1-based
   // Use find() to be safe even if order values have gaps
   const step = challenge.steps.find(s => s.order === dayNumber - 1)

@@ -4,6 +4,17 @@ import { redirect }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db }           from '@/lib/db'
 
+/**
+ * Where a new participant starts.
+ *
+ * Challenge.requiresApproval was stored but never read: every registration
+ * landed on REGISTERED, so a creator who asked to vet people got none of it.
+ * PENDING is the waiting room; a creator moves them on from there.
+ */
+function initialParticipantStatus(requiresApproval: boolean) {
+  return requiresApproval ? 'PENDING' : 'REGISTERED'
+}
+
 // ─── Register (public — no auth required) ────────────────────────────────────
 
 export async function registerAction(challengeSlug: string, formData: FormData) {
@@ -22,7 +33,7 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
     where: { slug: challengeSlug },
     select: {
       id: true, slug: true, title: true, status: true,
-      maxParticipants: true, requiresApproval: true,
+      maxParticipants: true, requiresApproval: true, isPublic: true,
       registrationOpensAt: true, registrationClosesAt: true,
       _count: { select: { participants: true } },
     },
@@ -31,6 +42,12 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   if (!challenge) redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Challenge not found.'))
   if (!['PUBLISHED', 'ACTIVE'].includes(challenge.status as string)) {
     redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Registration is not open.'))
+  }
+
+  // A private challenge is invite-only. The setting was collected by the wizard
+  // and stored but never read, so anyone with the URL could register.
+  if (!challenge.isPublic) {
+    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('This challenge is private.'))
   }
 
   const now = new Date()
@@ -56,11 +73,16 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
       create: { id: existingUser.id, email: existingUser.email ?? email, fullName },
     })
 
-    // Create participant record (idempotent)
+    // Create participant record (idempotent). A challenge that requires
+    // approval admits nobody automatically — see initialParticipantStatus.
     await db.participant.upsert({
       where:  { challengeId_profileId: { challengeId: challenge.id, profileId: existingUser.id } },
       update: {},
-      create: { challengeId: challenge.id, profileId: existingUser.id, status: 'REGISTERED' as never },
+      create: {
+        challengeId: challenge.id,
+        profileId:   existingUser.id,
+        status:      initialParticipantStatus(challenge.requiresApproval) as never,
+      },
     })
 
     redirect(`/c/${challengeSlug}/confirm?email=${encodeURIComponent(email)}&name=${encodeURIComponent(firstName)}`)
@@ -117,11 +139,22 @@ export async function enrollAfterAuthAction(
     create: { id: userId, email, fullName: fullName || null },
   })
 
-  // Create participant row
+  // The magic-link path enrolls here rather than at form submit, so it has to
+  // re-read the approval setting to reach the same decision.
+  const challenge = await db.challenge.findUnique({
+    where:  { id: challengeId },
+    select: { requiresApproval: true },
+  })
+  if (!challenge) throw new Error(`enrollAfterAuth: challenge ${challengeId} not found`)
+
   await db.participant.upsert({
     where:  { challengeId_profileId: { challengeId, profileId: userId } },
     update: {},
-    create: { challengeId, profileId: userId, status: 'REGISTERED' as never },
+    create: {
+      challengeId,
+      profileId: userId,
+      status:    initialParticipantStatus(challenge.requiresApproval) as never,
+    },
   })
 }
 
@@ -147,9 +180,12 @@ export async function completeStepAction(
 
   const participant = await db.participant.findUnique({
     where: { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
-    select: { id: true },
+    select: { id: true, status: true },
   })
   if (!participant) return
+  // Not approved yet means not taking part yet — otherwise approval would only
+  // hide the pages, not stop the work being submitted.
+  if (participant.status === 'PENDING') return
 
   // Upsert submission (removes participantId helper field before storing)
   const { participantId: _removed, ...cleanData } = submissionData as Record<string, unknown> & { participantId?: string }

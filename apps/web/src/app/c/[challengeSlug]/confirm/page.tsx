@@ -16,7 +16,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      title: true, startsAt: true,
+      title: true, startsAt: true, requiresApproval: true,
       workspace: { select: { name: true } },
     },
   })
@@ -24,6 +24,10 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   const startDate = challenge?.startsAt
     ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : null
+
+  // An approval-gated challenge has not accepted anyone yet; saying
+  // "you're registered" would promise a place that is not theirs.
+  const needsApproval = challenge?.requiresApproval ?? false
 
   const displayName = name ? decodeURIComponent(name) : 'there'
   const displayEmail = email ? decodeURIComponent(email) : null
@@ -33,19 +37,38 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
       <div className="w-full max-w-lg space-y-6">
 
         {/* Success card */}
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-8 w-8 text-green-600" />
+        <div className={`rounded-2xl border p-8 text-center space-y-4 ${
+          needsApproval ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'
+        }`}>
+          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+            needsApproval ? 'bg-amber-100' : 'bg-green-100'
+          }`}>
+            <CheckCircle className={`h-8 w-8 ${needsApproval ? 'text-amber-600' : 'text-green-600'}`} />
           </div>
           <div>
-            <Badge variant="success" className="mb-2">You&apos;re registered!</Badge>
-            <h1 className="text-2xl font-extrabold text-foreground">
-              Welcome, {displayName}! 🎉
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              You&apos;re registered for{' '}
-              <strong>{challenge?.title ?? challengeSlug}</strong>.
-            </p>
+            {needsApproval ? (
+              <>
+                <Badge className="mb-2 bg-amber-100 text-amber-900">Request received</Badge>
+                <h1 className="text-2xl font-extrabold text-foreground">
+                  Thanks, {displayName}
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  <strong>{challenge?.title ?? challengeSlug}</strong> is approved by its
+                  organiser. We&apos;ll let you know once your place is confirmed.
+                </p>
+              </>
+            ) : (
+              <>
+                <Badge variant="success" className="mb-2">You&apos;re registered!</Badge>
+                <h1 className="text-2xl font-extrabold text-foreground">
+                  Welcome, {displayName}! 🎉
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  You&apos;re registered for{' '}
+                  <strong>{challenge?.title ?? challengeSlug}</strong>.
+                </p>
+              </>
+            )}
           </div>
         </div>
 

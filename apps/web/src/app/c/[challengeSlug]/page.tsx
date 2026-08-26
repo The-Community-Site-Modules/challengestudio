@@ -56,6 +56,17 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
     alreadyEnrolled = !!participant
   }
 
+  // A private challenge has no public registration page. isPublic was selected
+  // here but never read, so "private" was a setting that did nothing: the page
+  // rendered and the form took registrations from anyone with the link.
+  //
+  // Already-enrolled participants still need this URL — it is where their
+  // "continue" link points. Everyone else gets nothing to see, which matches
+  // what registerAction now refuses.
+  if (!challenge.isPublic && !alreadyEnrolled) {
+    notFound()
+  }
+
   const startDate = challenge.startsAt
     ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : 'Coming soon'
