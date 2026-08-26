@@ -69,6 +69,9 @@ interface WizardContextValue {
   data:   WizardState
   update: (patch: Partial<WizardState>) => void
   reset:  () => void
+  /** Steps whose Continue button has been pressed at least once. */
+  attempted: Record<number, boolean>
+  markAttempted: (step: number) => void
 }
 
 const WizardContext = createContext<WizardContextValue | null>(null)
@@ -76,14 +79,26 @@ const WizardContext = createContext<WizardContextValue | null>(null)
 export function WizardProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<WizardState>(INITIAL)
 
+  // Errors stay hidden until the reader tries to leave a step. Marking every
+  // empty required field red the moment the form opens tells someone they got
+  // something wrong before they have had a chance to type.
+  const [attempted, setAttempted] = useState<Record<number, boolean>>({})
+
   const update = useCallback((patch: Partial<WizardState>) => {
     setData(prev => ({ ...prev, ...patch }))
   }, [])
 
-  const reset = useCallback(() => setData(INITIAL), [])
+  const markAttempted = useCallback((step: number) => {
+    setAttempted(prev => (prev[step] ? prev : { ...prev, [step]: true }))
+  }, [])
+
+  const reset = useCallback(() => {
+    setData(INITIAL)
+    setAttempted({})
+  }, [])
 
   return (
-    <WizardContext.Provider value={{ data, update, reset }}>
+    <WizardContext.Provider value={{ data, update, reset, attempted, markAttempted }}>
       {children}
     </WizardContext.Provider>
   )

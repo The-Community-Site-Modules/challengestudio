@@ -109,29 +109,69 @@ interface StepNavProps {
   isLast?: boolean
   onPublish?: () => void
   isPublishing?: boolean
+  /** Field names still missing or invalid on this step. */
+  errors?: Record<string, string>
+  /** Called when Continue is pressed, valid or not, so the step can reveal errors. */
+  onAttempt?: () => void
 }
 
-export function StepNav({ step, setStep, canNext = true, nextLabel = 'Continue', isLast = false, onPublish, isPublishing }: StepNavProps) {
+export function StepNav({
+  step, setStep, canNext = true, nextLabel = 'Continue', isLast = false,
+  onPublish, isPublishing, errors, onAttempt,
+}: StepNavProps) {
+  const problems = errors ? Object.keys(errors) : []
+  const blocked = problems.length > 0
+
+  function handleNext() {
+    onAttempt?.()
+
+    if (blocked) {
+      // Deliberately not a disabled button. A button that does nothing when
+      // clicked leaves the reader hunting for the reason; letting the press
+      // land and moving them to the problem answers the question instead.
+      const first = document.querySelector<HTMLElement>(`[data-field="${problems[0]}"]`)
+      first?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      first?.focus({ preventScroll: true })
+      return
+    }
+
+    if (isLast && onPublish) onPublish()
+    else if (!isLast) setStep(step + 1)
+  }
+
+  const summaryId = `step-${step}-blocked`
+
   return (
-    <div className="mt-8 flex items-center justify-between border-t border-border pt-6">
-      {step > 1 ? (
-        <Button variant="outline" onClick={() => setStep(step - 1)} disabled={isPublishing}>
-          Back
-        </Button>
-      ) : (
-        <div />
+    <div className="mt-8 border-t border-border pt-6">
+      {blocked && (
+        <p id={summaryId} role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {problems.length === 1
+            ? 'One field still needs your attention before you can continue.'
+            : `${problems.length} fields still need your attention before you can continue.`}
+        </p>
       )}
-      <Button
-        disabled={!canNext || isPublishing}
-        onClick={() => {
-          if (isLast && onPublish) onPublish()
-          else if (!isLast) setStep(step + 1)
-        }}
-        className="gap-2"
-      >
-        {isPublishing ? 'Publishing…' : nextLabel}
-        {!isLast && <ChevronRight className="h-4 w-4" />}
-      </Button>
+
+      <div className="flex items-center justify-between">
+        {step > 1 ? (
+          <Button variant="outline" onClick={() => setStep(step - 1)} disabled={isPublishing}>
+            Back
+          </Button>
+        ) : (
+          <div />
+        )}
+        {/* Not aria-disabled: the button is meant to be pressed while the step
+            is incomplete — that press is what surfaces the reason. Marking it
+            disabled would tell assistive tech the opposite of what it does. */}
+        <Button
+          disabled={!canNext || isPublishing}
+          aria-describedby={blocked ? summaryId : undefined}
+          onClick={handleNext}
+          className="gap-2"
+        >
+          {isPublishing ? 'Publishing…' : nextLabel}
+          {!isLast && <ChevronRight className="h-4 w-4" />}
+        </Button>
+      </div>
     </div>
   )
 }

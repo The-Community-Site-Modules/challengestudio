@@ -36,7 +36,7 @@ by hand.
 |---|---|---|
 | `20260812211832_init/` | Base tables | Applied (Prisma) |
 | `add_workspace_timezone.sql` | `workspaces.timezone` | ✅ Applied 2026-08-25 |
-| `add_challenge_fields.sql` | Wizard fields on `challenges` | ⚠️ **Not run** |
+| `add_challenge_fields.sql` | Wizard fields on `challenges` | ✅ Applied 2026-08-26 |
 | `add_workspace_invitations.sql` | Invitations table + RLS | ⚠️ **Not run** |
 | `rls_policies.sql` | RLS across the base tables | ⚠️ **Not run** — RLS is ON but zero policies exist |
 | `auth_trigger.sql` | Auto-create profile on signup + backfill | ✅ Applied 2026-08-25 |

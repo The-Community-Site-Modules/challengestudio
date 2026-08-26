@@ -1,10 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import {
-  Target,
-  CheckCircle, Globe, Lock, UserCheck,
-} from 'lucide-react'
+import { Target, CheckCircle, Globe, Lock, UserCheck, AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -17,8 +13,15 @@ import {
 import { cn } from '@/lib/utils'
 import { StepNav, useWizardPublish } from './wizard-shell'
 import { useWizard } from '@/app/(workspace)/ws/[workspaceSlug]/challenges/new/_context/wizard-context'
+import {
+  validateStep, incompleteSteps, STEP_LABELS,
+  type FieldErrors,
+} from '@/app/(workspace)/ws/[workspaceSlug]/challenges/new/_context/validation'
 
-// ─── Shared section wrapper ───────────────────────────────────────────────
+interface StepProps { step: number; setStep: (s: number) => void }
+
+// ─── Shared ───────────────────────────────────────────────────────────────
+
 function Section({ title, description, children }: {
   title: string; description?: string; children: React.ReactNode
 }) {
@@ -34,30 +37,80 @@ function Section({ title, description, children }: {
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/**
+ * One labelled control.
+ *
+ * `name` doubles as the scroll target StepNav jumps to when Continue is pressed
+ * with something missing, so it must match the key the validator reports.
+ */
+function Field({ name, label, hint, required, error, children }: {
+  name: string
+  label: string
+  hint?: string
+  required?: boolean
+  error?: string | undefined
+  children: React.ReactNode
+}) {
+  const errorId = error ? `${name}-error` : undefined
+
   return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-medium text-foreground">{label}</Label>
+    <div data-field={name} tabIndex={-1} className="space-y-1.5 outline-none">
+      <Label className="text-sm font-medium text-foreground">
+        {label}
+        {required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}
+        {required && <span className="sr-only"> (required)</span>}
+      </Label>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      {children}
+      {/* Separate variants per element: Tailwind's arbitrary-variant syntax does
+          not take a comma-separated selector list. */}
+      <div
+        aria-invalid={!!error}
+        aria-describedby={errorId}
+        className={cn(error && '[&_input]:border-destructive [&_textarea]:border-destructive [&_button]:border-destructive')}
+      >
+        {children}
+      </div>
+      {error && (
+        <p id={errorId} className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {error}
+        </p>
+      )}
     </div>
   )
 }
 
+/** Errors for this step, but only once Continue has been pressed on it. */
+function useStepErrors(step: number) {
+  const { data, attempted, markAttempted } = useWizard()
+  const errors = validateStep(step, data)
+  const shown: FieldErrors = attempted[step] ? errors : {}
+  return { errors, shown, markAttempted }
+}
+
 // ─── Step 1: Foundation ───────────────────────────────────────────────────
-export function Step1Foundation({ step, setStep }: { step: number; setStep: (s: number) => void }) {
+
+export function Step1Foundation({ step, setStep }: StepProps) {
   const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
     <Section title="Foundation" description="Name your challenge and set the basics.">
-      <Field label="Challenge title" hint="What participants will see publicly.">
+      <Field name="title" label="Challenge title" required error={shown.title}
+             hint="What participants will see publicly.">
         <Input
           placeholder="e.g. 5-Day Business Launch Challenge"
           value={data.title}
-          onChange={e => update({ title: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').slice(0,60) })}
+          onChange={(e) => update({
+            title: e.target.value,
+            slug: e.target.value.toLowerCase().replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 60),
+          })}
         />
       </Field>
-      <Field label="URL slug" hint="Your challenge will be at /c/[slug]">
+
+      <Field name="slug" label="URL slug" required error={shown.slug}
+             hint="Your challenge will be at /c/[slug]">
         <div className="flex items-center gap-0">
           <span className="flex h-10 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
             /c/
@@ -66,77 +119,109 @@ export function Step1Foundation({ step, setStep }: { step: number; setStep: (s: 
             className="rounded-l-none"
             placeholder="5-day-launch"
             value={data.slug}
-            onChange={e => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'') })}
+            onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
           />
         </div>
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Category">
-          <Select value={data.category} onValueChange={v => update({ category: v })}>
-            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-            <SelectContent>
-              {['Business', 'Wellness', 'Fitness', 'Finance', 'Relationships', 'Faith', 'Writing', 'Other'].map(c => (
-                <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
-      <Field label="Short description" hint="1–2 sentences shown on registration pages.">
+
+      <Field name="category" label="Category">
+        <Select value={data.category} onValueChange={(v) => update({ category: v })}>
+          <SelectTrigger className="sm:max-w-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
+          <SelectContent>
+            {['Business', 'Wellness', 'Fitness', 'Finance', 'Relationships', 'Faith', 'Writing', 'Other'].map((c) => (
+              <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field name="description" label="Short description" hint="1–2 sentences shown on registration pages.">
         <Textarea
-          placeholder="A focused 5-day experience that helps entrepreneurs..."
+          placeholder="A focused 5-day experience that helps entrepreneurs…"
           rows={3}
           value={data.description}
-          onChange={e => update({ description: e.target.value })}
+          onChange={(e) => update({ description: e.target.value })}
         />
       </Field>
-      <StepNav step={step} setStep={setStep} canNext={!!data.title} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 2: Outcome ─────────────────────────────────────────────────────
-export function Step2Outcome({ step, setStep }: { step: number; setStep: (s: number) => void }) {
+// ─── Step 2: Outcome ──────────────────────────────────────────────────────
+
+export function Step2Outcome({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
+
   return (
-    <Section
-      title="Outcome"
-      description="Define the transformation your challenge delivers."
-    >
-      <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 flex gap-3">
-        <Target className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+    <Section title="Outcome" description="Define the transformation your challenge delivers.">
+      <div className="flex gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <Target className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <p className="text-sm text-foreground">
           A great challenge has a clear starting point and a compelling destination.
           Fill these in carefully — they power your registration page and participant experience.
         </p>
       </div>
-      <Field label="Participant starting point" hint="Where are they when they sign up? What's the pain or gap?">
-        <Textarea placeholder="e.g. Stuck with a business idea but no clients and no clear plan to get started." rows={3} />
+
+      <Field name="startingPoint" label="Participant starting point" required error={shown.startingPoint}
+             hint="Where are they when they sign up? What's the pain or gap?">
+        <Textarea
+          placeholder="e.g. Stuck with a business idea but no clients and no clear plan to get started."
+          rows={3}
+          value={data.startingPoint}
+          onChange={(e) => update({ startingPoint: e.target.value })}
+        />
       </Field>
-      <Field label="Desired outcome" hint="Where will they be after completing your challenge?">
-        <Textarea placeholder="e.g. Has landed their first paying client and a repeatable outreach process." rows={3} />
+
+      <Field name="outcome" label="Desired outcome" required error={shown.outcome}
+             hint="Where will they be after completing your challenge?">
+        <Textarea
+          placeholder="e.g. Has landed their first paying client and a repeatable outreach process."
+          rows={3}
+          value={data.outcome}
+          onChange={(e) => update({ outcome: e.target.value })}
+        />
       </Field>
-      <Field label="The promise (one line)" hint="Your headline promise — be specific and bold.">
-        <Input placeholder="e.g. Go from idea to your first paying client in 5 days." />
+
+      <Field name="promise" label="The promise (one line)" required error={shown.promise}
+             hint="Your headline promise — be specific and bold.">
+        <Input
+          placeholder="e.g. Go from idea to your first paying client in 5 days."
+          value={data.promise}
+          onChange={(e) => update({ promise: e.target.value })}
+        />
       </Field>
-      <Field label="Success definition" hint="How will you and participants know they've succeeded?">
-        <Textarea placeholder="e.g. Completed all 5 days, submitted their outreach plan, and made at least one offer." rows={3} />
+
+      <Field name="successDefinition" label="Success definition"
+             hint="How will you and participants know they've succeeded?">
+        <Textarea
+          placeholder="e.g. Completed all 5 days, submitted their outreach plan, and made at least one offer."
+          rows={3}
+          value={data.successDefinition}
+          onChange={(e) => update({ successDefinition: e.target.value })}
+        />
       </Field>
-      <Field label="Expected daily time commitment">
-        <Select>
-          <SelectTrigger><SelectValue placeholder="Select commitment" /></SelectTrigger>
+
+      <Field name="timeCommitment" label="Expected daily time commitment">
+        <Select value={data.timeCommitment} onValueChange={(v) => update({ timeCommitment: v })}>
+          <SelectTrigger className="sm:max-w-xs"><SelectValue placeholder="Select commitment" /></SelectTrigger>
           <SelectContent>
-            {['15 minutes', '30 minutes', '45 minutes', '1 hour', '1–2 hours', '2+ hours'].map(t => (
+            {['15 minutes', '30 minutes', '45 minutes', '1 hour', '1–2 hours', '2+ hours'].map((t) => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 3: Mode ────────────────────────────────────────────────────────
+// ─── Step 3: Mode ─────────────────────────────────────────────────────────
+
 const MODES = [
   { id: 'marketing',  label: 'Marketing Challenge',  desc: '5-day lead-generation launch with public registration and a final offer.' },
   { id: 'cohort',     label: 'Cohort Challenge',     desc: 'A defined group starts and progresses together on shared dates.' },
@@ -148,252 +233,331 @@ const MODES = [
   { id: 'milestone',  label: 'Milestone Journey',    desc: 'Sequential steps not necessarily tied to calendar days.' },
 ]
 
-export function Step3Mode({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [selected, setSelected] = useState('marketing')
+export function Step3Mode({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
+
   return (
     <Section title="Challenge Mode" description="Choose how your challenge will run.">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setSelected(m.id)}
-            className={cn(
-              'flex flex-col items-start rounded-xl border p-4 text-left transition-all',
-              selected === m.id
-                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                : 'border-border bg-card hover:border-primary/40'
-            )}
-          >
-            <div className="flex w-full items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">{m.label}</span>
-              {selected === m.id && <CheckCircle className="h-4 w-4 text-primary" />}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">{m.desc}</p>
-          </button>
-        ))}
-      </div>
-      <StepNav step={step} setStep={setStep} />
-    </Section>
-  )
-}
-
-// ─── Step 4: Schedule ────────────────────────────────────────────────────
-const TIMING_MODELS = [
-  { id: 'fixed_calendar',   label: 'Fixed Calendar',       desc: 'All participants see the same active day.' },
-  { id: 'rolling',          label: 'Rolling Enrollment',   desc: 'Each participant has their own Day 1.' },
-  { id: 'open_access',      label: 'Open Access',          desc: 'All published days available immediately.' },
-  { id: 'sequential',       label: 'Sequential Completion',desc: 'Next step unlocks after previous is completed.' },
-]
-
-export function Step4Schedule({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [timing, setTiming] = useState('fixed_calendar')
-  return (
-    <Section title="Schedule" description="Configure when your challenge runs and how content unlocks.">
-      <Field label="Timezone">
-        <Select>
-          <SelectTrigger><SelectValue placeholder="Select timezone" /></SelectTrigger>
-          <SelectContent>
-            {['America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Europe/London', 'Asia/Karachi', 'Australia/Sydney'].map(tz => (
-              <SelectItem key={tz} value={tz}>{tz.replace('_', ' ')}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Registration opens">
-          <Input type="date" />
-        </Field>
-        <Field label="Registration closes">
-          <Input type="date" />
-        </Field>
-        <Field label="Challenge starts">
-          <Input type="date" />
-        </Field>
-        <Field label="Challenge ends">
-          <Input type="date" />
-        </Field>
-      </div>
-      <Field label="Content unlock method" hint="How do participants access new days?">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {TIMING_MODELS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTiming(t.id)}
-              className={cn(
-                'flex flex-col items-start rounded-lg border p-3 text-left text-sm transition-all',
-                timing === t.id
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                  : 'border-border bg-card hover:border-primary/40'
-              )}
-            >
-              <span className="font-medium text-foreground">{t.label}</span>
-              <span className="mt-0.5 text-xs text-muted-foreground">{t.desc}</span>
-            </button>
-          ))}
+      <Field name="mode" label="Mode" required error={shown.mode}>
+        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Challenge mode">
+          {MODES.map((m) => {
+            const selected = data.mode === m.id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => update({ mode: m.id })}
+                className={cn(
+                  'flex flex-col items-start rounded-xl border p-4 text-left transition-all',
+                  selected
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-card hover:border-primary/40'
+                )}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">{m.label}</span>
+                  {selected && <CheckCircle className="h-4 w-4 text-primary" />}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{m.desc}</p>
+              </button>
+            )
+          })}
         </div>
       </Field>
-      <Field label="Grace period" hint="Extra hours after midnight to complete the previous day.">
-        <Select>
-          <SelectTrigger><SelectValue placeholder="No grace period" /></SelectTrigger>
-          <SelectContent>
-            {['None', '2 hours', '4 hours', '8 hours', '12 hours', '24 hours'].map(g => (
-              <SelectItem key={g} value={g.toLowerCase().replace(' ', '_')}>{g}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 5: Audience ────────────────────────────────────────────────────
-export function Step5Audience({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [visibility, setVisibility] = useState<'public' | 'invite' | 'restricted'>('public')
-  const [requiresApproval, setRequiresApproval] = useState(false)
+// ─── Step 4: Schedule ─────────────────────────────────────────────────────
+
+const TIMING_MODELS = [
+  { id: 'fixed_calendar', label: 'Fixed Calendar',        desc: 'All participants see the same active day.' },
+  { id: 'rolling',        label: 'Rolling Enrollment',    desc: 'Each participant has their own Day 1.' },
+  { id: 'open_access',    label: 'Open Access',           desc: 'All published days available immediately.' },
+  { id: 'sequential',     label: 'Sequential Completion', desc: 'Next step unlocks after previous is completed.' },
+]
+
+const TIMEZONES = [
+  'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Dubai', 'Asia/Karachi',
+  'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland',
+]
+
+export function Step4Schedule({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
+
+  return (
+    <Section title="Schedule" description="Configure when your challenge runs and how content unlocks.">
+      <Field name="timezone" label="Timezone" required error={shown.timezone}
+             hint="All unlock times are calculated in this timezone.">
+        <Select value={data.timezone} onValueChange={(v) => update({ timezone: v })}>
+          <SelectTrigger className="sm:max-w-sm"><SelectValue placeholder="Select timezone" /></SelectTrigger>
+          <SelectContent>
+            {TIMEZONES.map((tz) => (
+              <SelectItem key={tz} value={tz}>{tz.replace(/_/g, ' ')}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field name="registrationOpensAt" label="Registration opens" error={shown.registrationOpensAt}>
+          <Input type="date" value={data.registrationOpensAt}
+                 onChange={(e) => update({ registrationOpensAt: e.target.value })} />
+        </Field>
+        <Field name="registrationClosesAt" label="Registration closes" error={shown.registrationClosesAt}>
+          <Input type="date" value={data.registrationClosesAt}
+                 onChange={(e) => update({ registrationClosesAt: e.target.value })} />
+        </Field>
+        <Field name="startsAt" label="Challenge starts" required error={shown.startsAt}>
+          <Input type="date" value={data.startsAt}
+                 onChange={(e) => update({ startsAt: e.target.value })} />
+        </Field>
+        <Field name="endsAt" label="Challenge ends" error={shown.endsAt}>
+          <Input type="date" value={data.endsAt}
+                 onChange={(e) => update({ endsAt: e.target.value })} />
+        </Field>
+      </div>
+
+      <Field name="unlockModel" label="Content unlock method" hint="How do participants access new days?">
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Content unlock method">
+          {TIMING_MODELS.map((t) => {
+            const selected = data.unlockModel === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => update({ unlockModel: t.id })}
+                className={cn(
+                  'flex flex-col items-start rounded-lg border p-3 text-left text-sm transition-all',
+                  selected
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-card hover:border-primary/40'
+                )}
+              >
+                <span className="font-medium text-foreground">{t.label}</span>
+                <span className="mt-0.5 text-xs text-muted-foreground">{t.desc}</span>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      <Field name="gracePeriod" label="Grace period"
+             hint="Extra hours after midnight to complete the previous day.">
+        <Select value={data.gracePeriod} onValueChange={(v) => update({ gracePeriod: v })}>
+          <SelectTrigger className="sm:max-w-xs"><SelectValue placeholder="No grace period" /></SelectTrigger>
+          <SelectContent>
+            {['None', '2 hours', '4 hours', '8 hours', '12 hours', '24 hours'].map((g) => (
+              <SelectItem key={g} value={g}>{g}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
+    </Section>
+  )
+}
+
+// ─── Step 5: Audience ─────────────────────────────────────────────────────
+
+export function Step5Audience({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
 
   const options = [
-    { id: 'public' as const,     icon: <Globe className="h-5 w-5" />,      label: 'Public',             desc: 'Anyone can register via the public page.' },
-    { id: 'invite' as const,     icon: <UserCheck className="h-5 w-5" />,  label: 'Invite-only',        desc: 'Only people you invite can register.' },
-    { id: 'restricted' as const, icon: <Lock className="h-5 w-5" />,       label: 'Membership-restricted', desc: 'Restricted to existing community members.' },
+    { id: 'public',     Icon: Globe,     label: 'Public',                desc: 'Anyone can register via the public page.' },
+    { id: 'invite',     Icon: UserCheck, label: 'Invite-only',           desc: 'Only people you invite can register.' },
+    { id: 'restricted', Icon: Lock,      label: 'Membership-restricted', desc: 'Restricted to existing community members.' },
   ]
 
   return (
     <Section title="Audience" description="Control who can join your challenge.">
-      <div className="grid gap-3">
-        {options.map((o) => (
-          <button
-            key={o.id}
-            onClick={() => setVisibility(o.id)}
-            className={cn(
-              'flex items-start gap-4 rounded-xl border p-4 text-left transition-all',
-              visibility === o.id
-                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                : 'border-border bg-card hover:border-primary/40'
-            )}
-          >
-            <div className={cn(
-              'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-              visibility === o.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-            )}>
-              {o.icon}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">{o.label}</p>
-              <p className="text-xs text-muted-foreground">{o.desc}</p>
-            </div>
-            {visibility === o.id && <CheckCircle className="h-4 w-4 shrink-0 text-primary mt-0.5" />}
-          </button>
-        ))}
-      </div>
-      <Field label="Capacity" hint="Maximum number of participants. Leave blank for unlimited.">
-        <Input type="number" placeholder="Unlimited" />
+      <Field name="visibility" label="Visibility" required error={shown.visibility}>
+        <div className="grid gap-3" role="radiogroup" aria-label="Visibility">
+          {options.map(({ id, Icon, label, desc }) => {
+            const selected = data.visibility === id
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => update({ visibility: id })}
+                className={cn(
+                  'flex items-start gap-4 rounded-xl border p-4 text-left transition-all',
+                  selected
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-card hover:border-primary/40'
+                )}
+              >
+                <span className={cn(
+                  'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                  selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                )}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{label}</span>
+                  <span className="block text-xs text-muted-foreground">{desc}</span>
+                </span>
+                {selected && <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
+              </button>
+            )
+          })}
+        </div>
       </Field>
+
+      <Field name="maxParticipants" label="Capacity" error={shown.maxParticipants}
+             hint="Maximum number of participants. Leave blank for unlimited.">
+        <Input
+          type="number"
+          min={1}
+          placeholder="Unlimited"
+          className="sm:max-w-xs"
+          value={data.maxParticipants}
+          onChange={(e) => update({ maxParticipants: e.target.value })}
+        />
+      </Field>
+
       <div className="flex items-center justify-between rounded-lg border border-border p-4">
         <div>
           <p className="text-sm font-medium text-foreground">Require approval</p>
           <p className="text-xs text-muted-foreground">Manually approve each registration before granting access.</p>
         </div>
-        <Switch checked={requiresApproval} onCheckedChange={setRequiresApproval} />
+        <Switch
+          checked={data.requiresApproval}
+          onCheckedChange={(v) => update({ requiresApproval: v })}
+          aria-label="Require approval"
+        />
       </div>
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 6: Experience ──────────────────────────────────────────────────
-export function Step6Experience({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [features, setFeatures] = useState({
-    liveSessions: true, community: true, submissions: true,
-    gamification: true, leaderboard: false, reflections: true,
-  })
-  const toggle = (key: keyof typeof features) =>
-    setFeatures((f) => ({ ...f, [key]: !f[key] }))
+// ─── Step 6: Experience ───────────────────────────────────────────────────
 
-  const toggles = [
-    { key: 'liveSessions' as const,  label: 'Live sessions',         desc: 'Add Zoom or YouTube live events per day.' },
-    { key: 'community' as const,     label: 'Challenge feed',         desc: 'Dedicated social feed for participant posts.' },
-    { key: 'submissions' as const,   label: 'Homework submissions',   desc: 'Collect text, files, or reflection responses.' },
-    { key: 'gamification' as const,  label: 'Points & badges',        desc: 'Award XP for completed actions and milestones.' },
-    { key: 'leaderboard' as const,   label: 'Leaderboard',            desc: 'Optional — show ranked participant progress.' },
-    { key: 'reflections' as const,   label: 'Private reflections',    desc: 'Private journal prompts visible only to the participant.' },
-  ]
+const FEATURE_TOGGLES = [
+  { key: 'liveSessions', label: 'Live sessions',       desc: 'Add Zoom or YouTube live events per day.' },
+  { key: 'community',    label: 'Challenge feed',      desc: 'Dedicated social feed for participant posts.' },
+  { key: 'submissions',  label: 'Homework submissions', desc: 'Collect text, files, or reflection responses.' },
+  { key: 'gamification', label: 'Points & badges',     desc: 'Award XP for completed actions and milestones.' },
+  { key: 'leaderboard',  label: 'Leaderboard',         desc: 'Optional — show ranked participant progress.' },
+  { key: 'reflections',  label: 'Private reflections', desc: 'Private journal prompts visible only to the participant.' },
+]
+
+export function Step6Experience({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
     <Section title="Experience" description="Choose which features to enable for this challenge.">
-      <Field label="Number of days / steps">
+      <Field name="numDays" label="Number of days / steps" required error={shown.numDays}>
         <div className="flex items-center gap-3">
-          <Input type="number" placeholder="5" className="w-28" />
+          <Input
+            type="number"
+            min={1}
+            max={365}
+            placeholder="5"
+            className="w-28"
+            value={data.numDays}
+            onChange={(e) => update({ numDays: e.target.value })}
+          />
           <span className="text-sm text-muted-foreground">days</span>
         </div>
       </Field>
+
       <div className="space-y-3">
-        {toggles.map((t) => (
+        {FEATURE_TOGGLES.map((t) => (
           <div key={t.key} className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
               <p className="text-sm font-medium text-foreground">{t.label}</p>
               <p className="text-xs text-muted-foreground">{t.desc}</p>
             </div>
-            <Switch checked={features[t.key]} onCheckedChange={() => toggle(t.key)} />
+            <Switch
+              checked={data.features[t.key] ?? false}
+              onCheckedChange={(v) => update({ features: { ...data.features, [t.key]: v } })}
+              aria-label={t.label}
+            />
           </div>
         ))}
       </div>
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 7: Communications ──────────────────────────────────────────────
-export function Step7Communications({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [emails, setEmails] = useState({
-    registration: true, start: true, daily: true,
-    reminder: true, inactivity: true, completion: true,
-  })
-  const toggle = (k: keyof typeof emails) => setEmails(e => ({ ...e, [k]: !e[k] }))
+// ─── Step 7: Communications ───────────────────────────────────────────────
 
-  const triggers = [
-    { key: 'registration' as const, label: 'Registration confirmation', desc: 'Sent immediately after someone registers.' },
-    { key: 'start' as const,        label: 'Challenge starting soon',   desc: 'Sent 24 hours before Day 1 unlocks.' },
-    { key: 'daily' as const,        label: 'Day available',             desc: 'Notifies participants when a new day unlocks.' },
-    { key: 'reminder' as const,     label: 'Live session reminder',     desc: 'Sent before each scheduled live session.' },
-    { key: 'inactivity' as const,   label: 'Inactivity nudge',          desc: 'Sent after configured days without progress.' },
-    { key: 'completion' as const,   label: 'Completion celebration',    desc: 'Sent when a participant finishes the challenge.' },
-  ]
+const EMAIL_TRIGGERS = [
+  { key: 'registration', label: 'Registration confirmation', desc: 'Sent immediately after someone registers.' },
+  { key: 'start',        label: 'Challenge starting soon',   desc: 'Sent 24 hours before Day 1 unlocks.' },
+  { key: 'daily',        label: 'Day available',             desc: 'Notifies participants when a new day unlocks.' },
+  { key: 'reminder',     label: 'Live session reminder',     desc: 'Sent before each scheduled live session.' },
+  { key: 'inactivity',   label: 'Inactivity nudge',          desc: 'Sent after configured days without progress.' },
+  { key: 'completion',   label: 'Completion celebration',    desc: 'Sent when a participant finishes the challenge.' },
+]
+
+export function Step7Communications({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, markAttempted } = useStepErrors(step)
 
   return (
     <Section title="Communications" description="Control which automated emails participants receive.">
-      <div className="rounded-lg bg-muted/40 border border-border p-4 text-sm text-muted-foreground">
+      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
         Security emails (account setup, password reset) are always sent and cannot be disabled.
       </div>
+
       <div className="space-y-3">
-        {triggers.map((t) => (
+        {EMAIL_TRIGGERS.map((t) => (
           <div key={t.key} className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
               <p className="text-sm font-medium text-foreground">{t.label}</p>
               <p className="text-xs text-muted-foreground">{t.desc}</p>
             </div>
-            <Switch checked={emails[t.key]} onCheckedChange={() => toggle(t.key)} />
+            <Switch
+              checked={data.emailTriggers[t.key] ?? false}
+              onCheckedChange={(v) => update({ emailTriggers: { ...data.emailTriggers, [t.key]: v } })}
+              aria-label={t.label}
+            />
           </div>
         ))}
       </div>
-      <Field label="Inactivity trigger (days without progress)">
-        <Select>
-          <SelectTrigger><SelectValue placeholder="2 days" /></SelectTrigger>
+
+      <Field name="inactivityDays" label="Inactivity trigger (days without progress)">
+        <Select value={data.inactivityDays} onValueChange={(v) => update({ inactivityDays: v })}>
+          <SelectTrigger className="sm:max-w-xs"><SelectValue placeholder="2 days" /></SelectTrigger>
           <SelectContent>
-            {['1 day', '2 days', '3 days', '5 days'].map(d => (
+            {['1 day', '2 days', '3 days', '5 days'].map((d) => (
               <SelectItem key={d} value={d}>{d}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </Field>
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 8: Conversion ──────────────────────────────────────────────────
-export function Step8Conversion({ step, setStep }: { step: number; setStep: (s: number) => void }) {
-  const [hasOffer, setHasOffer] = useState(true)
+// ─── Step 8: Conversion ───────────────────────────────────────────────────
+
+export function Step8Conversion({ step, setStep }: StepProps) {
+  const { data, update } = useWizard()
+  const { errors, shown, markAttempted } = useStepErrors(step)
+
   return (
     <Section title="Conversion" description="Configure the post-challenge offer shown to completers.">
       <div className="flex items-center justify-between rounded-lg border border-border p-4">
@@ -401,88 +565,135 @@ export function Step8Conversion({ step, setStep }: { step: number; setStep: (s: 
           <p className="text-sm font-medium text-foreground">Enable post-challenge offer</p>
           <p className="text-xs text-muted-foreground">Show a CTA page after participants complete the challenge.</p>
         </div>
-        <Switch checked={hasOffer} onCheckedChange={setHasOffer} />
+        <Switch
+          checked={data.hasOffer}
+          onCheckedChange={(v) => update({ hasOffer: v })}
+          aria-label="Enable post-challenge offer"
+        />
       </div>
 
-      {hasOffer && (
+      {/* The fields below are only required while the offer is on — turning it
+          off is a valid answer, a half-filled offer is not. */}
+      {data.hasOffer && (
         <div className="space-y-4">
-          <Field label="Offer headline">
-            <Input placeholder="e.g. Ready to go deeper? Join the full program." />
+          <Field name="offerHeadline" label="Offer headline" required error={shown.offerHeadline}>
+            <Input
+              placeholder="e.g. Ready to go deeper? Join the full program."
+              value={data.offerHeadline}
+              onChange={(e) => update({ offerHeadline: e.target.value })}
+            />
           </Field>
-          <Field label="CTA button text">
-            <Input placeholder="e.g. Get instant access" />
+
+          <Field name="offerCtaText" label="CTA button text" required error={shown.offerCtaText}>
+            <Input
+              placeholder="e.g. Get instant access"
+              value={data.offerCtaText}
+              onChange={(e) => update({ offerCtaText: e.target.value })}
+            />
           </Field>
-          <Field label="Destination URL" hint="Your sales page, checkout, or Calendly link.">
-            <Input type="url" placeholder="https://your-checkout.com/offer" />
+
+          <Field name="offerUrl" label="Destination URL" required error={shown.offerUrl}
+                 hint="Your sales page, checkout, or Calendly link.">
+            <Input
+              type="url"
+              placeholder="https://your-checkout.com/offer"
+              value={data.offerUrl}
+              onChange={(e) => update({ offerUrl: e.target.value })}
+            />
           </Field>
-          <Field label="Offer deadline" hint="Creates urgency. Leave blank for no deadline.">
-            <Input type="datetime-local" />
+
+          <Field name="offerDeadline" label="Offer deadline" error={shown.offerDeadline}
+                 hint="Creates urgency. Leave blank for no deadline.">
+            <Input
+              type="datetime-local"
+              value={data.offerDeadline}
+              onChange={(e) => update({ offerDeadline: e.target.value })}
+            />
           </Field>
-          <Field label="Bonuses" hint="List any time-sensitive bonuses (one per line).">
-            <Textarea placeholder="1:1 strategy call&#10;Private Slack access" rows={3} />
+
+          <Field name="offerBonuses" label="Bonuses" hint="List any time-sensitive bonuses (one per line).">
+            <Textarea
+              placeholder={'1:1 strategy call\nPrivate Slack access'}
+              rows={3}
+              value={data.offerBonuses}
+              onChange={(e) => update({ offerBonuses: e.target.value })}
+            />
           </Field>
         </div>
       )}
-      <StepNav step={step} setStep={setStep} />
+
+      <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
   )
 }
 
-// ─── Step 9: Review & Publish ────────────────────────────────────────────
-export function Step9Review({ step, setStep }: { step: number; setStep: (s: number) => void }) {
+// ─── Step 9: Review & Publish ─────────────────────────────────────────────
+
+export function Step9Review({ step, setStep }: StepProps) {
   const { data } = useWizard()
   const { onPublish, isPublishing } = useWizardPublish()
 
-  const checks = [
-    { label: 'Challenge title set',             done: !!data.title },
-    { label: 'URL slug set',                    done: !!data.slug },
-    { label: 'Promise and outcome defined',      done: !!data.promise },
-    { label: 'Start date configured',            done: !!data.startsAt },
-    { label: 'Mode selected',                    done: !!data.mode },
+  // Ask the same validator the earlier steps used, so this cannot drift from
+  // what those steps actually enforce.
+  const outstanding = incompleteSteps(data)
+  const allDone = outstanding.length === 0
+
+  const summary = [
+    { label: 'Title',    value: data.title || '—' },
+    { label: 'Mode',     value: MODES.find((m) => m.id === data.mode)?.label ?? data.mode ?? '—' },
+    { label: 'Starts',   value: data.startsAt ? new Date(data.startsAt).toLocaleDateString() : '—' },
+    { label: 'Audience', value: data.visibility === 'public' ? 'Public' : data.visibility === 'invite' ? 'Invite-only' : 'Membership-restricted' },
+    { label: 'Days',     value: data.numDays || '—' },
+    { label: 'Offer',    value: data.hasOffer ? 'Enabled' : 'Disabled' },
   ]
-  const allDone = checks.every(c => c.done)
 
   return (
     <Section title="Review & Publish" description="Check everything before going live.">
-      {/* Summary */}
       <div className="grid gap-3 sm:grid-cols-2">
-        {[
-          { label: 'Title',    value: data.title    || '—' },
-          { label: 'Mode',     value: data.mode     || '—' },
-          { label: 'Starts',   value: data.startsAt ? new Date(data.startsAt).toLocaleDateString() : '—' },
-          { label: 'Audience', value: data.visibility === 'public' ? 'Public' : 'Invite-only' },
-          { label: 'Days',     value: data.numDays  || '—' },
-          { label: 'Offer',    value: data.hasOffer ? 'Enabled' : 'Disabled' },
-        ].map(({ label, value }) => (
+        {summary.map(({ label, value }) => (
           <div key={label} className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="mt-0.5 text-sm font-semibold text-foreground truncate">{value}</p>
+            <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{value}</p>
           </div>
         ))}
       </div>
 
-      {/* Checklist */}
       <div className="space-y-2">
         <p className="text-sm font-semibold text-foreground">Publish checklist</p>
-        {checks.map((item) => (
-          <div key={item.label} className={cn(
-            'flex items-center gap-3 rounded-lg px-4 py-3 text-sm',
-            item.done
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-muted/30 text-muted-foreground border border-border'
-          )}>
-            <CheckCircle className={cn('h-4 w-4 shrink-0', item.done ? 'text-green-500' : 'text-muted-foreground')} />
-            {item.label}
-            {!item.done && (
-              <Badge variant="outline" className="ml-auto text-xs">Required</Badge>
-            )}
-          </div>
-        ))}
+        {Object.entries(STEP_LABELS).map(([id, label]) => {
+          const n = Number(id)
+          const done = !outstanding.includes(n)
+          return (
+            <div
+              key={id}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-4 py-3 text-sm',
+                done
+                  ? 'border border-green-200 bg-green-50 text-green-700'
+                  : 'border border-border bg-muted/30 text-muted-foreground'
+              )}
+            >
+              <CheckCircle className={cn('h-4 w-4 shrink-0', done ? 'text-green-500' : 'text-muted-foreground')} />
+              <span>Step {n} — {label}</span>
+              {!done && (
+                <button
+                  type="button"
+                  onClick={() => setStep(n)}
+                  className="ml-auto"
+                >
+                  <Badge variant="outline" className="cursor-pointer text-xs hover:bg-background">
+                    Incomplete — fix
+                  </Badge>
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {!allDone && (
-        <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
-          Complete the required steps above before publishing. You can save as a draft and build steps in the builder.
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+          Finish the steps marked incomplete before publishing. Selecting one takes you straight to it.
         </div>
       )}
 
@@ -491,7 +702,7 @@ export function Step9Review({ step, setStep }: { step: number; setStep: (s: numb
         setStep={setStep}
         isLast
         canNext={allDone}
-        nextLabel="Create challenge →"
+        nextLabel="Create challenge"
         onPublish={onPublish}
         isPublishing={isPublishing}
       />
