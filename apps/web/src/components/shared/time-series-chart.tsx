@@ -2,20 +2,23 @@
 
 import { useId, useMemo, useState } from 'react'
 
-export interface ActivityPoint {
+export interface TimePoint {
   /** ISO date, yyyy-mm-dd */
   date: string
   value: number
 }
 
 interface Props {
-  data: ActivityPoint[]
+  data: TimePoint[]
   /** Names the single series, so no legend box is needed. */
   seriesLabel: string
+  /** Viewbox height. Small multiples want less than a standalone chart. */
+  height?: number
+  emptyMessage?: string
 }
 
 const W = 520
-const H = 240
+const DEFAULT_H = 240
 const PAD = { top: 16, right: 10, bottom: 30, left: 40 }
 
 /** Pick a 1/2/5×10ⁿ step that yields roughly three or four gridlines. */
@@ -39,10 +42,12 @@ function formatDay(iso: string) {
  * tooltip shows is also in the table below, which is what keeps the chart usable
  * on keyboard and without a pointer.
  */
-export function ActivityChart({ data, seriesLabel }: Props) {
+export function TimeSeriesChart({ data, seriesLabel, height, emptyMessage }: Props) {
   const gradientId = useId()
   const [hover, setHover] = useState<number | null>(null)
   const [showTable, setShowTable] = useState(false)
+
+  const H = height ?? DEFAULT_H
 
   const { points, ticks, path, area } = useMemo(() => {
     const maxValue = Math.max(1, ...data.map((d) => d.value))
@@ -70,12 +75,12 @@ export function ActivityChart({ data, seriesLabel }: Props) {
       : ''
 
     return { points: pts, ticks: scale.map((t) => ({ value: t, ratio: t / top })), path: line, area: fill }
-  }, [data])
+  }, [data, H])
 
   if (data.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-muted-foreground">
-        No registrations yet. This fills in as people join your challenges.
+        {emptyMessage ?? 'Nothing to show for this period yet.'}
       </p>
     )
   }

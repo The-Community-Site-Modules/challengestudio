@@ -6,10 +6,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatCard } from '@/components/shared/stat-card'
-import { MiniBarChart } from '@/components/shared/mini-bar-chart'
+import { TimeSeriesChart } from '@/components/shared/time-series-chart'
 import {
-  getPlatformTotals, getWorkspaceSignups, getWorkspaceRows,
-  getRecentEvents, getServiceStatus, type ServiceStatus,
+  getPlatformTotals, getGrowth, getWorkspaceRows, getRecentEvents,
+  getServiceStatus, parseRange, RANGES,
+  type ServiceStatus,
 } from './_lib/queries'
 
 export const metadata = { title: 'Platform Overview — Challenge Studio' }
@@ -41,19 +42,24 @@ function ago(date: Date, now: Date) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default async function AdminOverviewPage() {
+interface Props {
+  searchParams: Promise<{ range?: string }>
+}
+
+export default async function AdminOverviewPage({ searchParams }: Props) {
   const now = new Date()
-  const [totals, signups, workspaces, events, services] = await Promise.all([
+  const range = parseRange((await searchParams).range)
+
+  const [totals, growth, workspaces, events, services] = await Promise.all([
     getPlatformTotals(),
-    getWorkspaceSignups(),
+    getGrowth(range),
     getWorkspaceRows(10),
     getRecentEvents(8),
     getServiceStatus(),
   ])
 
   const topWorkspaces = [...workspaces].sort((a, b) => b.participants - a.participants).slice(0, 5)
-  const signupTotal = signups.reduce((sum, d) => sum + d.value, 0)
-  const degraded = services.filter((s) => s.state !== 'ok')
+  const degraded = services.filter((s: ServiceStatus) => s.state !== 'ok')
 
   return (
     <main className="flex-1 overflow-y-auto p-8">
@@ -89,20 +95,52 @@ export default async function AdminOverviewPage() {
         />
       </div>
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-3">
+      {/* Growth. Three frames rather than three lines on one axis: eight
+          workspaces and five hundred participants do not share a scale, and a
+          second y-axis is never the answer. */}
+      <section aria-labelledby="growth" className="mb-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="growth" className="text-lg font-semibold tracking-tight text-foreground">Growth</h2>
+          <div className="flex items-center gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Time range">
+            {RANGES.map((r) => (
+              <Link
+                key={r}
+                href={r === 30 ? '/admin' : `/admin?range=${r}`}
+                aria-current={range === r ? 'true' : undefined}
+                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                  range === r ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {r}d
+              </Link>
+            ))}
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">New workspaces (7d)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-3xl font-extrabold text-foreground tabular-nums">{signupTotal}</p>
-            {signupTotal > 0
-              ? <MiniBarChart bars={signups} height={80} showLabels />
-              : <p className="py-6 text-sm text-muted-foreground">No workspaces created this week.</p>}
-          </CardContent>
-        </Card>
+        <div className="grid gap-5 lg:grid-cols-3">
+          {growth.map((series) => (
+            <Card key={series.key}>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{series.label}</CardTitle>
+                <p className="text-2xl font-bold tabular-nums text-foreground">
+                  {series.total.toLocaleString()}
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">in {range} days</span>
+                </p>
+              </CardHeader>
+              <CardContent className="pt-1">
+                <TimeSeriesChart
+                  data={series.points}
+                  seriesLabel={series.label}
+                  height={170}
+                  emptyMessage={`No ${series.label.toLowerCase()} in this period.`}
+                />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
+      <div className="mb-8 grid items-start gap-6 lg:grid-cols-2">
         {/* Not uptime monitoring — nothing here pings a provider. The database
             row is a real round trip; the rest reports what is configured. */}
         <Card>
@@ -116,7 +154,7 @@ export default async function AdminOverviewPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {services.map((s) => (
+            {services.map((s: ServiceStatus) => (
               <div key={s.name} className="flex items-start justify-between gap-3 text-sm">
                 <span className="shrink-0 text-foreground">{s.name}</span>
                 <span className="flex min-w-0 items-center gap-2">

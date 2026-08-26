@@ -42,28 +42,62 @@ export async function getPlatformTotals() {
   }
 }
 
-/** Workspaces created per day for the last 7 days, empty days included. */
-export async function getWorkspaceSignups() {
-  const since = startOfDayUTC(new Date(Date.now() - 6 * DAY))
+export const RANGES = [7, 30, 90] as const
+export type Range = (typeof RANGES)[number]
 
-  const rows = await db.workspace.findMany({
-    where:  { createdAt: { gte: since } },
-    select: { createdAt: true },
-  })
+export function parseRange(value: string | undefined): Range {
+  const n = Number(value)
+  return (RANGES as readonly number[]).includes(n) ? (n as Range) : 30
+}
 
-  const buckets = new Map<string, number>()
-  for (let i = 0; i < 7; i++) {
-    buckets.set(new Date(since.getTime() + i * DAY).toISOString().slice(0, 10), 0)
+export interface GrowthSeries {
+  key: 'workspaces' | 'users' | 'participants'
+  label: string
+  points: Array<{ date: string; value: number }>
+  total: number
+}
+
+/**
+ * New workspaces, users and participants per day.
+ *
+ * Returned as three separate series rather than one chart with three lines:
+ * eight workspaces and five hundred participants do not share a scale, and a
+ * second y-axis is never the answer. Small multiples give each its own frame.
+ *
+ * Empty days are kept so the axis is evenly spaced instead of skipping to the
+ * next day that happens to have a row.
+ */
+export async function getGrowth(days: Range): Promise<GrowthSeries[]> {
+  const since = startOfDayUTC(new Date(Date.now() - (days - 1) * DAY))
+
+  const [workspaces, users, participants] = await Promise.all([
+    db.workspace.findMany({ where: { createdAt:    { gte: since } }, select: { createdAt: true } }),
+    db.profile.findMany({   where: { createdAt:    { gte: since } }, select: { createdAt: true } }),
+    db.participant.findMany({ where: { registeredAt: { gte: since } }, select: { registeredAt: true } }),
+  ])
+
+  const bucket = (dates: Date[]) => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < days; i++) {
+      map.set(new Date(since.getTime() + i * DAY).toISOString().slice(0, 10), 0)
+    }
+    for (const d of dates) {
+      const key = d.toISOString().slice(0, 10)
+      if (map.has(key)) map.set(key, (map.get(key) ?? 0) + 1)
+    }
+    return [...map].map(([date, value]) => ({ date, value }))
   }
-  for (const r of rows) {
-    const key = r.createdAt.toISOString().slice(0, 10)
-    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1)
+
+  const build = (key: GrowthSeries['key'], label: string, dates: Date[]): GrowthSeries => {
+    const points = bucket(dates)
+    return { key, label, points, total: points.reduce((sum, p) => sum + p.value, 0) }
   }
 
-  return [...buckets].map(([date, value]) => ({
-    label: new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
-    value,
-  }))
+  return [
+    build('workspaces',   'New workspaces',   workspaces.map((w) => w.createdAt)),
+    build('users',        'New users',        users.map((u) => u.createdAt)),
+    build('participants', 'New participants', participants.map((p) => p.registeredAt)),
+  ]
 }
 
 export interface WorkspaceRow {

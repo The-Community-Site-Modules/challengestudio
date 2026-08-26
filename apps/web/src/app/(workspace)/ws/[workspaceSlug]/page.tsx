@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
-import { ActivityChart, type ActivityPoint } from './_components/activity-chart'
+import { TimeSeriesChart, type TimePoint } from '@/components/shared/time-series-chart'
 
 interface Props {
   params: Promise<{ workspaceSlug: string }>
@@ -134,7 +134,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
     const key = r.registeredAt.toISOString().slice(0, 10)
     if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1)
   }
-  const activity: ActivityPoint[] = participantCount > 0
+  const activity: TimePoint[] = participantCount > 0
     ? [...buckets].map(([date, value]) => ({ date, value }))
     : []
 
@@ -419,7 +419,11 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                     Last 30 days
                   </span>
                 </div>
-                <ActivityChart data={activity} seriesLabel="Registrations" />
+                <TimeSeriesChart
+                  data={activity}
+                  seriesLabel="Registrations"
+                  emptyMessage="No registrations yet. This fills in as people join your challenges."
+                />
               </section>
             </div>
           </div>
