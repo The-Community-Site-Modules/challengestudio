@@ -42,6 +42,14 @@ challenge-studio/
 | OD-6 | Challenge slug namespace (global vs workspace-scoped) | Pending |
 | OD-7 | Participant auth (magic link / password / both) | Pending |
 
+## Platform admin
+
+`/admin` spans every tenant, so no workspace role can grant it. Access is an
+allow-list of email addresses in `PLATFORM_ADMIN_EMAIL` (comma-separated),
+checked in middleware and again in the admin layout. **An unset variable denies
+everyone** — the allow-list fails closed, so each environment has to set it
+separately. Currently `salman@actionera.com` in local development.
+
 ## Milestone Progress
 
 | # | Milestone | Status |

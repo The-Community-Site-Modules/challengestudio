@@ -37,11 +37,11 @@ by hand.
 | `20260812211832_init/` | Base tables | Applied (Prisma) |
 | `add_workspace_timezone.sql` | `workspaces.timezone` | ✅ Applied 2026-08-25 |
 | `add_challenge_fields.sql` | Wizard fields on `challenges` | ✅ Applied 2026-08-26 |
-| `add_workspace_invitations.sql` | Invitations table + RLS | ⚠️ **Not run** |
-| `rls_policies.sql` | RLS across the base tables | ⚠️ **Not run** — RLS is ON but zero policies exist |
+| `add_workspace_invitations.sql` | Invitations table + RLS | ✅ Applied 2026-08-26 |
+| `rls_policies.sql` | RLS across the base tables | ✅ Applied 2026-08-26 |
 | `auth_trigger.sql` | Auto-create profile on signup + backfill | ✅ Applied 2026-08-25 |
 | `auth_delete_trigger.sql` | Delete profile when account is deleted | ✅ Applied 2026-08-25 |
-| `fix_invitation_rls.sql` | **Drops a world-readable policy** | ⚠️ **Not yet run** |
+| `fix_invitation_rls.sql` | **Drops a world-readable policy** | ✅ Applied 2026-08-26 — run *after* add_workspace_invitations |
 
 ## What RLS does and does not cover
 
