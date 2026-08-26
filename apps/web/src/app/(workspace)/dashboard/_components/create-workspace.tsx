@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Loader2 } from 'lucide-react'
+import { CreateWorkspaceTile } from './workspace-browser'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,22 +51,14 @@ export function CreateWorkspace({ createAction, existingNames, variant = 'tile' 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {variant === 'tile' ? (
+          <CreateWorkspaceTile />
+        ) : (
           <button
             type="button"
-            className="flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-card/40 p-6 text-center transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Plus className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold text-foreground">New workspace</span>
-            <span className="max-w-[190px] text-xs text-muted-foreground">
-              Its own challenges, team, and branding.
-            </span>
+            <Plus className="h-4 w-4" /> Create workspace
           </button>
-        ) : (
-          <Button className="gap-1.5">
-            <Plus className="h-4 w-4" /> New workspace
-          </Button>
         )}
       </DialogTrigger>
 

@@ -1,149 +1,147 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, Zap, Users, Layers } from 'lucide-react'
-import { requireUser, getUserWorkspaces } from '@/lib/auth/session'
-import { WorkspaceHeader } from '@/components/workspace/workspace-header'
+import { LayoutGrid, Zap, Users, UserRound } from 'lucide-react'
+import { requireUser } from '@/lib/auth/session'
+import { cn } from '@/lib/utils'
 import { UrlToast } from '@/components/shared/url-toast'
+import { AppHeader } from '@/components/shared/app-header'
 import { createWorkspaceAction } from '../actions'
 import { CreateWorkspace } from './_components/create-workspace'
+import { WorkspaceBrowser, type WorkspaceCardData } from './_components/workspace-browser'
+import { getWorkspaceSummaries, getPickerTotals } from './_lib/queries'
 
-export const metadata = { title: 'Your workspaces — Challenge Studio' }
+export const metadata = { title: 'Workspaces — Challenge Studio' }
+export const dynamic = 'force-dynamic'
 
-// Decoration only — the workspace name and address carry the identity. Keyed by
-// position so a workspace keeps the same tile between visits.
-const TILES = [
-  'from-violet-500 to-indigo-500',
-  'from-orange-500 to-amber-500',
-  'from-sky-500 to-cyan-500',
-  'from-emerald-500 to-teal-500',
-  'from-rose-500 to-pink-500',
-  'from-blue-500 to-indigo-500',
-]
-
-const ROLE_STYLE: Record<string, string> = {
-  OWNER:  'bg-primary/10 text-primary',
-  ADMIN:  'bg-blue-50 text-blue-700',
-  MEMBER: 'bg-muted text-muted-foreground',
+/** Two digits below ten, the way a counter reads — 07 rather than 7. */
+function pad(n: number) {
+  return n < 10 ? `0${n}` : n.toLocaleString()
 }
 
 export default async function DashboardPage() {
   const user = await requireUser()
-  const memberships = await getUserWorkspaces(user.id)
+  const summaries = await getWorkspaceSummaries(user.id)
 
   // One workspace is not a choice — go straight to it.
-  if (memberships.length === 1) {
-    redirect(`/ws/${memberships[0]!.workspace.slug}`)
+  if (summaries.length === 1) {
+    redirect(`/ws/${summaries[0]!.slug}`)
   }
 
+  const totals = await getPickerTotals(user.id, summaries)
   const firstName = (user.fullName ?? user.email).split(/[\s@]/)[0]
-  const names = memberships.map((m) => m.workspace.name)
+  const names = summaries.map((s) => s.name)
+
+  const cards: WorkspaceCardData[] = summaries.map((s) => ({
+    ...s,
+    lastActivity: s.lastActivity.toISOString(),
+    joinedAt: s.joinedAt.toISOString(),
+  }))
+
+  const stats = [
+    { icon: LayoutGrid, label: 'Workspaces',         value: pad(totals.workspaces) },
+    { icon: Zap,        label: 'Active challenges',  value: pad(totals.activeChallenges) },
+    { icon: Users,      label: 'Team members',       value: pad(totals.teamMembers) },
+    { icon: UserRound,  label: 'Participants',       value: pad(totals.participants) },
+  ]
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-muted/30">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-slate-50">
       <UrlToast />
 
-      <WorkspaceHeader
+      <AppHeader
+        sectionLabel="Workspaces"
         userName={user.fullName ?? ''}
         userEmail={user.email}
         {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
       />
 
-      <main className="w-full flex-1 overflow-y-auto px-6 py-12">
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1280px] px-6 py-12 lg:px-8">
 
-        <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              {memberships.length > 0 ? `Welcome back, ${firstName}` : `Welcome, ${firstName}`}
-            </h1>
-            <p className="mt-1.5 text-muted-foreground">
-              {memberships.length > 0
-                ? 'Choose a workspace to keep building, or start a new one.'
-                : 'Create your first workspace to start building challenges.'}
-            </p>
-          </div>
-          {memberships.length > 0 && (
+          <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                Workspaces
+              </p>
+              <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900">
+                Welcome back, {firstName}
+              </h1>
+              <p className="mt-1.5 max-w-xl text-sm text-slate-500">
+                Choose a workspace to continue building, or create a new one to start
+                something new.
+              </p>
+            </div>
             <CreateWorkspace
               createAction={createWorkspaceAction}
               existingNames={names}
               variant="button"
             />
-          )}
-        </header>
+          </header>
 
-        {memberships.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-border bg-card/50 px-6 py-16 text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Zap className="h-7 w-7" />
-            </span>
-            <h2 className="mt-4 text-lg font-semibold text-foreground">No workspaces yet</h2>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-              A workspace holds your challenges, your team, and your branding.
-              Most people only ever need one.
-            </p>
-            <div className="mt-6 flex justify-center">
-              <CreateWorkspace
-                createAction={createWorkspaceAction}
-                existingNames={names}
-                variant="button"
-              />
+          {summaries.length === 0 ? (
+            <div className="mt-10 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+                <Zap className="h-5 w-5" />
+              </span>
+              <h2 className="mt-4 text-[17px] font-semibold tracking-tight text-slate-900">
+                No workspaces yet
+              </h2>
+              <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-500">
+                A workspace holds your challenges, your team, and your branding.
+                Most people only ever need one.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <CreateWorkspace
+                  createAction={createWorkspaceAction}
+                  existingNames={names}
+                  variant="button"
+                />
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {memberships.map(({ workspace, role }, i) => (
-              <Link
-                key={workspace.id}
-                href={`/ws/${workspace.slug}`}
-                className="group flex min-h-[168px] flex-col rounded-xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  {workspace.logoUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={workspace.logoUrl}
-                      alt=""
-                      className="h-11 w-11 shrink-0 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <span
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${TILES[i % TILES.length]} text-lg font-bold text-white`}
-                      aria-hidden="true"
-                    >
-                      {workspace.name.trim().charAt(0).toUpperCase() || 'W'}
+          ) : (
+            <>
+              {/* A strip rather than four cards — this is context for the choice
+                  below, not the subject of the page. */}
+              <dl className="mt-8 grid grid-cols-2 rounded-xl border border-slate-200 bg-white lg:grid-cols-4">
+                {stats.map(({ icon: Icon, label, value }, i) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      'flex items-center gap-3 px-5 py-4',
+                      // Two columns: a rule between the pair, and above the
+                      // second row. Four columns: rules between all of them and
+                      // none above.
+                      i % 2 === 1 && 'border-l border-slate-100',
+                      i > 1 && 'border-t border-slate-100 lg:border-t-0',
+                      i > 0 && 'lg:border-l lg:border-slate-100'
+                    )}
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+                      <Icon className="h-4 w-4" />
                     </span>
-                  )}
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${ROLE_STYLE[role] ?? ROLE_STYLE.MEMBER}`}>
-                    {role.toLowerCase()}
-                  </span>
-                </div>
-
-                <h2 className="mt-4 truncate font-semibold text-foreground">{workspace.name}</h2>
-                {/* The address distinguishes same-named workspaces, so it is not
-                    decoration — it is the only thing telling them apart. */}
-                <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                  /ws/{workspace.slug}
-                </p>
-
-                <dl className="mt-auto flex items-center gap-4 pt-4 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5" />
-                    <dt className="sr-only">Challenges</dt>
-                    <dd className="tabular-nums">{workspace._count.challenges}</dd>
+                    <div className="min-w-0">
+                      <dd className="text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+                        {value}
+                      </dd>
+                      <dt className="mt-1 truncate text-[13px] text-slate-500">{label}</dt>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5" />
-                    <dt className="sr-only">Members</dt>
-                    <dd className="tabular-nums">{workspace._count.members}</dd>
-                  </div>
-                  <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-                </dl>
-              </Link>
-            ))}
+                ))}
+              </dl>
 
-            <CreateWorkspace createAction={createWorkspaceAction} existingNames={names} />
-          </div>
-        )}
+              <div className="mt-10">
+                <WorkspaceBrowser
+                  workspaces={cards}
+                  onCreate={
+                    <CreateWorkspace
+                      createAction={createWorkspaceAction}
+                      existingNames={names}
+                      variant="tile"
+                    />
+                  }
+                />
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>
