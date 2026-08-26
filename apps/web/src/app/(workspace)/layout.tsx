@@ -14,5 +14,5 @@
 // Anchoring here contains every absolute descendant that has no nearer one.
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  return <div className="relative flex h-screen overflow-hidden">{children}</div>
+  return <div className="relative flex h-screen flex-col overflow-hidden lg:flex-row">{children}</div>
 }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { UserRound, AtSign, ShieldCheck, LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { Logo } from '@/components/shared/logo'
 import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
 
@@ -73,7 +74,7 @@ export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
   }
 
   return (
-    <aside className="flex h-full w-[255px] shrink-0 flex-col border-r border-border bg-card">
+    <SidebarFrame label="Settings navigation">
 
       {/* Brand — the workspace sidebar puts the workspace here; outside a
           workspace the product is what you are in. */}
@@ -136,6 +137,6 @@ export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
         {...(userAvatar ? { userAvatar } : {})}
         {...(userEmail ? { subLabel: userEmail } : {})}
       />
-    </aside>
+    </SidebarFrame>
   )
 }

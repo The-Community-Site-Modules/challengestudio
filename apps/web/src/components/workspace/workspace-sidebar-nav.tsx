@@ -5,10 +5,15 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Zap, Users, BarChart3, Mail, LayoutTemplate,
   Settings, Trophy, Radio, Gift, Inbox, Briefcase,
-  LucideIcon,
+  LucideIcon, ChevronsUpDown, Check, LayoutGrid,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface NavItem {
   label: string
@@ -55,6 +60,8 @@ const challengeNav: NavItem[] = [
 export interface WorkspaceSidebarNavProps {
   workspaceSlug: string
   workspaceName: string
+  /** Every workspace this person belongs to, for the switcher. */
+  workspaces?: { id: string; name: string; slug: string }[]
   challengeSlug?: string
   challengeTitle?: string
   userName?: string
@@ -113,6 +120,7 @@ function NavLink({ item, base, pathname }: { item: NavItem; base: string; pathna
 export function WorkspaceSidebarNav({
   workspaceSlug,
   workspaceName,
+  workspaces = [],
   challengeSlug,
   challengeTitle,
   userName = '',
@@ -129,16 +137,52 @@ export function WorkspaceSidebarNav({
   )
 
   return (
-    <aside className="flex h-full w-[255px] shrink-0 flex-col border-r border-border bg-card">
+    <SidebarFrame label="Workspace navigation">
 
-      {/* Workspace mark */}
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-          {workspaceName.trim().charAt(0).toUpperCase() || 'W'}
-        </div>
-        <span className="truncate text-[17px] font-semibold tracking-tight text-foreground">
-          {workspaceName}
-        </span>
+      {/* Workspace switcher. This block used to be a plain label, which left
+          no way out of a workspace short of editing the URL. */}
+      <div className="px-3 pt-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-indigo-400">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+              {workspaceName.trim().charAt(0).toUpperCase() || 'W'}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-semibold tracking-tight text-foreground">
+                {workspaceName}
+              </span>
+              <span className="block text-[11px] text-muted-foreground">Workspace</span>
+            </span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="start" className="w-[231px]">
+            {workspaces.length > 1 && (
+              <>
+                <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Switch workspace
+                </DropdownMenuLabel>
+                {workspaces.map((ws) => (
+                  <DropdownMenuItem key={ws.id} asChild>
+                    <Link href={`/ws/${ws.slug}`}>
+                      <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                        {ws.name.trim().charAt(0).toUpperCase() || 'W'}
+                      </span>
+                      <span className="truncate">{ws.name}</span>
+                      {ws.slug === workspaceSlug && <Check className="ml-auto h-4 w-4 text-primary" />}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard">
+                <LayoutGrid className="mr-2 h-4 w-4" /> All workspaces
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
@@ -183,6 +227,6 @@ export function WorkspaceSidebarNav({
         subLabel={workspaceName}
         secondaryItem={{ href: `${wsBase}/settings`, label: 'Workspace settings', Icon: Settings }}
       />
-    </aside>
+    </SidebarFrame>
   )
 }

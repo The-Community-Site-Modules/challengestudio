@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { LayoutGrid, Settings, LifeBuoy, Plus, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { Logo } from '@/components/shared/logo'
 import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
 
@@ -60,7 +61,7 @@ export function GlobalSidebar({
   workspaces, createSlot, userName, userEmail, userAvatar,
 }: Props) {
   return (
-    <aside className="hidden h-full w-[255px] shrink-0 flex-col border-r border-border bg-card lg:flex">
+    <SidebarFrame label="Main navigation">
 
       <Link
         href="/dashboard"
@@ -125,7 +126,7 @@ export function GlobalSidebar({
         {...(userAvatar ? { userAvatar } : {})}
         {...(userEmail ? { subLabel: userEmail } : {})}
       />
-    </aside>
+    </SidebarFrame>
   )
 }
 

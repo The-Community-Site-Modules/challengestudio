@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth/session'
+import { db } from '@/lib/db'
 import { WorkspaceSidebarNav } from './workspace-sidebar-nav'
 
 interface Props {
@@ -21,9 +22,20 @@ interface Props {
 export async function WorkspaceSidebar(props: Props) {
   const user = await getCurrentUser()
 
+  // Every workspace this person belongs to, for the switcher. Without it the
+  // only way back to the workspace list was to edit the URL.
+  const memberships = user
+    ? await db.workspaceMember.findMany({
+        where:   { profileId: user.id },
+        select:  { workspace: { select: { id: true, name: true, slug: true } } },
+        orderBy: { createdAt: 'asc' },
+      })
+    : []
+
   return (
     <WorkspaceSidebarNav
       {...props}
+      workspaces={memberships.map((m) => m.workspace)}
       userName={user?.fullName ?? ''}
       userEmail={user?.email ?? ''}
       {...(user?.avatarUrl ? { userAvatar: user.avatarUrl } : {})}

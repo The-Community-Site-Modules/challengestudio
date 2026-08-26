@@ -15,7 +15,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const user = await getCurrentUser()
 
   return (
-    <div className="relative flex h-screen overflow-hidden">
+    <div className="relative flex h-screen flex-col overflow-hidden lg:flex-row">
       <SettingsNav
         userName={user?.fullName ?? ''}
         userEmail={user?.email ?? ''}

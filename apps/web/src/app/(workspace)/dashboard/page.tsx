@@ -124,7 +124,7 @@ export default async function DashboardPage() {
                       <dd className="text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
                         {value}
                       </dd>
-                      <dt className="mt-1 truncate text-[13px] text-slate-500">{label}</dt>
+                      <dt className="mt-1 text-[13px] leading-tight text-slate-500">{label}</dt>
                     </div>
                   </div>
                 ))}
