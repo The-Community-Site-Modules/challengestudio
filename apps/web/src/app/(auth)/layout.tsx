@@ -1,16 +1,13 @@
 import Link from 'next/link'
-import { Zap } from 'lucide-react'
+import { Logo } from '@/components/shared/logo'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       {/* Top nav */}
       <header className="flex h-14 items-center border-b border-border bg-background px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-            <Zap className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-foreground">Challenge Studio</span>
+        <Link href="/" className="flex items-center">
+          <Logo className="h-7" priority />
         </Link>
       </header>
 

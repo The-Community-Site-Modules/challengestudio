@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle, Users, Zap, Trophy, BarChart3, Heart, Building
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Logo } from '@/components/shared/logo'
 
 // ─── Feature data ─────────────────────────────────────────────────────────
 const features = [
@@ -292,12 +293,7 @@ export default function HomePage() {
       <footer className="border-t border-border bg-background py-12">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-                <Zap className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-foreground">Challenge Studio</span>
-            </div>
+            <Logo className="h-7" />
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
               <Link href="/features" className="hover:text-foreground">Features</Link>
               <Link href="/pricing" className="hover:text-foreground">Pricing</Link>

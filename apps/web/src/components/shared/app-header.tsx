@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { useTransition } from 'react'
-import { Bell, HelpCircle, LogOut, User, Settings, Zap } from 'lucide-react'
+import { Bell, HelpCircle, LogOut, User, Settings } from 'lucide-react'
 import { signOutAction } from '@/app/(auth)/auth/actions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Logo } from '@/components/shared/logo'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -36,13 +37,8 @@ export function AppHeader({ sectionLabel, userName = '', userEmail = '', userAva
 
   return (
     <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6 lg:px-8">
-      <Link href="/dashboard" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600">
-          <Zap className="h-4 w-4 text-white" />
-        </span>
-        <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-slate-900">
-          Challenge Studio
-        </span>
+      <Link href="/dashboard" className="flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+        <Logo className="h-8" priority />
       </Link>
 
       {/* Dropped on narrow screens — the page heading says the same thing, and

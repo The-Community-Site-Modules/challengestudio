@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Building2, Users, Zap,
-  Flag, HeadphonesIcon, ClipboardList, Activity, Zap as Logo,
+  Flag, HeadphonesIcon, ClipboardList, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/shared/logo'
 
 const NAV = [
   { label: 'Overview',    href: '/admin',            icon: LayoutDashboard },
@@ -25,14 +26,11 @@ export function AdminSidebar() {
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-border bg-card">
       {/* Brand */}
-      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-          <Logo className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-foreground">Challenge Studio</p>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Platform Admin</p>
-        </div>
+      <div className="border-b border-border px-4 py-4">
+        <Logo className="h-6" priority />
+        <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Platform Admin
+        </p>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
