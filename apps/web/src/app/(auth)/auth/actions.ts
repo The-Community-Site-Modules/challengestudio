@@ -37,13 +37,18 @@ export async function signInAction(formData: FormData) {
   const email    = (formData.get('email')    as string).trim()
   const password = formData.get('password') as string
 
+  const next = safeNext(formData.get('next') as string | null)
+
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
-    return redirect(`/auth/login?error=${encodeURIComponent(error.message)}`)
+    const back = next ? `&next=${encodeURIComponent(next)}` : ''
+    return redirect(`/auth/login?error=${encodeURIComponent(error.message)}${back}`)
   }
 
-  redirect('/dashboard?message=' + encodeURIComponent('Welcome back! You are now signed in.'))
+  // Straight to where they were headed — bouncing an invitation link through
+  // the dashboard loses it.
+  redirect(next ?? '/dashboard?message=' + encodeURIComponent('Welcome back! You are now signed in.'))
 }
 
 // ── Magic Link ────────────────────────────────────────────────────────────
@@ -53,10 +58,13 @@ export async function signInWithMagicLinkAction(formData: FormData) {
 
   const email = (formData.get('email') as string).trim()
 
+  const next = safeNext(formData.get('next') as string | null)
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+        + (next ? `?next=${encodeURIComponent(next)}` : ''),
     },
   })
 
@@ -108,10 +116,31 @@ export async function resetPasswordAction(formData: FormData) {
 
 // ── Sign Out ──────────────────────────────────────────────────────────────
 
-export async function signOutAction() {
+/**
+ * Sign out, then land on the login page.
+ *
+ * `next` is where to go after signing back in — used by the invitation page,
+ * where the token belongs to a different address than the current session.
+ * Only same-site paths are honoured: the value reaches this from a link, and
+ * an absolute URL here would be an open redirect.
+ */
+export async function signOutAction(next?: string) {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/auth/login')
+  redirect(safeNext(next) ? `/auth/login?next=${encodeURIComponent(next!)}` : '/auth/login')
+}
+
+/**
+ * A path on this site: starts with a single slash, never `//` or a scheme.
+ *
+ * Not exported — every export from a 'use server' module has to be an async
+ * server action, and this is a plain helper.
+ */
+function safeNext(value: string | null | undefined): string | null {
+  if (!value) return null
+  if (!value.startsWith('/')) return null
+  if (value.startsWith('//')) return null
+  return value
 }
 
 // ── Resend Verification Email ─────────────────────────────────────────────

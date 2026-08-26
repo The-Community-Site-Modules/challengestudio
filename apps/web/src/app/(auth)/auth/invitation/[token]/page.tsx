@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Users, AlertTriangle } from 'lucide-react'
+import { Users, AlertTriangle, UserX } from 'lucide-react'
 import { Button }      from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator }   from '@/components/ui/separator'
 import { db }          from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { acceptInvitationAction } from '@/app/(workspace)/actions'
+import { signOutAction } from '@/app/(auth)/auth/actions'
 
 interface Props {
   params: Promise<{ token: string }>
@@ -88,6 +89,19 @@ export default async function InvitationPage({ params }: Props) {
     await acceptInvitationAction(token)
   }
 
+  // The token is bound to one address. Signing out first is what makes the
+  // "sign in as someone else" route work at all: middleware sends an already
+  // authenticated visitor away from /auth/login, so offering that link while
+  // still signed in was a loop.
+  async function switchAccount() {
+    'use server'
+    await signOutAction(`/auth/invitation/${token}`)
+  }
+
+  const wrongAccount =
+    currentUser !== null &&
+    currentUser.email.toLowerCase() !== invitation.email.toLowerCase()
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="space-y-1 pb-4">
@@ -105,8 +119,38 @@ export default async function InvitationPage({ params }: Props) {
 
       <CardContent className="space-y-4">
 
-        {currentUser ? (
-          // ── Signed in — show accept button ──────────────────────────────
+        {wrongAccount ? (
+          // ── Signed in as somebody else ──────────────────────────────────
+          // Catching this here rather than in the action matters: the action
+          // could only bounce them to the dashboard with an error, which left
+          // the invitation unreachable and nothing to click.
+          <>
+            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <UserX className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div className="min-w-0 text-sm">
+                <p className="font-medium text-amber-900">This invitation is for someone else</p>
+                <p className="mt-1 text-amber-800">
+                  It was sent to{' '}
+                  <span className="font-medium break-all">{invitation.email}</span>, but you are
+                  signed in as{' '}
+                  <span className="font-medium break-all">{currentUser!.email}</span>.
+                </p>
+              </div>
+            </div>
+
+            <form action={switchAccount}>
+              <Button type="submit" className="w-full" size="lg">
+                Sign out and sign in as {invitation.email}
+              </Button>
+            </form>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Wrong address? Ask {inviterName} to send the invitation to{' '}
+              <span className="font-medium text-foreground break-all">{currentUser!.email}</span> instead.
+            </p>
+          </>
+        ) : currentUser ? (
+          // ── Signed in as the invited address — show accept button ───────
           <>
             <div className="rounded-lg border border-border bg-muted/30 p-4">
               <p className="text-xs text-muted-foreground">Accepting as</p>
@@ -123,15 +167,11 @@ export default async function InvitationPage({ params }: Props) {
               </Button>
             </form>
 
-            <p className="text-center text-xs text-muted-foreground">
-              Not you?{' '}
-              <Link
-                href={`/auth/login?callbackUrl=/auth/invitation/${token}`}
-                className="text-primary hover:underline"
-              >
-                Sign in with a different account
-              </Link>
-            </p>
+            <form action={switchAccount}>
+              <button type="submit" className="w-full text-center text-xs text-muted-foreground hover:text-foreground">
+                Not you? <span className="text-primary underline-offset-2 hover:underline">Sign in with a different account</span>
+              </button>
+            </form>
           </>
         ) : (
           // ── Not signed in — sign in or create account ───────────────────
@@ -143,7 +183,7 @@ export default async function InvitationPage({ params }: Props) {
             </div>
 
             <Button asChild className="w-full" size="lg">
-              <Link href={`/auth/login?callbackUrl=/auth/invitation/${token}`}>
+              <Link href={`/auth/login?next=/auth/invitation/${token}`}>
                 Sign in to accept
               </Link>
             </Button>
@@ -156,7 +196,7 @@ export default async function InvitationPage({ params }: Props) {
             </div>
 
             <Button asChild variant="outline" className="w-full" size="lg">
-              <Link href={`/auth/signup?callbackUrl=/auth/invitation/${token}&email=${encodeURIComponent(invitation.email)}`}>
+              <Link href={`/auth/signup?next=/auth/invitation/${token}&email=${encodeURIComponent(invitation.email)}`}>
                 Create account &amp; accept
               </Link>
             </Button>
@@ -164,7 +204,7 @@ export default async function InvitationPage({ params }: Props) {
             <p className="text-center text-xs text-muted-foreground">
               Already have an account?{' '}
               <Link
-                href={`/auth/login?callbackUrl=/auth/invitation/${token}`}
+                href={`/auth/login?next=/auth/invitation/${token}`}
                 className="text-primary hover:underline"
               >
                 Sign in

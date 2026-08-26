@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
@@ -21,15 +21,26 @@ export default function LoginPage() {
   const [isPending,    startTransition]   = useTransition()
   const [isMagic,      startMagicTransition] = useTransition()
 
-  // Show toast from URL params on mount
+  // Show toast from URL params on mount. The ref keeps Strict Mode's double
+  // effect from showing everything twice in development.
+  const shownToast = useRef<string | null>(null)
   useEffect(() => {
+    const key = `${error ?? ''}|${message ?? ''}`
+    if (key === '|' || shownToast.current === key) return
+    shownToast.current = key
     if (error)   toast.error(decodeURIComponent(error))
     if (message) toast.success(decodeURIComponent(message))
   }, [error, message])
 
+  // Where to land after signing in. An invitation link sends people here when
+  // the token belongs to a different address than the open session, and losing
+  // it would leave them back at the dashboard with no way to the invitation.
+  const next = searchParams.get('next')
+
   function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+    if (next) formData.set('next', next)
     startTransition(async () => {
       await signInAction(formData)
     })
@@ -38,6 +49,7 @@ export default function LoginPage() {
   function handleMagicLink(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+    if (next) formData.set('next', next)
     startMagicTransition(async () => {
       await signInWithMagicLinkAction(formData)
       toast.success('Magic link sent! Check your inbox.')
