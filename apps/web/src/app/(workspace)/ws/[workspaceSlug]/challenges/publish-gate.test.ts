@@ -31,7 +31,7 @@ vi.mock('@/lib/email', () => ({
   renderWorkspaceInvitation: () => ({}),
 }))
 
-const { publishChallengeAction } = await import('./actions')
+const { publishChallengeAction, unpublishChallengeAction } = await import('./actions')
 
 /** A challenge that should publish cleanly; tests break one thing at a time. */
 const READY = {
@@ -162,5 +162,56 @@ describe('reporting', () => {
     withChallenge({ promise: null, description: null, startsAt: null, steps: [] })
     const { errors } = await publish()
     expect(errors.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+describe('unpublish', () => {
+  // Publishing used to be a one-way door: a challenge that went live with a
+  // mistake in it could not be pulled back to draft.
+  const live = (patch: Record<string, unknown> = {}) => {
+    db.challenge.findUnique.mockResolvedValue({ status: 'PUBLISHED', workspaceId: 'ws1', ...patch })
+    db.challenge.update.mockResolvedValue({ slug: '30-day-design-sprint' })
+  }
+
+  async function unpublish() {
+    try {
+      return await unpublishChallengeAction('ch1', 'designify')
+    } catch (e) {
+      if (e instanceof RedirectError) return { success: false, error: 'redirected' }
+      throw e
+    }
+  }
+
+  it('takes a published challenge back to draft', async () => {
+    live()
+    expect((await unpublish()).success).toBe(true)
+    expect(db.challenge.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'DRAFT' } })
+    )
+  })
+
+  it('works on an active challenge too', async () => {
+    live({ status: 'ACTIVE' })
+    expect((await unpublish()).success).toBe(true)
+  })
+
+  it('refuses a challenge that is already a draft', async () => {
+    live({ status: 'DRAFT' })
+    expect((await unpublish()).success).toBe(false)
+    expect(db.challenge.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses a completed challenge — closing is not undone here', async () => {
+    live({ status: 'COMPLETED' })
+    expect((await unpublish()).success).toBe(false)
+    expect(db.challenge.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses a challenge belonging to another workspace', async () => {
+    // The permission was checked against ws1; the write must be scoped to it
+    // rather than trusting the bare row id.
+    live({ workspaceId: 'ws-someone-else' })
+    expect((await unpublish()).success).toBe(false)
+    expect(db.challenge.update).not.toHaveBeenCalled()
   })
 })

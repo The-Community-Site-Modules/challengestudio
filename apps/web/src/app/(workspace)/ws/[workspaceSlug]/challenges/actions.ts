@@ -258,6 +258,49 @@ export async function publishChallengeAction(challengeId: string, workspaceSlug:
   return { success: true, errors: [] }
 }
 
+// ─── Unpublish Challenge ─────────────────────────────────────────────────────
+
+/**
+ * Take a published challenge back to draft.
+ *
+ * Publishing was a one-way door: DRAFT -> PUBLISHED -> COMPLETED, with no way
+ * back. A creator who published with a mistake in it had no way to pull the
+ * public page down and fix it.
+ *
+ * Reuses challenge.publish — deciding a challenge is not public is the same
+ * call as deciding it is.
+ */
+export async function unpublishChallengeAction(challengeId: string, workspaceSlug: string) {
+  const user = await requireUser()
+  const ws   = await resolveWorkspace(workspaceSlug)
+  await requirePermission(user.id, ws.id, 'challenge.publish')
+
+  const challenge = await db.challenge.findUnique({
+    where:  { id: challengeId },
+    select: { status: true, workspaceId: true },
+  })
+  if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
+
+  // Scope the write to the workspace the permission was checked against, not
+  // the bare row id.
+  if (challenge.workspaceId !== ws.id) redirect(`/ws/${workspaceSlug}/challenges`)
+
+  // A finished challenge stays finished; reopening it is closeChallenge's
+  // inverse, not this one.
+  if (challenge.status !== 'PUBLISHED' && challenge.status !== 'ACTIVE') {
+    return { success: false, error: 'Only a published challenge can be unpublished.' }
+  }
+
+  const updated = await db.challenge.update({
+    where: { id: challengeId },
+    data:  { status: 'DRAFT' as never },
+  })
+
+  revalidatePath(`/ws/${workspaceSlug}/challenges`)
+  revalidatePath(`/ws/${workspaceSlug}/challenges/${updated.slug}/builder`)
+  return { success: true }
+}
+
 // ─── Close Challenge ─────────────────────────────────────────────────────────
 
 export async function closeChallengeAction(challengeId: string, workspaceSlug: string) {

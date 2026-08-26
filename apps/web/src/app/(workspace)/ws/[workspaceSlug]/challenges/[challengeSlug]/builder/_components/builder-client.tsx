@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 import { useState, useTransition } from 'react'
-import { Eye, Send, Loader2, AlertCircle } from 'lucide-react'
+import { Eye, Send, Loader2, AlertCircle, Undo2 } from 'lucide-react'
 import { Button }    from '@/components/ui/button'
 import { Input }     from '@/components/ui/input'
 import { Label }     from '@/components/ui/label'
@@ -17,6 +17,7 @@ import { ContentBlockEditor, type BlockItem } from '@/components/challenge/conte
 import {
   addStepAction, updateStepAction, deleteStepAction,
   reorderStepsAction, saveBlocksAction, publishChallengeAction,
+  unpublishChallengeAction,
 } from '../../../actions'
 
 interface Props {
@@ -132,7 +133,16 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     })
   }
 
-  const canPublish = challenge.status !== 'PUBLISHED' && challenge.status !== 'ACTIVE'
+  // ── Unpublish ────────────────────────────────────────────────────────
+  function handleUnpublish() {
+    startPublishing(async () => {
+      const result = await unpublishChallengeAction(challenge.id, ws)
+      if (!result.success && result.error) setPublishErrors([result.error])
+    })
+  }
+
+  const isLive     = challenge.status === 'PUBLISHED' || challenge.status === 'ACTIVE'
+  const canPublish = !isLive
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -160,11 +170,25 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
               <Eye className="h-4 w-4" /> Preview
             </Link>
           </Button>
-          {canPublish && (
+          {canPublish ? (
             <Button size="sm" className="gap-1.5" onClick={handlePublish} disabled={isPublishing}>
               {isPublishing
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Publishing…</>
                 : <><Send className="h-4 w-4" /> Publish</>}
+            </Button>
+          ) : (
+            // Without this the public page could not be taken down to fix a
+            // mistake — publishing was a one-way door.
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={handleUnpublish}
+              disabled={isPublishing}
+            >
+              {isPublishing
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Unpublishing…</>
+                : <><Undo2 className="h-4 w-4" /> Unpublish</>}
             </Button>
           )}
         </div>
