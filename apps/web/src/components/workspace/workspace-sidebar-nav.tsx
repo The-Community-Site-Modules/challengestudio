@@ -120,7 +120,7 @@ export function WorkspaceSidebarNav({
   )
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[255px] shrink-0 flex-col border-r border-border bg-card">
+    <aside className="flex h-full w-[255px] shrink-0 flex-col border-r border-border bg-card">
 
       {/* Workspace mark */}
       <div className="flex items-center gap-2.5 px-5 py-5">

@@ -64,3 +64,15 @@
     font-family: var(--font-heading);
   }
 }
+
+@layer base {
+  /* Sonner renders its live region as a body-level <section> in normal flow.
+     On a shell that is exactly one viewport tall that still contributes to the
+     document height, so the page gets a stray scrollbar and scrolls behind the
+     fixed sidebar. It is a notification layer — take it out of flow. */
+  [data-react-aria-top-layer] {
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+}

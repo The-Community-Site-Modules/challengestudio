@@ -23,7 +23,7 @@ export function AdminSidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-border bg-card">
+    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-border bg-card">
       {/* Brand */}
       <div className="flex items-center gap-2 border-b border-border px-4 py-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">

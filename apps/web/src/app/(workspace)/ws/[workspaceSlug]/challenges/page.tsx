@@ -126,7 +126,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
               title={c.title}
               promise={c.promise ?? c.description ?? ''}
               mode={(MODE_MAP[c.mode as string] ?? 'evergreen') as 'marketing' | 'evergreen' | 'cohort' | 'internal' | 'paid' | 'team' | 'habit' | 'milestone'}
-              status={(STATUS_MAP[c.status as string] ?? 'draft') as 'draft' | 'scheduled' | 'published' | 'closed' | 'completed' | 'archived'}
+              status={(STATUS_MAP[c.status as string] ?? 'draft') as 'draft' | 'scheduled' | 'published' | 'active' | 'closed' | 'completed' | 'archived'}
               participantCount={c._count.participants}
               startsAt={c.startsAt ? c.startsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
             />

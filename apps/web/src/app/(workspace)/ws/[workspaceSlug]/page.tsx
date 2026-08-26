@@ -147,7 +147,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
   ]
 
   return (
-    <div className="flex flex-1">
+    <div className="flex h-full min-h-0 flex-1 overflow-hidden">
       <WorkspaceSidebar
         workspaceSlug={workspaceSlug}
         workspaceName={workspace.name}

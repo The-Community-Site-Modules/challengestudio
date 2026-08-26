@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-type ChallengeStatus = 'draft' | 'scheduled' | 'published' | 'closed' | 'completed' | 'archived'
+type ChallengeStatus = 'draft' | 'scheduled' | 'published' | 'active' | 'closed' | 'completed' | 'archived'
 type ChallengeMode = 'marketing' | 'evergreen' | 'cohort' | 'internal' | 'paid' | 'team' | 'habit' | 'milestone'
 
 interface ChallengeCardProps {
@@ -26,14 +26,23 @@ interface ChallengeCardProps {
   workspaceSlug: string
 }
 
-const statusConfig: Record<ChallengeStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning' }> = {
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning'
+
+// 'active' was missing, which is what the ACTIVE enum maps to. One unknown
+// value destructured straight off this object took the whole page down with
+// "Cannot destructure property 'label' of undefined" — so there is a fallback
+// below as well.
+const statusConfig: Record<ChallengeStatus, { label: string; variant: BadgeVariant }> = {
   draft:     { label: 'Draft',     variant: 'secondary' },
   scheduled: { label: 'Scheduled', variant: 'warning' },
-  published: { label: 'Live',      variant: 'success' },
+  published: { label: 'Scheduled', variant: 'warning' },
+  active:    { label: 'Live',      variant: 'success' },
   closed:    { label: 'Closed',    variant: 'outline' },
   completed: { label: 'Completed', variant: 'outline' },
   archived:  { label: 'Archived',  variant: 'secondary' },
 }
+
+const UNKNOWN_STATUS: { label: string; variant: BadgeVariant } = { label: 'Unknown', variant: 'secondary' }
 
 const modeLabels: Record<ChallengeMode, string> = {
   marketing: 'Marketing',
@@ -50,7 +59,7 @@ export function ChallengeCard({
   slug, title, promise, mode, status,
   participantCount, completionRate, startsAt, workspaceSlug,
 }: ChallengeCardProps) {
-  const { label, variant } = statusConfig[status]
+  const { label, variant } = statusConfig[status] ?? UNKNOWN_STATUS
   const baseHref = `/ws/${workspaceSlug}/challenges/${slug}`
 
   return (
@@ -82,7 +91,7 @@ export function ChallengeCard({
                 <Edit className="mr-2 h-4 w-4" /> Edit builder
               </Link>
             </DropdownMenuItem>
-            {status === 'published' && (
+            {(status === 'published' || status === 'active') && (
               <DropdownMenuItem asChild>
                 <Link href={`/c/${slug}`} target="_blank">
                   <ExternalLink className="mr-2 h-4 w-4" /> View public page

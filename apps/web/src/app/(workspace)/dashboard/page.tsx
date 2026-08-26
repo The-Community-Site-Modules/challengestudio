@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   const names = memberships.map((m) => m.workspace.name)
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/30">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-muted/30">
       <UrlToast />
 
       <WorkspaceHeader
@@ -48,8 +48,9 @@ export default async function DashboardPage() {
         {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
       />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
+      <main className="w-full flex-1 overflow-y-auto px-6 py-12">
 
+        <div className="mx-auto w-full max-w-5xl">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -143,6 +144,7 @@ export default async function DashboardPage() {
             <CreateWorkspace createAction={createWorkspaceAction} existingNames={names} />
           </div>
         )}
+        </div>
       </main>
     </div>
   )
