@@ -33,7 +33,7 @@ export default async function WorkspaceSettingsPage({ params, searchParams }: Pr
   ])
 
   return (
-    <div className="flex flex-1">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
       <WorkspaceSidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
 
       <main className="flex-1 overflow-y-auto p-8">

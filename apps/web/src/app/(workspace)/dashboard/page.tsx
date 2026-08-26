@@ -51,6 +51,7 @@ export default async function DashboardPage() {
           belongs to <main>, so the two levels read as one application. */}
       <GlobalSidebar
         workspaces={summaries.map((s) => ({ id: s.id, name: s.name, slug: s.slug }))}
+        {...(summaries[0] ? { primarySlug: summaries[0].slug } : {})}
         userName={user.fullName ?? ''}
         userEmail={user.email}
         {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}

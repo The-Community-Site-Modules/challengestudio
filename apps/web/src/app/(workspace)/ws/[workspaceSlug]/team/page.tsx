@@ -55,7 +55,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
   const expiredInvitations = invitations.filter(i => i.expiresAt <  new Date())
 
   return (
-    <div className="flex flex-1">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
       <WorkspaceSidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-4xl">

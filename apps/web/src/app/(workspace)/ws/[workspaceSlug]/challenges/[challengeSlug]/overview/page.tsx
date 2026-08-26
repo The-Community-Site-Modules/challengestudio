@@ -33,7 +33,7 @@ export default async function ChallengeOverviewPage({ params }: Props) {
   const base = `/ws/${workspaceSlug}/challenges/${challengeSlug}`
 
   return (
-    <div className="flex flex-1">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
       <WorkspaceSidebar
         workspaceSlug={workspaceSlug}
         workspaceName="Acme Coaching"

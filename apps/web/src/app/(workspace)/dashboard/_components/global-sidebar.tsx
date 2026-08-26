@@ -1,7 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { LayoutGrid, Settings, LifeBuoy, Plus, type LucideIcon } from 'lucide-react'
+import {
+  LayoutGrid, LayoutDashboard, Settings, LifeBuoy, Plus, Zap, FileText,
+  Users, UserRoundCog, BarChart3, type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { Logo } from '@/components/shared/logo'
@@ -27,6 +30,12 @@ interface WorkspaceLink {
 
 interface Props {
   workspaces: WorkspaceLink[]
+  /**
+   * Where the workspace-level items point: the most recently active workspace.
+   * Challenges, Content and the rest are workspace concepts, so without one
+   * there is nowhere for them to go and they are left out.
+   */
+  primarySlug?: string
   /** Rendered in the sidebar's create slot — a dialog trigger from the page. */
   createSlot?: React.ReactNode
   userName?: string
@@ -58,8 +67,10 @@ function Item({ href, label, Icon, active = false }: {
 }
 
 export function GlobalSidebar({
-  workspaces, createSlot, userName, userEmail, userAvatar,
+  workspaces, createSlot, primarySlug, userName, userEmail, userAvatar,
 }: Props) {
+  const ws = primarySlug ? `/ws/${primarySlug}` : null
+
   return (
     <SidebarFrame label="Main navigation">
 
@@ -73,10 +84,48 @@ export function GlobalSidebar({
         </span>
       </Link>
 
+      {ws && (
+        <div className="px-3 pb-1">
+          <Link
+            href={`${ws}/challenges/new`}
+            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Create challenge
+          </Link>
+        </div>
+      )}
+
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4">
+        <p className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Main
+        </p>
         <div className="space-y-0.5">
+          {ws && <Item href={ws} label="Dashboard" Icon={LayoutDashboard} />}
           <Item href="/dashboard" label="Workspaces" Icon={LayoutGrid} active />
         </div>
+
+        {/* Workspace concepts, pointed at the workspace you were last in. They
+            are hidden entirely when you have none, rather than linking nowhere. */}
+        {ws && (
+          <>
+            <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Management
+            </p>
+            <div className="space-y-0.5">
+              <Item href={`${ws}/challenges`}   label="Challenges"   Icon={Zap} />
+              <Item href={`${ws}/content`}      label="Content"      Icon={FileText} />
+              <Item href={`${ws}/participants`} label="Participants" Icon={Users} />
+              <Item href={`${ws}/team`}         label="Team"         Icon={UserRoundCog} />
+            </div>
+
+            <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Insights
+            </p>
+            <div className="space-y-0.5">
+              <Item href={`${ws}/analytics`} label="Analytics" Icon={BarChart3} />
+            </div>
+          </>
+        )}
 
         {workspaces.length > 0 && (
           <>
@@ -103,7 +152,7 @@ export function GlobalSidebar({
         {createSlot && <div className="px-1 pt-2">{createSlot}</div>}
 
         <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Account
+          System
         </p>
         <div className="space-y-0.5">
           <Item href="/account/profile" label="Settings" Icon={Settings} />
@@ -116,7 +165,7 @@ export function GlobalSidebar({
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <LifeBuoy className="h-[18px] w-[18px] shrink-0" />
-          <span className="truncate">Help &amp; support</span>
+          <span className="truncate">Help Center</span>
         </a>
       </div>
 

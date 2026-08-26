@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Zap, Users, BarChart3, Mail, LayoutTemplate,
   Settings, Trophy, Radio, Gift, Inbox, Briefcase,
-  LucideIcon, ChevronsUpDown, Check, LayoutGrid,
+  LucideIcon, ChevronsUpDown, Check, LayoutGrid, FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
@@ -30,11 +30,12 @@ interface NavItem {
 }
 
 const workspaceNav: NavItem[] = [
-  { label: 'Dashboard',    href: '',              Icon: LayoutDashboard },
+  { label: 'Overview',     href: '',              Icon: LayoutDashboard },
   { label: 'Challenges',   href: '/challenges',   Icon: Zap },
-  { label: 'Participants', href: '/participants', Icon: Users,          built: false },
+  { label: 'Content',      href: '/content',      Icon: FileText },
+  { label: 'Participants', href: '/participants', Icon: Users },
+  { label: 'Analytics',    href: '/analytics',    Icon: BarChart3 },
   { label: 'Submissions',  href: '/submissions',  Icon: Inbox,          built: false },
-  { label: 'Analytics',    href: '/analytics',    Icon: BarChart3,      built: false },
   { label: 'Templates',    href: '/templates',    Icon: LayoutTemplate, built: false },
 ]
 

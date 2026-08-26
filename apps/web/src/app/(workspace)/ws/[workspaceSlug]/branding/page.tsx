@@ -17,7 +17,7 @@ export default async function BrandingPage({ params }: Props) {
   const { workspace } = await requireWorkspaceMember(workspaceSlug)
 
   return (
-    <div className="flex flex-1">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
       <WorkspaceSidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
       <BrandingClient />
     </div>
