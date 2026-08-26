@@ -50,7 +50,6 @@ export default async function DashboardPage() {
       {/* Same shell as a workspace: a full-height sidebar and scrolling that
           belongs to <main>, so the two levels read as one application. */}
       <GlobalSidebar
-        workspaces={summaries.map((s) => ({ id: s.id, name: s.name, slug: s.slug }))}
         {...(summaries[0] ? { primarySlug: summaries[0].slug } : {})}
         userName={user.fullName ?? ''}
         userEmail={user.email}

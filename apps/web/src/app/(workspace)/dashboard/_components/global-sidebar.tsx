@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import {
-  LayoutGrid, LayoutDashboard, Settings, LifeBuoy, Plus, Zap, FileText,
+  LayoutGrid, LayoutDashboard, Settings, LifeBuoy, Plus, FileText,
   Users, UserRoundCog, BarChart3, type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -17,19 +17,9 @@ import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
  * application. What differs is scope: nothing here is workspace-specific,
  * because at this level no workspace is selected. Challenges, Participants and
  * the rest only make sense once you are in one, and they live in that sidebar.
- *
- * The workspace list doubles as the switcher: this is the one screen where
- * every workspace is one click away.
  */
 
-interface WorkspaceLink {
-  id: string
-  name: string
-  slug: string
-}
-
 interface Props {
-  workspaces: WorkspaceLink[]
   /**
    * Where the workspace-level items point: the most recently active workspace.
    * Challenges, Content and the rest are workspace concepts, so without one
@@ -67,7 +57,7 @@ function Item({ href, label, Icon, active = false }: {
 }
 
 export function GlobalSidebar({
-  workspaces, createSlot, primarySlug, userName, userEmail, userAvatar,
+  createSlot, primarySlug, userName, userEmail, userAvatar,
 }: Props) {
   const ws = primarySlug ? `/ws/${primarySlug}` : null
 
@@ -112,7 +102,6 @@ export function GlobalSidebar({
               Management
             </p>
             <div className="space-y-0.5">
-              <Item href={`${ws}/challenges`}   label="Challenges"   Icon={Zap} />
               <Item href={`${ws}/content`}      label="Content"      Icon={FileText} />
               <Item href={`${ws}/participants`} label="Participants" Icon={Users} />
               <Item href={`${ws}/team`}         label="Team"         Icon={UserRoundCog} />
@@ -123,28 +112,6 @@ export function GlobalSidebar({
             </p>
             <div className="space-y-0.5">
               <Item href={`${ws}/analytics`} label="Analytics" Icon={BarChart3} />
-            </div>
-          </>
-        )}
-
-        {workspaces.length > 0 && (
-          <>
-            <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Your workspaces
-            </p>
-            <div className="space-y-0.5">
-              {workspaces.map((ws) => (
-                <Link
-                  key={ws.id}
-                  href={`/ws/${ws.slug}`}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
-                    {ws.name.trim().charAt(0).toUpperCase() || 'W'}
-                  </span>
-                  <span className="truncate">{ws.name}</span>
-                </Link>
-              ))}
             </div>
           </>
         )}
