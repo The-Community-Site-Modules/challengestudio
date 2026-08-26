@@ -97,6 +97,14 @@ function selectDriver(): EmailDriver {
   return process.env.RESEND_API_KEY ? resendDriver : consoleDriver
 }
 
+/**
+ * Who the message comes from.
+ *
+ * The fallback is Resend's shared testing address, which only delivers to the
+ * address on the Resend account itself — fine for a first smoke test, useless
+ * for inviting a colleague. Set EMAIL_FROM_ADDRESS to something on a domain
+ * verified in Resend before expecting mail to reach anyone else.
+ */
 function fromAddress(): string {
   const address = process.env.EMAIL_FROM_ADDRESS || 'onboarding@resend.dev'
   const name = process.env.EMAIL_FROM_NAME || 'Challenge Studio'
