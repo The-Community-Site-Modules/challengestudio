@@ -234,7 +234,7 @@ export async function getUserWorkspaces(userId: string) {
           slug: true,
           name: true,
           logoUrl: true,
-          _count: { select: { challenges: true } },
+          _count: { select: { challenges: true, members: true } },
         },
       },
     },
