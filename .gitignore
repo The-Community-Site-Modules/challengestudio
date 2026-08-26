@@ -46,3 +46,4 @@ coverage/
 
 # Migration outputs (tracked in git but not auto-applied)
 # packages/db/migrations/*.sql — DO keep these in git for review
+.next-*/

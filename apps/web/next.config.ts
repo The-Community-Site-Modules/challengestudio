@@ -2,6 +2,10 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // A build writes over whatever the dev server is serving from, which leaves
+  // it throwing "missing required error components" until .next is deleted.
+  // Set NEXT_DIST_DIR to build somewhere else while dev keeps running.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   images: {
     remotePatterns: [],
   },
