@@ -1,11 +1,14 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useState, useTransition } from 'react'
-import { Eye, Send, Loader2 } from 'lucide-react'
+import { Eye, Send, Loader2, AlertCircle } from 'lucide-react'
 import { Button }    from '@/components/ui/button'
 import { Input }     from '@/components/ui/input'
 import { Label }     from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Switch }    from '@/components/ui/switch'
 import { Badge }     from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -147,16 +150,15 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
       <main className="flex-1 overflow-y-auto">
         {/* Action bar */}
         <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2">
-          {publishErrors.length > 0 && (
-            <p className="text-xs text-destructive mr-2">{publishErrors[0]}</p>
-          )}
           {isSaving && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" /> Saving…
             </span>
           )}
-          <Button variant="outline" size="sm" className="gap-1.5" disabled>
-            <Eye className="h-4 w-4" /> Preview
+          <Button variant="outline" size="sm" className="gap-1.5" asChild>
+            <Link href={`/ws/${ws}/challenges/${challenge.slug}/preview`}>
+              <Eye className="h-4 w-4" /> Preview
+            </Link>
           </Button>
           {canPublish && (
             <Button size="sm" className="gap-1.5" onClick={handlePublish} disabled={isPublishing}>
@@ -166,6 +168,38 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
             </Button>
           )}
         </div>
+
+        {/* Every reason at once. Showing only the first sends the creator round
+            the loop once per problem. */}
+        {publishErrors.length > 0 && (
+          <div role="alert" className="border-b border-destructive/20 bg-destructive/5 px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-destructive">
+                  {publishErrors.length === 1
+                    ? 'One thing to fix before publishing'
+                    : `${publishErrors.length} things to fix before publishing`}
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {publishErrors.map((e) => (
+                    <li key={e} className="flex gap-2 text-xs text-destructive/90">
+                      <span aria-hidden="true">•</span>
+                      <span>{e}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPublishErrors([])}
+                className="shrink-0 text-xs font-medium text-destructive/70 hover:text-destructive"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeStep ? (
           <div className="mx-auto max-w-3xl px-8 py-8">
@@ -268,6 +302,42 @@ function StepSettingsPanel({ step, ws: _ws, onUpdate }: {
     <div className="space-y-5 rounded-xl border border-border bg-card p-6">
       <h3 className="font-semibold text-foreground">Step settings</h3>
       <Separator />
+
+      {/* The one setting that decides whether anybody can see this step. The
+          column existed and the sidebar showed a Draft badge, but nothing could
+          change it — so every step stayed invisible to participants. */}
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Published</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {step.isPublished
+              ? 'Participants can see this step once it unlocks.'
+              : 'Hidden from participants, even after the challenge is live.'}
+          </p>
+        </div>
+        <Switch
+          checked={step.isPublished}
+          onCheckedChange={v => onUpdate({ isPublished: v })}
+          aria-label="Step is published"
+        />
+      </div>
+
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Required</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {step.isRequired
+              ? 'Counts towards completing the challenge.'
+              : 'Optional — participants can skip it.'}
+          </p>
+        </div>
+        <Switch
+          checked={step.isRequired}
+          onCheckedChange={v => onUpdate({ isRequired: v })}
+          aria-label="Step is required"
+        />
+      </div>
+
       <div className="space-y-1.5">
         <Label>Estimated time</Label>
         <Select

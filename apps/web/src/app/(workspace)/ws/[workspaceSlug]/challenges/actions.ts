@@ -193,17 +193,56 @@ export async function publishChallengeAction(challengeId: string, workspaceSlug:
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.publish')
 
-  // Validate before publish
+  // The publish gate (Build Plan §1.1): schedule, at least one step, and the
+  // fields the public registration page is built from. Publishing with those
+  // empty ships a live page with nothing on it, which is worse than a draft.
   const challenge = await db.challenge.findUnique({
     where: { id: challengeId },
-    include: { steps: { select: { id: true } } },
+    select: {
+      title: true, slug: true, description: true, promise: true, startsAt: true,
+      endsAt: true, registrationOpensAt: true, registrationClosesAt: true,
+      steps: { select: { id: true, isPublished: true, _count: { select: { contentBlocks: true } } } },
+    },
   })
   if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
 
+  const blank = (v: string | null) => !v || v.trim().length === 0
   const errors: string[] = []
-  if (!challenge.title)               errors.push('Challenge title is required.')
-  if (challenge.steps.length === 0)   errors.push('At least one step is required.')
-  if (!challenge.startsAt)            errors.push('Start date is required.')
+
+  if (blank(challenge.title)) errors.push('Challenge title is required.')
+  if (blank(challenge.slug))  errors.push('A URL slug is required.')
+
+  // Public-page fields.
+  if (blank(challenge.promise)) {
+    errors.push('Add the one-line promise — it is the headline on the registration page.')
+  }
+  if (blank(challenge.description)) {
+    errors.push('Add a short description — it is what people read before signing up.')
+  }
+
+  // Schedule.
+  if (!challenge.startsAt) errors.push('A start date is required.')
+  if (challenge.startsAt && challenge.endsAt && challenge.endsAt < challenge.startsAt) {
+    errors.push('The end date cannot be before the start date.')
+  }
+  if (challenge.registrationOpensAt && challenge.registrationClosesAt &&
+      challenge.registrationClosesAt < challenge.registrationOpensAt) {
+    errors.push('Registration cannot close before it opens.')
+  }
+
+  // Content.
+  if (challenge.steps.length === 0) {
+    errors.push('At least one step is required.')
+  } else {
+    const published = challenge.steps.filter((s) => s.isPublished)
+    if (published.length === 0) {
+      errors.push('No step is published yet — participants would arrive to an empty challenge.')
+    }
+    const empty = published.filter((s) => s._count.contentBlocks === 0).length
+    if (empty > 0) {
+      errors.push(`${empty} published step${empty === 1 ? ' has' : 's have'} no content blocks.`)
+    }
+  }
 
   if (errors.length > 0) {
     return { success: false, errors }
