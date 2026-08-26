@@ -5,12 +5,14 @@ import { Clock, X, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { CopyInviteLink } from './copy-invite-link'
 
 interface Props {
   invitation: {
     id: string
     email: string
     role: string
+    token: string
     expiresAt: Date
   }
   workspaceId: string
@@ -59,6 +61,10 @@ export function InvitationRow({ invitation, workspaceId, cancelInvitation }: Pro
       <Badge variant="outline" className="hidden sm:flex shrink-0">
         {ROLE_LABELS[invitation.role] ?? invitation.role}
       </Badge>
+
+      {/* Expired tokens are rejected on accept, so offering the link would only
+          hand over one that cannot be used. */}
+      {!isExpired && <CopyInviteLink token={invitation.token} />}
 
       <Button
         variant="ghost"

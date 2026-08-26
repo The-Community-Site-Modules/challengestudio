@@ -151,9 +151,6 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
       <WorkspaceSidebar
         workspaceSlug={workspaceSlug}
         workspaceName={workspace.name}
-        userName={user.fullName ?? ''}
-        userEmail={user.email}
-        {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
         submissionCount={pendingReview}
       />
 

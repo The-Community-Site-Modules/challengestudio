@@ -185,10 +185,11 @@ export async function inviteMemberAction(workspaceId: string, formData: FormData
 
   // Be honest about what happened. The invitation row exists either way, but
   // telling someone "invitation sent" when no mail left the building leaves
-  // them waiting on an email that is never coming.
+  // them waiting on an email that is never coming. The pending row carries a
+  // Copy link button, so there is a way to act on this rather than a dead end.
   const notice = result.sent
     ? `Invitation sent to ${email}.`
-    : `Invitation created for ${email}, but the email could not be sent. Share the invite link from the list below.`
+    : `Invitation created for ${email}, but the email could not be sent. Use Copy link on their row to share it directly.`
 
   redirect(`/ws/${workspace.slug}/team?${result.sent ? 'message' : 'error'}=` + encodeURIComponent(notice))
 }

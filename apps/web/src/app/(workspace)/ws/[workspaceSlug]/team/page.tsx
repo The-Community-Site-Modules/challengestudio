@@ -125,7 +125,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
                 {activeInvitations.map((inv) => (
                   <InvitationRow
                     key={inv.id}
-                    invitation={{ id: inv.id, email: inv.email, role: inv.role, expiresAt: inv.expiresAt }}
+                    invitation={{ id: inv.id, email: inv.email, role: inv.role, token: inv.token, expiresAt: inv.expiresAt }}
                     workspaceId={workspace.id}
                     cancelInvitation={cancelInvitationAction}
                   />
@@ -146,7 +146,7 @@ export default async function TeamPage({ params, searchParams }: Props) {
                 {expiredInvitations.map((inv) => (
                   <InvitationRow
                     key={inv.id}
-                    invitation={{ id: inv.id, email: inv.email, role: inv.role, expiresAt: inv.expiresAt }}
+                    invitation={{ id: inv.id, email: inv.email, role: inv.role, token: inv.token, expiresAt: inv.expiresAt }}
                     workspaceId={workspace.id}
                     cancelInvitation={cancelInvitationAction}
                   />
