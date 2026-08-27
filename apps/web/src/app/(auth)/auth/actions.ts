@@ -38,12 +38,14 @@ export async function signInAction(formData: FormData) {
   const password = formData.get('password') as string
 
   const next = safeNext(formData.get('next') as string | null)
+  const onError = safeNext(formData.get('errorPath') as string | null) ?? '/auth/login'
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
+    const join = onError.includes('?') ? '&' : '?'
     const back = next ? `&next=${encodeURIComponent(next)}` : ''
-    return redirect(`/auth/login?error=${encodeURIComponent(error.message)}${back}`)
+    return redirect(`${onError}${join}error=${encodeURIComponent(error.message)}${back}`)
   }
 
   // Straight to where they were headed — bouncing an invitation link through
@@ -60,6 +62,8 @@ export async function signInWithMagicLinkAction(formData: FormData) {
 
   const next = safeNext(formData.get('next') as string | null)
 
+  const onError = safeNext(formData.get('errorPath') as string | null) ?? '/auth/login'
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
@@ -69,7 +73,16 @@ export async function signInWithMagicLinkAction(formData: FormData) {
   })
 
   if (error) {
-    return redirect(`/auth/login?error=${encodeURIComponent(error.message)}`)
+    const join = onError.includes('?') ? '&' : '?'
+    return redirect(`${onError}${join}error=${encodeURIComponent(error.message)}`)
+  }
+
+  // Participants signing in from a challenge stay on that page to read the
+  // "check your inbox" message; the product login has its own verify screen.
+  const sent = safeNext(formData.get('sentPath') as string | null)
+  if (sent) {
+    const join = sent.includes('?') ? '&' : '?'
+    redirect(`${sent}${join}sent=${encodeURIComponent(email)}`)
   }
 
   redirect('/auth/verify?email=' + encodeURIComponent(email))

@@ -175,18 +175,40 @@ export async function completeStepAction(
 
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
-    select: { id: true },
+    select: {
+      id: true, mode: true, timezone: true, startsAt: true,
+      steps: { select: { id: true, order: true, availableAt: true } },
+    },
   })
   if (!challenge) return
 
   const participant = await db.participant.findUnique({
     where: { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
-    select: { id: true, status: true },
+    select: { id: true, status: true, registeredAt: true },
   })
   if (!participant) return
   // Not approved yet means not taking part yet — otherwise approval would only
   // hide the pages, not stop the work being submitted.
   if (participant.status === 'PENDING') return
+
+  // stepId arrives from the client. Without this, a submission could be filed
+  // against a step in someone else's challenge entirely.
+  const step = challenge.steps.find(s => s.id === stepId)
+  if (!step) return
+
+  // The day page redirects away from a locked step, but that only guards the
+  // page. Work can be posted directly, so the gate has to be here too.
+  const unlocks = unlockMap({
+    mode:              challenge.mode as ChallengeMode,
+    timezone:          challenge.timezone ?? 'UTC',
+    challengeStartsAt: challenge.startsAt,
+    enrolledAt:        participant.registeredAt,
+    now:               new Date(),
+    steps: challenge.steps.map(s => ({
+      id: s.id, order: s.order, availableAt: s.availableAt,
+    })),
+  })
+  if (!unlocks.get(step.id)?.unlocked) return
 
   // Upsert submission (removes participantId helper field before storing)
   const { participantId: _removed, ...cleanData } = submissionData as Record<string, unknown> & { participantId?: string }
