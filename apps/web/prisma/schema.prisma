@@ -183,6 +183,7 @@ model Challenge {
   workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   steps        ChallengeStep[]
   participants Participant[]
+  feedPosts    FeedPost[]
 
   @@unique([workspaceId, slug])
   @@map("challenges")
@@ -213,6 +214,7 @@ model ChallengeStep {
   challenge    Challenge      @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   contentBlocks ContentBlock[]
   submissions   Submission[]
+  feedPosts     FeedPost[]
 
   @@map("challenge_steps")
 }
@@ -247,6 +249,11 @@ model Participant {
   challenge   Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   profile     Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
   submissions Submission[]
+  posts       FeedPost[]
+  comments    FeedComment[]
+  reactions   Reaction[]
+  pointsEvents PointsEvent[]
+  badgeAwards BadgeAward[]
 
   @@unique([challengeId, profileId])
   @@map("participants")
@@ -265,4 +272,112 @@ model Submission {
 
   @@unique([participantId, stepId])
   @@map("submissions")
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMUNITY (Milestone 7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A post in a challenge's feed. Written by a participant, optionally tied to
+/// the step they were on when they wrote it.
+///
+/// Moderation hides rather than deletes: a removed post stays auditable, and
+/// "who removed this and when" is a question moderators need answered.
+model FeedPost {
+  id            String    @id @default(cuid())
+  challengeId   String    @map("challenge_id")
+  participantId String    @map("participant_id")
+  stepId        String?   @map("step_id")
+  body          String
+  isHidden      Boolean   @default(false) @map("is_hidden")
+  hiddenById    String?   @map("hidden_by_id")
+  hiddenAt      DateTime? @map("hidden_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  challenge   Challenge     @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  step        ChallengeStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  comments    FeedComment[]
+  reactions   Reaction[]
+
+  @@index([challengeId, createdAt])
+  @@map("feed_posts")
+}
+
+model FeedComment {
+  id            String    @id @default(cuid())
+  postId        String    @map("post_id")
+  participantId String    @map("participant_id")
+  body          String
+  isHidden      Boolean   @default(false) @map("is_hidden")
+  hiddenById    String?   @map("hidden_by_id")
+  hiddenAt      DateTime? @map("hidden_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  post        FeedPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("feed_comments")
+}
+
+/// One emoji from one participant on one post. The unique constraint is what
+/// makes reacting idempotent — a double click toggles rather than stacking.
+model Reaction {
+  id            String   @id @default(cuid())
+  postId        String   @map("post_id")
+  participantId String   @map("participant_id")
+  emoji         String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  post        FeedPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, participantId, emoji])
+  @@map("reactions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GAMIFICATION (Milestone 7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Append-only points ledger (Build Plan data rule 2: progress is derived, not
+/// mutated, so it stays auditable and recalculable).
+///
+/// idempotencyKey is unique and carries the whole point: awarding the same
+/// action twice is a no-op at the database level rather than something the
+/// caller has to remember not to do.
+model PointsEvent {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  challengeId    String   @map("challenge_id")
+  participantId  String   @map("participant_id")
+  action         String
+  points         Int
+  sourceId       String?  @map("source_id")
+  idempotencyKey String   @unique @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, participantId])
+  @@map("points_events")
+}
+
+/// Badges themselves are defined in code (lib/gamification/badges); only the
+/// award is a row. One table instead of two, and no seeding step that can drift
+/// from the definitions the code actually checks.
+model BadgeAward {
+  id            String   @id @default(cuid())
+  challengeId   String   @map("challenge_id")
+  participantId String   @map("participant_id")
+  badgeKey      String   @map("badge_key")
+  awardedAt     DateTime @default(now()) @map("awarded_at")
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, badgeKey])
+  @@map("badge_awards")
 }

@@ -4,6 +4,7 @@ import { redirect }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db }           from '@/lib/db'
 import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
+import { awardPoints, earnedBadgeKeys, totalPoints } from '@/lib/gamification'
 
 /**
  * Where a new participant starts.
@@ -159,6 +160,26 @@ export async function enrollAfterAuthAction(
   })
 }
 
+
+/**
+ * Consecutive days with at least one submission, counting back from today.
+ *
+ * Derived from the timestamps rather than stored, so it cannot drift out of
+ * step with the submissions it describes (Build Plan data rule 2).
+ */
+function streakFrom(submittedAt: Date[]): number {
+  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  const days = new Set(submittedAt.map(d => key(new Date(d))))
+
+  let streak = 0
+  const cursor = new Date()
+  while (days.has(key(cursor))) {
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 // ─── Complete Step ────────────────────────────────────────────────────────────
 
 export async function completeStepAction(
@@ -177,7 +198,8 @@ export async function completeStepAction(
     where: { slug: challengeSlug },
     select: {
       id: true, mode: true, timezone: true, startsAt: true,
-      steps: { select: { id: true, order: true, availableAt: true } },
+      workspaceId: true,
+      steps: { select: { id: true, order: true, availableAt: true, pointsXp: true } },
     },
   })
   if (!challenge) return
@@ -229,12 +251,80 @@ export async function completeStepAction(
     },
   })
 
-  if (completedRequired >= allRequired && allRequired > 0) {
+  // Points for the step. Idempotent on (participant, action, step), so
+  // re-submitting an answer does not earn twice.
+  await awardPoints({
+    workspaceId:   challenge.workspaceId,
+    challengeId:   challenge.id,
+    participantId: participant.id,
+    action:        'day_completed',
+    sourceId:      step.id,
+    ...(step.pointsXp != null ? { points: step.pointsXp } : {}),
+  })
+
+  const finished = completedRequired >= allRequired && allRequired > 0
+
+  if (finished) {
     await db.participant.update({
       where: { id: participant.id },
       data:  { status: 'COMPLETED' as never, completedAt: new Date() },
     })
+    await awardPoints({
+      workspaceId:   challenge.workspaceId,
+      challengeId:   challenge.id,
+      participantId: participant.id,
+      action:        'challenge_completed',
+      sourceId:      challenge.id,
+    })
   }
+
+  await evaluateBadges({
+    challengeId:   challenge.id,
+    participantId: participant.id,
+    completedSteps: completedRequired,
+    totalSteps:     allRequired,
+  })
+}
+
+/**
+ * Award any badge this participant now qualifies for.
+ *
+ * The unique constraint on (participant, badge) makes re-awarding a no-op, so
+ * this can run after every submission without keeping track of what was given
+ * before.
+ */
+async function evaluateBadges(input: {
+  challengeId: string
+  participantId: string
+  completedSteps: number
+  totalSteps: number
+}) {
+  const [posts, comments, submissions] = await Promise.all([
+    db.feedPost.count({ where: { participantId: input.participantId } }),
+    db.feedComment.count({ where: { participantId: input.participantId } }),
+    db.submission.findMany({
+      where:  { participantId: input.participantId },
+      select: { submittedAt: true },
+    }),
+  ])
+
+  const keys = earnedBadgeKeys({
+    completedSteps: input.completedSteps,
+    totalSteps:     input.totalSteps,
+    streak:         streakFrom(submissions.map(s => s.submittedAt)),
+    posts,
+    comments,
+  })
+  if (keys.length === 0) return
+
+  await db.badgeAward.createMany({
+    data: keys.map(badgeKey => ({
+      challengeId:   input.challengeId,
+      participantId: input.participantId,
+      badgeKey,
+    })),
+    skipDuplicates: true,
+  })
 }
 
 // ─── Get participant + step unlock status ─────────────────────────────────────
@@ -298,26 +388,11 @@ export async function getParticipantProgress(challengeSlug: string, userId: stri
     }
   })
 
-  // Streak: count unique days with at least one submission, working backwards
-  const uniqueSubmissionDays = new Set(
-    participant.submissions.map(s => {
-      const d = new Date(s.submittedAt)
-      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-    })
-  )
-  let streak = 0
-  const checkDate = new Date()
-  while (true) {
-    const key = `${checkDate.getFullYear()}-${checkDate.getMonth()}-${checkDate.getDate()}`
-    if (uniqueSubmissionDays.has(key)) {
-      streak++
-      checkDate.setDate(checkDate.getDate() - 1)
-    } else break
-  }
+  const streak = streakFrom(participant.submissions.map(s => s.submittedAt))
 
   const completedCount = steps.filter(s => s.isCompleted).length
   const totalRequired  = steps.filter(s => s.isRequired).length
-  const xp             = steps.filter(s => s.isCompleted).reduce((sum, s) => sum + (s.pointsXp ?? 100), 0)
+  const xp             = await totalPoints(participant.id)
   const progressPct    = totalRequired > 0 ? Math.round((completedCount / totalRequired) * 100) : 0
 
   return { challenge, participant, steps, streak, xp, progressPct, completedCount, totalRequired }

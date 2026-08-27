@@ -14,10 +14,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const db = {
   challenge:     { findFirst: vi.fn() },
   participant:   { findUnique: vi.fn(), update: vi.fn() },
-  submission:    { upsert: vi.fn(), count: vi.fn() },
+  submission:    { upsert: vi.fn(), count: vi.fn(), findMany: vi.fn() },
   challengeStep: { count: vi.fn() },
+  // Completing a step now also awards points and evaluates badges.
+  pointsEvent:   { create: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
+  badgeAward:    { createMany: vi.fn() },
+  feedPost:      { count: vi.fn() },
+  feedComment:   { count: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
+
+const awardPoints = vi.fn(async () => ({ awarded: true, points: 100 }))
+vi.mock('@/lib/gamification', () => ({
+  awardPoints,
+  totalPoints: async () => 0,
+  earnedBadgeKeys: () => [],
+}))
 
 class RedirectError extends Error {}
 vi.mock('next/navigation', () => ({
@@ -34,13 +46,14 @@ const { completeStepAction } = await import('./actions')
 /** A running challenge whose three steps have all opened. */
 const CHALLENGE = {
   id: 'ch1',
+  workspaceId: 'ws1',
   mode: 'COHORT',
   timezone: 'UTC',
   startsAt: new Date('2020-01-01T00:00:00Z'),
   steps: [
-    { id: 'st1', order: 0, availableAt: null },
-    { id: 'st2', order: 1, availableAt: null },
-    { id: 'st3', order: 2, availableAt: null },
+    { id: 'st1', order: 0, availableAt: null, pointsXp: 100 },
+    { id: 'st2', order: 1, availableAt: null, pointsXp: 100 },
+    { id: 'st3', order: 2, availableAt: null, pointsXp: 100 },
   ],
 }
 
@@ -67,6 +80,10 @@ beforeEach(() => {
   withParticipant()
   db.challengeStep.count.mockResolvedValue(3)   // 3 required steps
   db.submission.count.mockResolvedValue(1)      // 1 done so far
+  db.submission.findMany.mockResolvedValue([])
+  db.feedPost.count.mockResolvedValue(0)
+  db.feedComment.count.mockResolvedValue(0)
+  db.badgeAward.createMany.mockResolvedValue({ count: 0 })
 })
 
 describe('submitting work', () => {
@@ -177,5 +194,38 @@ describe('finishing the challenge', () => {
     await submit()
     const data = db.participant.update.mock.calls[0]?.[0]?.data
     expect(data.completedAt).toBeInstanceOf(Date)
+  })
+})
+
+describe('points on completion', () => {
+  it('awards the step, using the points the creator set on it', async () => {
+    await submit('st1')
+    expect(awardPoints).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'day_completed', sourceId: 'st1', points: 100 })
+    )
+  })
+
+  it('awards the challenge bonus only when the last required step lands', async () => {
+    db.challengeStep.count.mockResolvedValue(3)
+    db.submission.count.mockResolvedValue(2)
+    await submit('st1')
+    expect(awardPoints).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'challenge_completed' })
+    )
+
+    vi.clearAllMocks()
+    db.challenge.findFirst.mockResolvedValue(CHALLENGE)
+    db.participant.findUnique.mockResolvedValue({
+      id: 'p1', status: 'REGISTERED', registeredAt: new Date('2020-01-01T00:00:00Z'),
+    })
+    db.challengeStep.count.mockResolvedValue(3)
+    db.submission.count.mockResolvedValue(3)
+    db.submission.findMany.mockResolvedValue([])
+    db.feedPost.count.mockResolvedValue(0)
+    db.feedComment.count.mockResolvedValue(0)
+    await submit('st1')
+    expect(awardPoints).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'challenge_completed' })
+    )
   })
 })

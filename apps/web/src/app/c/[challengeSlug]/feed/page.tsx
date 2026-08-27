@@ -1,120 +1,110 @@
+// Route: /c/[challengeSlug]/feed — the challenge community feed.
+//
+// This was four hardcoded posts from Robert Evans, Aisha P., Tom K. and
+// Marcus J., with invented reaction counts, shown to every participant of
+// every challenge. It reads the real feed now.
+
+import { redirect, notFound } from 'next/navigation'
 import { ChallengeNav } from '@/components/participant/challenge-nav'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Heart, MessageCircle, Pin, Flame } from 'lucide-react'
+import { getCurrentUser } from '@/lib/auth/session'
+import { hasPermission } from '@/lib/permissions'
+import { db } from '@/lib/db'
+import { FeedClient, type FeedPostView } from './_components/feed-client'
 
 interface Props { params: Promise<{ challengeSlug: string }> }
 
-const FEED_POSTS = [
-  {
-    id: 1, initials: 'RE', name: 'Robert Evans', role: 'Host', pinned: true,
-    time: '2h ago', day: null,
-    text: "Welcome to Day 3 everyone! Today's lesson is live. I want you to focus on the *specificity* of your offer — vague offers get vague results. Drop your offer draft below and I'll give feedback to as many as I can. Let's go! 🚀",
-    reactions: { heart: 42, fire: 31 }, comments: 18,
-  },
-  {
-    id: 2, initials: 'AP', name: 'Aisha P.', role: 'Participant', pinned: false,
-    time: '45m ago', day: 3,
-    text: "Here's my offer draft: 'I help freelance designers land 2 new clients per month through a weekly outreach system — in 30 days or your money back.' Does this feel specific enough?",
-    reactions: { heart: 14, fire: 8 }, comments: 6,
-  },
-  {
-    id: 3, initials: 'TK', name: 'Tom K.', role: 'Participant', pinned: false,
-    time: '1h ago', day: 2,
-    text: "Just completed Day 2! The buyer persona exercise was genuinely hard. I kept wanting to say 'anyone who needs help' but the template forced me to get specific. Game changer.",
-    reactions: { heart: 21, fire: 12 }, comments: 4,
-  },
-  {
-    id: 4, initials: 'MJ', name: 'Marcus J.', role: 'Participant', pinned: false,
-    time: '3h ago', day: 1,
-    text: "Day 1 done! My idea: productivity coaching for first-time managers who feel overwhelmed in their first 90 days. Posting here so I can't back out 😅",
-    reactions: { heart: 33, fire: 19 }, comments: 11,
-  },
-]
+export const metadata = { title: 'Community — Challenge Studio' }
 
 export default async function FeedPage({ params }: Props) {
   const { challengeSlug } = await params
 
+  const user = await getCurrentUser()
+  if (!user) {
+    redirect(`/c/${challengeSlug}/access?next=/c/${challengeSlug}/feed`)
+  }
+
+  const challenge = await db.challenge.findFirst({
+    where:  { slug: challengeSlug },
+    select: {
+      id: true, title: true, workspaceId: true,
+      workspace: { select: { name: true } },
+    },
+  })
+  if (!challenge) notFound()
+
+  const me = await db.participant.findUnique({
+    where:  { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
+    select: { id: true, status: true },
+  })
+  if (!me) redirect(`/c/${challengeSlug}`)
+  if (me.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+
+  const canModerate = await hasPermission(user.id, challenge.workspaceId, 'community.moderate')
+
+  // Hidden posts are left out entirely rather than shown as tombstones — a
+  // removed post reappearing as "[removed]" is its own kind of noise.
+  const posts = await db.feedPost.findMany({
+    where:   { challengeId: challenge.id, isHidden: false },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    select: {
+      id: true, body: true, createdAt: true, participantId: true,
+      participant: { select: { profile: { select: { fullName: true, email: true, avatarUrl: true } } } },
+      step: { select: { title: true, order: true } },
+      comments: {
+        where:   { isHidden: false },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true, body: true, createdAt: true, participantId: true,
+          participant: { select: { profile: { select: { fullName: true, email: true, avatarUrl: true } } } },
+        },
+      },
+      reactions: { select: { emoji: true, participantId: true } },
+    },
+  })
+
+  const view: FeedPostView[] = posts.map((p) => {
+    // Collapse reactions to a count per emoji, plus whether I am in each one.
+    const counts = new Map<string, { count: number; mine: boolean }>()
+    for (const r of p.reactions) {
+      const entry = counts.get(r.emoji) ?? { count: 0, mine: false }
+      entry.count += 1
+      if (r.participantId === me.id) entry.mine = true
+      counts.set(r.emoji, entry)
+    }
+
+    return {
+      id: p.id,
+      body: p.body,
+      createdAt: p.createdAt.toISOString(),
+      authorName: p.participant.profile.fullName?.trim() || p.participant.profile.email,
+      authorAvatar: p.participant.profile.avatarUrl,
+      isMine: p.participantId === me.id,
+      stepLabel: p.step ? `Day ${p.step.order + 1}` : null,
+      reactions: [...counts].map(([emoji, v]) => ({ emoji, ...v })),
+      comments: p.comments.map((c) => ({
+        id: c.id,
+        body: c.body,
+        createdAt: c.createdAt.toISOString(),
+        authorName: c.participant.profile.fullName?.trim() || c.participant.profile.email,
+        authorAvatar: c.participant.profile.avatarUrl,
+        isMine: c.participantId === me.id,
+      })),
+    }
+  })
+
   return (
-    <div className="min-h-screen bg-muted/30">
-      <ChallengeNav challengeSlug={challengeSlug} challengeTitle="5-Day Business Launch" hostName="Robert Evans" />
-
-      <main className="mx-auto max-w-2xl px-4 py-8 space-y-6">
-
-        {/* Compose box */}
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex gap-3">
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">JD</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-3">
-              <Textarea
-                placeholder="Share your progress, a win, or a question with the community..."
-                rows={3}
-                className="resize-none"
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">Be encouraging — your story helps others.</p>
-                <Button size="sm">Post</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Feed */}
-        <div className="space-y-4">
-          {FEED_POSTS.map((post) => (
-            <div
-              key={post.id}
-              className={`rounded-2xl border bg-card p-5 shadow-sm ${post.pinned ? 'border-primary/30 bg-primary/[0.02]' : 'border-border'}`}
-            >
-              {/* Pin indicator */}
-              {post.pinned && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-primary">
-                  <Pin className="h-3.5 w-3.5" /> Pinned by host
-                </div>
-              )}
-
-              {/* Author row */}
-              <div className="flex items-start gap-3">
-                <Avatar className="h-9 w-9 shrink-0">
-                  <AvatarFallback className={`text-xs font-bold ${
-                    post.role === 'Host' ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
-                  }`}>
-                    {post.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">{post.name}</span>
-                    {post.role === 'Host' && <Badge variant="default" className="text-[10px]">Host</Badge>}
-                    {post.day && (
-                      <Badge variant="secondary" className="text-[10px]">Day {post.day}</Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground ml-auto">{post.time}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-foreground leading-relaxed">{post.text}</p>
-
-                  {/* Reactions */}
-                  <div className="mt-3 flex items-center gap-4">
-                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors">
-                      <Heart className="h-4 w-4" /> {post.reactions.heart}
-                    </button>
-                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-orange-500 transition-colors">
-                      <Flame className="h-4 w-4" /> {post.reactions.fire}
-                    </button>
-                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
-                      <MessageCircle className="h-4 w-4" /> {post.comments} replies
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
+    <div className="min-h-screen bg-slate-50/70">
+      <ChallengeNav
+        challengeSlug={challengeSlug}
+        challengeTitle={challenge.title}
+        hostName={challenge.workspace.name}
+      />
+      <FeedClient
+        challengeSlug={challengeSlug}
+        posts={view}
+        canModerate={canModerate}
+      />
     </div>
   )
 }
