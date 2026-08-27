@@ -11,7 +11,7 @@
 
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Star, CheckCircle, Flame, ArrowLeft } from 'lucide-react'
+import { Star, CheckCircle, Flame, ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getParticipantProgress } from '../actions'
 
@@ -106,18 +106,16 @@ export default async function CompletePage({ params }: Props) {
           </ul>
         </section>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        {/* One action, not two. A "My challenges" button belongs at
+            /account/challenges, which is still a stub; pointing it at
+            /dashboard sent participants to the creator-side workspace picker,
+            which for someone who owns no workspace is an empty page. */}
+        <div className="mt-6">
           <Link
             href={`/c/${challengeSlug}/hub`}
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" /> Back to the challenge
-          </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
-          >
-            <Trophy className="h-4 w-4" /> My challenges
           </Link>
         </div>
       </main>
