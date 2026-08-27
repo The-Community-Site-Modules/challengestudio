@@ -251,7 +251,7 @@ function TextResponseBlock({ data, blockId, onInteract, readOnly }: {
   )
 }
 
-function FileUploadBlock({ data, readOnly }: { data: Record<string, string>; readOnly?: boolean }) {
+function FileUploadBlock({ data }: { data: Record<string, string>; readOnly?: boolean }) {
   return (
     <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-5 space-y-3">
       <div className="flex items-start gap-3">
@@ -263,10 +263,17 @@ function FileUploadBlock({ data, readOnly }: { data: Record<string, string>; rea
           {data.prompt && <p className="mt-1 text-sm text-muted-foreground">{data.prompt}</p>}
         </div>
       </div>
-      <div className="rounded-lg border-2 border-dashed border-cyan-300 bg-white p-6 text-center">
-        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="mt-2 text-sm text-muted-foreground">Click to upload · PDF, images · Max 50MB</p>
-        <Button variant="outline" size="sm" className="mt-3" disabled={readOnly}>Choose file</Button>
+      {/* No drop zone and no "Choose file" button. File storage is not
+          configured (OD-02 is still an open decision), so any control here
+          would be one that cannot do anything — and a participant who clicked
+          it would think their work had been handed in. Say so instead. */}
+      <div className="rounded-lg border border-dashed border-cyan-300 bg-white px-5 py-4 text-center">
+        <p className="text-sm text-muted-foreground">
+          File uploads are not available yet.
+        </p>
+        <p className="mt-1 text-[13px] text-muted-foreground/80">
+          Your host will tell you where to send this in the meantime.
+        </p>
       </div>
     </div>
   )
