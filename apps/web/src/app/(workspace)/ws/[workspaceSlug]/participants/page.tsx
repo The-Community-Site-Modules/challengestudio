@@ -11,6 +11,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { cn } from '@/lib/utils'
+import { approveParticipantAction, rejectParticipantAction } from './actions'
+import { ApprovalActions } from './_components/approval-actions'
 
 interface Props {
   params: Promise<{ workspaceSlug: string }>
@@ -49,7 +51,7 @@ export default async function ParticipantsPage({ params }: Props) {
       challenge: { select: { title: true, slug: true } },
       _count:    { select: { submissions: true } },
     },
-    orderBy: { registeredAt: 'desc' },
+    orderBy: [{ status: 'asc' }, { registeredAt: 'desc' }],
     take: 200,
   })
 
@@ -69,7 +71,7 @@ export default async function ParticipantsPage({ params }: Props) {
           {awaitingApproval > 0 && (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               {awaitingApproval} {awaitingApproval === 1 ? 'person is' : 'people are'} waiting
-              to be approved. Approving them is not built yet — they stay on the list until it is.
+              on you. Until you decide, they cannot open the challenge.
             </p>
           )}
 
@@ -133,14 +135,23 @@ export default async function ParticipantsPage({ params }: Props) {
                       {p._count.submissions} submitted
                     </span>
 
-                    <span
-                      className={cn(
-                        'inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ring-1',
-                        STATUS[p.status as string] ?? STATUS.REGISTERED
-                      )}
-                    >
-                      {String(p.status).toLowerCase()}
-                    </span>
+                    {p.status === 'PENDING' ? (
+                      <ApprovalActions
+                        participantId={p.id}
+                        workspaceSlug={workspaceSlug}
+                        approveAction={approveParticipantAction}
+                        rejectAction={rejectParticipantAction}
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          'inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ring-1',
+                          STATUS[p.status as string] ?? STATUS.REGISTERED
+                        )}
+                      >
+                        {String(p.status).toLowerCase()}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

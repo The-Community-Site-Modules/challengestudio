@@ -3,6 +3,7 @@
 import { redirect }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db }           from '@/lib/db'
+import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
 
 /**
  * Where a new participant starts.
@@ -245,22 +246,30 @@ export async function getParticipantProgress(challengeSlug: string, userId: stri
   const submittedStepIds = new Set(participant.submissions.map(s => s.stepId))
   const now = new Date()
 
-  const steps = challenge.steps.map((step, index) => {
-    const isCompleted = submittedStepIds.has(step.id)
+  // The schedule maths lives in lib/enrollment/unlock, where it is tested.
+  // It used to be inline here and ignored challenge.timezone entirely, so day
+  // boundaries followed whichever machine happened to be serving the request.
+  const unlocks = unlockMap({
+    mode:              challenge.mode as ChallengeMode,
+    timezone:          challenge.timezone ?? 'UTC',
+    challengeStartsAt: challenge.startsAt,
+    enrolledAt:        participant.registeredAt,
+    now,
+    steps: challenge.steps.map(s => ({
+      id: s.id, order: s.order, availableAt: s.availableAt,
+    })),
+  })
 
-    let unlocked = true
-    if (challenge.mode === 'DRIP' || step.availableAt) {
-      unlocked = step.availableAt ? step.availableAt <= now : true
-    } else if (challenge.startsAt) {
-      const unlockDate = new Date(challenge.startsAt)
-      unlockDate.setDate(unlockDate.getDate() + index)
-      unlocked = unlockDate <= now
-    }
+  const steps = challenge.steps.map((step) => {
+    const isCompleted = submittedStepIds.has(step.id)
+    const unlock      = unlocks.get(step.id)
+    const unlocked    = unlock?.unlocked ?? true
 
     return {
       ...step,
       isCompleted,
       unlocked,
+      unlocksAt: unlock?.unlocksAt ?? null,
       status: isCompleted ? 'completed' as const :
               unlocked    ? 'active'    as const :
               'locked'    as const,

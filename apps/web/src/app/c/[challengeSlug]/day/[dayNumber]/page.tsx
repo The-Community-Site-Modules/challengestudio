@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser }      from '@/lib/auth/session'
 import { db }                  from '@/lib/db'
+import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
 import { DayClient }           from './_components/day-client'
 
 interface Props {
@@ -21,7 +22,7 @@ export default async function DayPage({ params }: Props) {
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      id: true, title: true, startsAt: true, mode: true,
+      id: true, title: true, startsAt: true, mode: true, timezone: true,
       steps: {
         orderBy: { order: 'asc' },
         select: {
@@ -43,7 +44,7 @@ export default async function DayPage({ params }: Props) {
   const participant = await db.participant.findUnique({
     where: { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
     select: {
-      id: true, status: true,
+      id: true, status: true, registeredAt: true,
       submissions: { select: { stepId: true } },
     },
   })
@@ -62,17 +63,21 @@ export default async function DayPage({ params }: Props) {
   const step = challenge.steps.find(s => s.order === dayNumber - 1)
   if (!step) notFound()
 
-  // Unlock check (simple fixed-calendar)
-  const now = new Date()
-  let unlocked = true
-  if (challenge.startsAt) {
-    const unlockDate = new Date(challenge.startsAt)
-    unlockDate.setDate(unlockDate.getDate() + (dayNumber - 1))
-    unlocked = unlockDate <= now
-  }
-  if (step.availableAt) unlocked = step.availableAt <= now
+  // Same engine the hub uses. This page used to carry its own fixed-calendar
+  // copy that ignored both the mode and the timezone, so the two could
+  // disagree — the hub showing a step locked while its URL opened it.
+  const unlocks = unlockMap({
+    mode:              challenge.mode as ChallengeMode,
+    timezone:          challenge.timezone ?? 'UTC',
+    challengeStartsAt: challenge.startsAt,
+    enrolledAt:        participant.registeredAt,
+    now:               new Date(),
+    steps: challenge.steps.map(s => ({
+      id: s.id, order: s.order, availableAt: s.availableAt,
+    })),
+  })
 
-  if (!unlocked) {
+  if (!unlocks.get(step.id)?.unlocked) {
     redirect(`/c/${challengeSlug}/hub`)
   }
 
