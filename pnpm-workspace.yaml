@@ -1,3 +1,5 @@
 packages:
   - "apps/*"
-  - "packages/*"
+  # packages/* held three workspace packages — db, types and validators —
+  # that the application never imported. Removed 2026-08-29. Restore this
+  # glob when there is a second consumer that actually needs shared code.

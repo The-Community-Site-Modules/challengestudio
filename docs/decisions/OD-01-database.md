@@ -1,7 +1,24 @@
 # OD-01: Database Provider
 
-**Status:** Pending owner decision
-**Blocking:** Milestone 2
+**Status:** ✅ Decided — **Supabase**, not the Neon recommended below.
+Recorded retrospectively 2026-08-29.
+
+> **What actually shipped.** The recommendation on this page was Neon; the
+> product runs on Supabase. Supabase was chosen because auth came with it
+> (see [OD-07](OD-07-auth.md)) — one vendor, and `auth.users.id` as a real
+> foreign key on `profiles` rather than an id kept in sync across two systems.
+> The branching-per-preview story that made Neon attractive is unused, because
+> the preview environments it depends on do not exist yet.
+>
+> Consequence worth knowing: Prisma connects through the Supabase transaction
+> pooler as the table owner, so it is **exempt from row-level security**.
+> Application-level scoping is the only tenant isolation. See
+> [../plan-conformance.md](../plan-conformance.md).
+
+The original recommendation is kept below unedited, because a decision record
+that is rewritten to match the outcome cannot tell you anything.
+
+---
 
 ## Decision needed
 Which PostgreSQL provider should we use?

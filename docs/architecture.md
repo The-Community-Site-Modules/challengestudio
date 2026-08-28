@@ -1,6 +1,11 @@
 # Challenge Studio — Architecture Overview
 
 > Living document. Update as decisions are made and milestones complete.
+>
+> Where the built product differs from
+> [the technical build plan](plan/technical-build-plan.md), the differences are
+> recorded in [plan-conformance.md](plan-conformance.md) — checked
+> 2026-08-29, after Milestone 11.
 
 ## Stack
 
@@ -8,14 +13,14 @@
 |---|---|---|
 | Framework | Next.js (App Router) | 15.1.6 |
 | Language | TypeScript | 5.7.2 |
-| Database | PostgreSQL via **Supabase** | OD-1: ✅ decided |
-| ORM | **Prisma** (`@prisma/adapter-pg` over the Supabase pooler) | 7.9.1 |
-| Auth | **Supabase Auth** (`@supabase/ssr`) | 0.12.4 |
+| Database | PostgreSQL via **Supabase** | [OD-01](decisions/OD-01-database.md): ✅ |
+| ORM | **Prisma** (`@prisma/adapter-pg` over the Supabase pooler) | [OD-06](decisions/OD-06-orm.md): ✅ 7.9.1 |
+| Auth | **Supabase Auth** (`@supabase/ssr`) — not one of the plan's two options | [OD-07](decisions/OD-07-auth.md): ⚠️ |
 | Git repository | GitHub — `The-Community-Site-Modules/challengestudio` | OD-5: ✅ decided |
-| File Storage | Cloudflare R2 | OD-2: pending |
-| Email | Resend (abstracted) | OD-3: pending |
-| Background Jobs | Inngest | OD-4: pending |
-| Rate Limiting | Upstash Redis | — |
+| File Storage | not built — `lib/storage` throws | [OD-02](decisions/OD-02-storage.md): ⛔ open |
+| Email | Resend, behind an abstraction; no API key yet | [OD-03](decisions/OD-03-email.md): 🟡 |
+| Background Jobs | **Vercel Cron alone** — the Inngest stub was removed | [OD-04](decisions/OD-04-jobs.md): ✅ |
+| Rate Limiting | Upstash when configured, in-process otherwise | ✅ |
 | UI | shadcn/ui + Tailwind CSS | — |
 | Hosting | Vercel | — |
 

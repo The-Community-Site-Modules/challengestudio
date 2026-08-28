@@ -1,0 +1,1303 @@
+                                                                                            CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+     CHALLENGE STUDIO
+
+Product Requirements Document & Developer Build Brief
+
+A standalone SaaS platform and future Community Site module for building, launching,
+                               and operating transformational challenges.
+
+Document                         Detail
+Prepared for                     Robert Evans / Smartstack Platforms LLC
+Primary implementation audience  Assigned developer using Claude Code
+Version                          1.0 - Product foundation
+Date                             August 5, 2026
+                                 Approved concept; technical planning required before
+Status                           implementation
+                                 Challenge Studio
+Product name
+
+Core positioning
+Challenge Studio is the complete challenge engine for creating 5-day launches, cohort experiences,
+evergreen challenges, paid journeys, and ongoing community transformation programs.
+
+CONFIDENTIAL - PRODUCT CONCEPT AND INTELLECTUAL PROPERTY
+
+Confidential product planning document - Smartstack Platforms LLC
+          CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+Contents
+
+1. 1. How to Use This Document
+2. 2. Executive Summary
+3. 3. Product Vision and Strategic Purpose
+4. 4. Target Customers and Use Cases
+5. 5. Product Principles
+6. 6. Product Scope and Challenge Modes
+7. 7. User Roles and Permissions
+8. 8. End-to-End User Journeys
+9. 9. Creator Administration Experience
+10. 10. Participant Experience
+11. 11. Challenge Content Model
+12. 12. Marketing Challenge Funnel
+13. 13. Community and Social Experience
+14. 14. Gamification and Progress
+15. 15. Communications and Notifications
+16. 16. Live Sessions and Events
+17. 17. Analytics and Reporting
+18. 18. Branding and White Label
+19. 19. Standalone SaaS Requirements
+20. 20. The Community Site Module Integration
+21. 21. Conceptual Data Model
+22. 22. Application Architecture and API Boundaries
+23. 23. Security, Privacy, and Operational Requirements
+24. 24. MVP Definition
+25. 25. Post-MVP Roadmap
+26. 26. Page and Route Inventory
+27. 27. Acceptance Criteria
+28. 28. Testing and Quality Plan
+29. 29. Implementation Workstreams
+30. 30. Developer Guardrails and Ownership
+31. 31. Claude Code Planning Prompt
+32. 32. Open Decisions and Assumptions
+33. 33. Final Handoff Checklist
+
+          Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+1. How to Use This Document
+
+This document is the product source of truth for the initial planning and build of Challenge Studio. It
+defines what the product is intended to become, which capabilities belong in the first release, how the
+major workflows should operate, and which technical boundaries must remain intact.
+ The developer should first use this document to produce a written technical plan, architecture
+
+     proposal, phased work breakdown, risk list, and questions requiring owner decisions.
+ This document is not authorization to implement every future feature in one build. The MVP and
+
+     later-roadmap boundaries are deliberate.
+ Any proposed change that narrows the product vision, changes ownership, introduces third-party
+
+     lock-in, or makes Community Site integration harder must be raised before implementation.
+ Database schema concepts in this document are design guidance. Production database changes must
+
+     be separately reviewed and approved before being applied.
+
+First deliverable expected from the developer
+A Claude-assisted build plan that maps this specification into milestones, architecture, routes,
+components, data entities, permissions, tests, deployment steps, and clearly identified owner decisions.
+
+2. Executive Summary
+
+Challenge Studio is a multi-tenant SaaS product that lets creators, coaches, authors, speakers, educators,
+ministries, businesses, agencies, and community leaders create structured challenge experiences. Those
+experiences may be short marketing events, paid programs, evergreen lead magnets, internal member-
+engagement campaigns, team challenges, or longer transformation journeys.
+
+The core product insight is that a challenge is not simply a list of daily tasks. It is a guided transformation
+with a beginning state, a desired outcome, daily milestones, evidence of progress, community
+reinforcement, and a meaningful finish. Challenge Studio should therefore feel more like a journey and
+less like project-management software.
+
+The standalone SaaS will provide its own creator accounts, workspaces, participants, public pages,
+challenge administration, communications, and analytics. Its architecture must also preserve a clean
+integration boundary so the same challenge engine can later operate as a paid add-on inside The
+Community Site, using Community Site identity, membership, branding, entitlements, and community
+capabilities where appropriate.
+
+3. Product Vision and Strategic Purpose
+
+3.1 Product vision
+
+Challenge Studio helps leaders turn an idea, method, or desired outcome into an organized, motivating
+experience that people actually complete. It should make it possible to launch a polished challenge
+without assembling a patchwork of landing-page software, email tools, Facebook Groups, spreadsheets,
+Zoom links, course systems, and manual follow-up.
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+3.2 Strategic opportunity
+
+ Replace the common Facebook Group plus email sequence approach used for 5-day marketing
+     challenges.
+
+ Give existing communities a repeatable way to create engagement, accountability, and visible
+     progress.
+
+ Allow creators to sell challenge-based experiences as standalone products.
+ Create reusable challenge templates that may later be distributed through a marketplace.
+ Become a flagship module within The Community Site ecosystem while remaining commercially
+
+     viable as an independent SaaS.
+
+3.3 Product promise
+
+Product promise
+Build a challenge. Guide a transformation. Turn participation into momentum, community, and
+measurable results.
+
+3.4 Non-goals for the first release
+
+ Challenge Studio is not initially a full learning-management system or replacement for every course
+     platform.
+
+ It is not initially a general CRM, full email-marketing platform, webinar platform, or payment
+     processor.
+
+ It should integrate with or provide focused versions of those capabilities only where they directly
+     serve a challenge workflow.
+
+ It should not attempt marketplace distribution, advanced AI generation, native mobile apps, complex
+     affiliate management, or agency white labeling in the first MVP.
+
+4. Target Customers and Use Cases
+
+Customer                      Representative uses                      Primary value
+
+Coaches and consultants       5-day launch, onboarding sprint, 30-     Lead conversion, program delivery,
+                              day implementation journey               accountability
+
+Authors                       Book launch challenge, reading           Audience activation and deeper
+                              journey, writing sprint                  engagement
+
+Speakers and thought leaders  Idea activation challenge, action week,  Turn inspiration into action
+                              event follow-up
+
+Course and program leaders    Pre-course challenge, implementation     Completion and outcomes
+                              sprint, graduation journey
+
+Community owners              Monthly engagement campaigns,
+                              member onboarding, habit challenges Retention and daily participation
+
+Fitness and wellness leaders  Movement, nutrition, mindfulness,        Habit tracking and social motivation
+                              wellness challenges
+
+Ministries and churches       Prayer, scripture, service, generosity Shared practice and testimony
+
+                              Confidential product planning document - Smartstack Platforms LLC
+                                                       CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+                                         challenges
+
+Businesses and teams                     Sales sprint, culture challenge,        Team performance and participation
+Agencies                                 wellness initiative
+Local organizations and nonprofits
+                                         Build and manage challenge              Repeatable client service
+                                         campaigns for clients
+
+                                         Fundraising, volunteer, awareness,      Mobilization and public participation
+                                         local passport challenges
+
+5. Product Principles
+
+Principle                                              Meaning
+Transformation before content
+Action before consumption                              Every challenge should define where participants begin,
+Community as an accelerator                            where they are going, and how each step moves them
+Momentum must be visible                               forward.
+Simple creation, powerful configuration
+Standalone first, integration-ready                    Daily experiences should prioritize doing, reflecting,
+Mobile-first participation                             sharing, and applying rather than merely watching
+Owner-controlled data and brand                        content.
+
+                                                       Progress becomes more durable when people see others
+                                                       participate, receive encouragement, and contribute
+                                                       feedback.
+
+                                                       Participants should always understand their current day,
+                                                       progress, streak, next action, and upcoming milestone.
+
+                                                       A first-time creator should launch a basic challenge
+                                                       quickly, while advanced creators can configure cohorts,
+                                                       gates, rewards, and funnels.
+
+                                                       The SaaS must work independently without embedding
+                                                       Community Site assumptions into its core domain model.
+
+                                                       The daily participant experience must be excellent on a
+                                                       phone, even if creator administration is best on desktop.
+
+                                                       Creators should control their challenge content, participant
+                                                       data access, branding, and exports subject to the platform
+                                                       plan.
+
+6. Product Scope and Challenge Modes
+
+One challenge engine should support multiple operating modes. These are configurations of the same
+underlying product, not separate modules.
+
+Mode                                     How it works                            Common use
+
+Marketing challenge                      Registration campaign with public       5-day lead-generation launch
+                                         opt-in, scheduled content,
+                                         engagement, live sessions, and a final
+                                         offer
+
+                     Confidential product planning document - Smartstack Platforms LLC
+                                     CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+Evergreen challenge           Each participant begins immediately   Lead magnet or self-paced
+Cohort challenge              or on their chosen date and advances  transformation
+Internal community challenge  on a personal schedule
+Paid challenge
+Team challenge                A defined group starts and progresses Launch, mastermind, workshop,
+Habit challenge
+Milestone journey             together on shared dates              school, church
+
+                              Restricted to members of an existing  Engagement and retention
+                              community or organization
+
+                              Enrollment requires purchase or an    Low-ticket product or premium
+                              externally granted entitlement        experience
+
+                              Participants belong to teams with     Corporate, church, school, nonprofit
+                              shared scoring and team progress
+
+                              Repeated activity with check-ins,     Wellness, writing, prayer, sales
+                              streaks, and optional measurements
+
+                              Steps may be sequential but not       Onboarding or implementation
+                              necessarily tied to calendar days     roadmap
+
+6.1 Challenge timing models
+
+ Fixed calendar: all participants see the same active day.
+ Rolling enrollment: each participant has an individual Day 1.
+ Open access: all published days are available.
+ Sequential completion: the next step unlocks after required completion.
+ Scheduled release: days unlock at configured dates/times.
+ Weekly release: groups of content unlock by week.
+
+6.2 Challenge duration
+
+The product must not hard-code common lengths. A creator may build a 3-day, 5-day, 7-day, 21-day, 30-
+day, 90-day, 365-day, or milestone-based experience. Presets may speed configuration, but the data model
+should support arbitrary durations and optional rest or catch-up days.
+
+7. User Roles and Permissions
+
+Role                          Scope                                 Core permissions
+Platform owner
+Workspace owner               Entire Challenge Studio SaaS          Plans, workspaces, support,
+Workspace admin                                                     moderation, system configuration,
+Challenge manager                                                   feature flags
+Facilitator / coach
+                              One creator/business workspace        Billing, branding, team access, all
+                                                                    challenges, data exports
+
+                              Assigned workspace                    Create and manage challenges,
+                                                                    participants, content, analytics subject
+                                                                    to permissions
+
+                              Selected challenges                   Edit challenge, moderate participants,
+                                                                    manage live sessions, view analytics
+
+                              Selected cohorts or groups            Comment, review submissions, give
+
+                     Confidential product planning document - Smartstack Platforms LLC
+                                   CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+                                                                    feedback, host sessions
+
+Participant     Enrolled challenge  View allowed days, submit work,
+Team captain                        comment, track progress
+Public visitor
+                Participant team    Encourage team, view team progress,
+                                    limited team administration
+
+                Public pages only   View registration/sales pages and
+                                    register or purchase
+
+7.1 Permission design requirement
+
+Permissions must be capability-based rather than scattered role-name checks. The architecture should
+support explicit permissions such as challenge.create, challenge.publish, participant.manage,
+submission.review, analytics.view, billing.manage, and workspace.branding.manage.
+
+8. End-to-End User Journeys
+
+8.1 Creator launches a 5-day marketing challenge
+
+34. Create a workspace or enter an existing workspace.
+35. Choose Create Challenge and select the Marketing Challenge template.
+36. Enter the promise, participant starting point, destination, title, summary, dates, timezone, and
+
+     expected daily commitment.
+37. Configure public registration, required form fields, consent language, welcome page, and challenge
+
+     access.
+38. Build five daily experiences and optional orientation and graduation days.
+39. Add live-session details, replays, resources, homework requirements, discussion prompts, points, and
+
+     reminders.
+40. Configure the final offer, deadline, CTA, bonuses, and post-challenge access window.
+41. Preview as a visitor and participant, send a test registration, and publish.
+42. Promote the challenge using its public URL.
+43. Monitor registrations, participation, submissions, attendance, completion, and offer clicks.
+
+8.2 Participant joins and completes a marketing challenge
+
+44. Visits a branded registration page and submits required details.
+45. Receives confirmation and is directed to a welcome/orientation page.
+46. Creates or confirms an account, accepts terms, and enters the challenge hub.
+47. Sees the countdown or current day, schedule, community activity, and next action.
+48. Completes each day, submits evidence or reflection, interacts with participants, and attends live
+
+     sessions.
+49. Receives progress celebrations, reminders, and catch-up guidance.
+50. Completes the final day, receives a badge or certificate, and sees the creator's next-step offer.
+
+                Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+8.3 Existing community owner launches an internal
+challenge
+
+51. Installs or activates Challenge Studio for an eligible community site.
+52. Creates a challenge using existing site branding and member identity.
+53. Chooses which membership plans, groups, or selected members may join.
+54. Publishes the challenge into community navigation and optionally announces it in the feed.
+55. Members enroll without creating duplicate accounts and challenge activity can appear in a dedicated
+
+     feed.
+
+9. Creator Administration Experience
+
+9.1 Workspace dashboard
+
+ Active, draft, scheduled, completed, and archived challenges.
+ Current participant counts, completion trends, upcoming sessions, and recent submissions.
+ Primary Create Challenge action and template starting points.
+ Workspace plan, usage, alerts, and onboarding checklist.
+
+9.2 Challenge creation wizard
+
+Step               Configuration
+1. Foundation
+2. Outcome         Name, internal name, slug, promise, description, cover
+3. Mode            image, category, difficulty
+4. Schedule
+5. Audience        Starting state, desired outcome, success definition,
+6. Experience      expected commitment
+7. Communications
+8. Conversion      Marketing, evergreen, cohort, internal, paid, team, habit,
+9. Review          milestone
+
+                   Timezone, registration dates, start/end, rolling rules,
+                   unlock method, grace period
+
+                   Public, invite-only, membership restriction, capacity,
+                   approval requirement
+
+                   Days/steps, live sessions, community, submissions,
+                   gamification
+
+                   Confirmation, reminders, daily notices, inactivity nudges,
+                   completion email
+
+                   Optional offer, CTA, deadline, tracking parameters
+
+                   Preview, validation checklist, test participant, publish
+
+9.3 Challenge management navigation
+
+ Overview
+ Builder
+
+                   Confidential product planning document - Smartstack Platforms LLC
+                          CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+ Participants
+ Cohorts / teams
+ Submissions
+ Community
+ Live sessions
+ Communications
+ Rewards
+ Offer
+ Analytics
+ Settings
+ Preview
+
+9.4 Builder capabilities
+
+Creators should be able to add, reorder, duplicate, draft, schedule, and preview challenge days or
+milestones. A day should be built from ordered content blocks. The builder must preserve a simple
+default path while supporting optional advanced blocks.
+
+10. Participant Experience
+
+10.1 Challenge hub
+
+ Challenge title, promise, creator identity, cover image, and current status.
+ Current day or milestone with a prominent Continue button.
+ Progress percentage, completed steps, streak, XP, badges, and next milestone.
+ Upcoming live session and calendar action.
+ Recent challenge-feed activity and encouragement.
+ Announcements, resources, and help information.
+
+10.2 Daily challenge page
+
+ Day number or milestone, headline, objective, estimated time, and completion requirements.
+ Rich content blocks: video, audio, formatted lesson, images, quote, checklist, links, downloads, embed.
+ Primary action assignment and submission interface.
+ Reflection prompts and private journal fields where configured.
+ Discussion prompt, comments, reactions, and facilitator feedback.
+ Progress summary and clear Complete Day action.
+ Locked-next-day state with unlock explanation.
+
+10.3 Accessibility and mobile behavior
+
+The participant journey must be designed mobile-first, keyboard accessible, readable at common zoom
+levels, and usable with screen readers. Videos require creator-provided captions or transcript support
+where possible. Progress, locked states, errors, and completion must not rely on color alone.
+
+Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+11. Challenge Content Model
+
+Block type             Purpose                              MVP status
+Heading / text
+                       Lesson, instructions, context        Required
+Video
+                       YouTube, Vimeo, or supported hosted  Required
+Audio                  source
+Image
+Download               Audio lesson or guided practice      Later or simple URL embed
+Checklist
+Assignment             Visual content                       Required
+Text response
+                       Workbook, PDF, worksheet             Required
+File upload
+                       Multiple required or optional tasks  Required
+Reflection
+Discussion prompt      Primary action instruction           Required
+Quiz / poll
+External embed         Short or long response               Required
+AI coach
+Reward unlock          Image, document, optional            Required with file limits
+                       video/audio
+
+                       Private or shareable prompt responses Required
+
+                       Threaded participant interaction     Required
+
+                       Knowledge or opinion check           Post-MVP
+
+                       Supported embed allowlist            Post-MVP
+
+                       Contextual guided conversation       Future
+
+                       Bonus content, badge, coupon, link   Basic badge MVP; advanced later
+
+11.1 Completion rules
+
+ Manual completion permitted.
+ Required checklist items must be completed.
+ Required text response must be submitted.
+ Required upload must be accepted.
+ Facilitator approval may be required in a later phase.
+ Minimum watch time should not be required in MVP unless reliably measurable.
+
+12. Marketing Challenge Funnel
+
+Marketing challenges require capabilities beyond daily content because their business purpose is
+registration, engagement, trust, and conversion.
+
+Stage                                  Required experience
+
+Registration page                      Headline, promise, dates, host, benefits, agenda,
+                                       testimonials, form, consent, FAQ, countdown
+
+Confirmation                           Successful registration, next steps, calendar, account
+                                       creation, invite sharing
+
+Welcome / orientation                                                  Video, workbook, schedule, community norms,
+                       Confidential product planning document - Smartstack Platforms LLC
+Pre-challenge nurture  CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+Daily delivery            introduction prompt
+
+Catch-up                  Optional scheduled messages and reminders
+Graduation
+Offer                     Challenge day, email notification, live session, replay,
+Post-challenge            assignment
+
+                          Missed-day reminder and accessible prior content based on
+                          rules
+
+                          Completion celebration, certificate/badge, social sharing
+
+                          Offer page or external CTA, deadline, bonuses, FAQ,
+                          conversion tracking
+
+                          Replay window, closing reminder, survey, nurture handoff
+
+12.1 Lead data and consent
+
+Registration should capture only configured fields and must preserve consent timestamps, source/UTM
+fields, and acceptance of applicable terms. Export and integration capabilities should respect privacy
+settings and workspace permissions.
+
+12.2 Offer capability boundary
+
+The MVP may support a configured CTA to an external checkout or sales page. Native product checkout
+and revenue attribution can be introduced only after billing ownership, Stripe architecture, taxes,
+refunds, and entitlement behavior are separately designed.
+
+13. Community and Social Experience
+
+13.1 Dedicated challenge feed
+
+ Challenge-specific posts and completion events should remain separate from a general community
+     feed by default.
+
+ Creators may choose which automated activity events are visible.
+ Participants can post text, images, and allowed attachments subject to moderation.
+ Comments, replies, reactions, mentions, and facilitator highlighting should be supported
+
+     progressively.
+
+13.2 Submission visibility
+
+Visibility                     Behavior
+Private                        Only participant and authorized facilitators may view.
+Group                          Visible to members of the same team/cohort.
+Challenge                      Visible to all enrolled participants.
+Public showcase                Explicit opt-in and creator approval required; later phase.
+
+                       Confidential product planning document - Smartstack Platforms LLC
+                                                CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+13.3 Moderation
+
+ Hide or remove content
+ Suspend participant from social participation
+ Report content
+ Pin or feature posts
+ Disable comments on specific items
+ Maintain audit records for moderation actions
+
+14. Gamification and Progress
+
+14.1 MVP progress system
+
+ Completed days and percentage progress
+ Configurable points for primary actions
+ Current and best streak
+ Basic badges at configured milestones
+ Challenge leaderboard that may be disabled
+ Completion celebration and certificate-ready completion record
+
+14.2 Points model
+
+A creator may use default point values or configure points per action. Points should be calculated from
+durable events rather than arbitrary counters so they can be audited and recalculated.
+
+Action                                          Illustrative default
+
+Complete day                                    100 XP
+
+Submit required response                        25 XP
+
+Upload evidence                                 50 XP
+
+Post to challenge feed                          15 XP
+
+Comment encouragement                           5 XP with anti-abuse limits
+
+Complete weekly milestone                       250 XP
+
+Complete challenge                              1,000 XP
+
+14.3 Streak rules
+
+Streaks require an explicit definition per challenge: calendar-day completion, scheduled-day completion,
+or repeated habit check-in. Timezone and grace-window behavior must be deterministic. Streak freezes
+are a future enhancement, not an MVP requirement.
+
+14.4 Leaderboard safeguards
+
+ Leaderboards must be optional.
+ Creators may display full names, first name plus last initial, or participant-chosen display names.
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+ Anti-abuse rules must prevent unlimited points from repetitive comments or reactions.
+ A noncompetitive progress mode should be available for sensitive communities.
+
+15. Communications and Notifications
+
+Message                    Trigger
+Registration confirmation  Successful registration
+Account / access setup     Registration requiring an account
+Challenge starting soon    Configured lead time
+Day available              Daily or milestone unlock
+Live session reminder      Configured time before session
+Inactivity nudge           No progress within configured interval
+Submission feedback        Facilitator comment or review
+Milestone earned           Badge or progress milestone
+Challenge completion       Completion criteria met
+Offer closing              Configured marketing deadline
+
+15.1 MVP communications boundary
+
+The MVP should use reliable transactional email for challenge-related messages. It does not need to
+become a complete broadcast email-marketing system. Creators should be able to enable/disable core
+message types and edit a controlled set of subject/body fields with safe template variables.
+
+15.2 Notification preferences
+
+Participants must be able to manage nonessential challenge email preferences while still receiving
+security, access, and legally required messages. Workspace unsubscribe behavior should not accidentally
+unsubscribe a person from unrelated products or workspaces.
+
+16. Live Sessions and Events
+
+ Creators can schedule zero or more live sessions with title, date/time, timezone, description, host, join
+     URL, and replay URL.
+
+ Participants see sessions in the challenge hub and relevant daily pages.
+ Calendar-file download should be supported in MVP if feasible.
+ Zoom OAuth, native meeting creation, attendance sync, and automated replay ingestion are later
+
+     integrations.
+ External join URLs must be protected from public discovery when the challenge is private.
+
+17. Analytics and Reporting
+
+                           Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+17.1 Creator dashboard metrics
+
+ Registrations and enrollment trend
+ Activation: registered participants who entered the challenge
+ Day-by-day reach and completion
+ Overall challenge completion rate
+ Average days completed
+ Submission rate
+ Community participation rate
+ Live-session clicks or attendance when known
+ Offer clicks and configured conversion events
+ Participant inactivity and at-risk list
+
+17.2 Participant-level reporting
+
+Authorized creators and facilitators should be able to view each participant's enrollment status, last
+activity, progress, submissions, points, streak, badges, and communication history. Sensitive private
+reflections must be clearly identified and permission-limited.
+
+17.3 Export
+
+Workspace owners should be able to export participant and progress data in a common format. Exports
+must be permission-checked, logged, and designed to avoid unintentionally exposing private submission
+content.
+
+18. Branding and White Label
+
+18.1 Workspace branding
+
+ Workspace name, logo, icon/favicon, primary color, accent color, text contrast validation, support
+     contact, legal links, and default sender identity.
+
+ Optional custom domain and platform-branding removal should be plan-controlled later.
+ Challenge-level branding may override cover image, visual theme, and selected colors while
+
+     preserving accessibility.
+
+18.2 Public-page branding
+
+Registration, welcome, login, challenge hub, and offer pages should look like one continuous branded
+experience. The design must avoid a generic admin-template feel and emphasize momentum,
+transformation, and human connection.
+
+19. Standalone SaaS Requirements
+
+ Multi-tenant workspaces with strict tenant isolation.
+ Authentication and account recovery.
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+ Workspace invitations and role assignment.
+ Plan/entitlement-ready architecture even if billing is not activated in the first internal build.
+ Public challenge URLs with durable slugs and canonical host handling.
+ Reliable file storage with workspace/challenge ownership metadata.
+ Transactional email provider abstraction.
+ Basic support/admin visibility for the platform owner.
+ Vercel deployment and environment separation for development, preview, and production.
+ Logging, error monitoring, and auditability for critical actions.
+
+19.1 Suggested initial stack
+
+The expected implementation direction is a modern Next.js application deployed to Vercel, with
+TypeScript, a relational database, secure object storage, and a server-side authorization layer. The
+developer should propose exact versions and supporting libraries based on maintainability, security, and
+compatibility rather than novelty.
+
+19.2 Billing readiness
+
+The domain model should be ready for future workspace subscriptions and usage limits, but production
+billing should not be activated until products, prices, entitlements, lifecycle states, cancellation, failed-
+payment handling, and webhook idempotency are separately approved.
+
+20. The Community Site Module
+Integration
+
+The Community Site treats paid modules as independent products. Challenge Studio must be designed so
+it can be licensed and activated for eligible Community Site tenants without merging its internal domain
+logic into unrelated native features.
+
+20.1 Integration goals
+
+ Use Community Site member identity through a secure trusted integration rather than requiring
+     duplicate accounts.
+
+ Resolve a Community Site tenant to a Challenge Studio workspace or integration installation.
+ Inherit site branding by default while allowing challenge-level presentation settings.
+ Restrict access based on Community Site site entitlements, module license status, membership, group,
+
+     or offer access.
+ Expose challenge navigation and participant experiences inside the community shell or through a
+
+     seamless module route.
+ Allow selected challenge events to appear in Community Site feeds and notifications without
+
+     duplicating all social data.
+ Provide installation, deactivation, grace-period, and data-export behavior.
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+20.2 Integration boundary                            CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+ Concern                                               System of record
+ Community site, domain, plan, module activation        The Community Site
+ Challenge definition, days, progress, submissions,
+ challenge analytics                                    Challenge Studio
+
+ Community member identity                              The Community Site when embedded; Challenge Studio
+                                                        when standalone
+ Standalone workspace billing                           Challenge Studio
+ Community Site module billing/license                  The Community Site module system
+ Tenant member purchases                                Community Site/tenant commerce when integrated
+                                                        Challenge Studio or agreed shared storage with explicit
+ Challenge files                                        ownership
+
+20.3 Entitlement principle
+
+Integration code must check explicit module and feature entitlements, not assume access based only on
+plan names. The Community Site strategy allows eligible Community and Creator Core sites to purchase
+modules, while module compatibility may vary by required native capabilities.
+
+20.4 API and identity approach
+
+The developer should propose a signed server-to-server installation and launch model. Browser-supplied
+site IDs or role claims must never be trusted without server validation. The integration should support
+token expiry, replay protection, tenant binding, user binding, and revocation.
+
+21. Conceptual Data Model
+
+The following entities express product concepts. They are not an approved migration script and should be
+refined by the developer before database work.
+
+Entity                        Purpose                             Important relationships
+
+users                         Standalone identities and platform  Memberships, enrollments,
+                              users                               submissions
+
+workspaces                    Tenant/business container           Challenges, team members, branding,
+                                                                  plan
+
+workspace_memberships         Workspace roles and status          User + workspace + permissions
+
+integrations / installations  External system connection such as  Workspace, external tenant, license
+                              Community Site                      status
+
+challenges                    Primary challenge definition        Workspace, creator, status, mode,
+                                                                  schedule
+
+challenge_steps               Ordered day or milestone            Challenge, content blocks, unlock
+                                                                  rules
+
+content_blocks                Ordered content within a step       Step, block type, structured payload
+
+                              Confidential product planning document - Smartstack Platforms LLC
+                       CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+cohorts                Shared schedule/enrollment group       Challenge, participants, schedule
+teams                  Participant team                       override
+enrollments            Participant access and lifecycle       Challenge/cohort, memberships, score
+                                                              Challenge, user/participant, cohort,
+step_progress          Per-participant step state             status
+submissions            Responses and uploaded evidence        Enrollment, step, completion
+comments / reactions   Social interaction                     timestamps
+feed_events            Durable challenge activity             Enrollment, step, visibility, review
+points_events          Auditable point awards/reversals       Challenge, step, submission or feed
+badges / badge_awards  Milestones and earned rewards          post
+live_sessions          Scheduled live events                  Challenge, actor, event type, visibility
+message_templates      Configurable transactional messages    Enrollment, action source, amount
+message_deliveries     Delivery and failure log               Challenge/workspace + enrollment
+offers                 Configured final CTA or future native  Challenge or step
+                       offer                                  Workspace/challenge + trigger
+analytics_events       Product and funnel events              Recipient, trigger, provider status
+
+audit_logs             Critical administrative actions        Challenge, visibility, deadline
+
+                                                              Workspace, challenge, enrollment,
+                                                              session
+                                                              Actor, workspace, object, before/after
+                                                              metadata
+
+21.1 Data requirements
+
+ Every tenant-owned record must carry a reliable tenant/workspace relationship.
+ External integration IDs must be namespaced by provider and tenant.
+ Progress and points should be event-driven or reproducible where practical.
+ Dates must be stored consistently with challenge timezone retained separately.
+ Soft deletion or archival behavior must be deliberate for challenges with participant history.
+ Uploads require ownership, access policy, media type, size, scan/status, and deletion handling.
+
+22. Application Architecture and API
+Boundaries
+
+22.1 Recommended domain separation
+
+Domain                                                              Responsibility
+Identity and access                                                    Authentication, sessions, workspace membership,
+                       Confidential product planning document - Smartstack Platforms LLC
+Challenge authoring        CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+                              authorization
+Enrollment and scheduling     Challenge configuration, step builder, validation,
+Participation                 publishing
+Community                     Registration, cohort assignment, unlock calculation
+Gamification                  Progress, submissions, reflections, completion
+Communications                Posts, comments, reactions, moderation, feed events
+Analytics                     Points events, streaks, badges, leaderboards
+                              Templates, trigger evaluation, delivery, preferences
+Integrations                  Event collection, aggregates, dashboards, exports
+                              Community Site, email, storage, video, calendar, future
+Platform operations           Stripe/Zoom
+                              Plans, feature flags, support tooling, audit logs
+
+22.2 API design expectations
+
+ Server-side authorization on every protected operation.
+ Idempotent endpoints or actions for registration, completion, point awarding, and webhook
+
+     processing.
+ Versioned integration contracts for Community Site.
+ Validation of structured content-block payloads.
+ Rate limits and abuse controls on public registration and social actions.
+ No database service-role or secret credentials exposed to browser code.
+ Clear separation between public read models and privileged creator/admin operations.
+
+22.3 Publishing model
+
+A challenge should support draft, scheduled, published, closed, completed, and archived states.
+Publishing should validate required fields, schedule consistency, at least one step, public page
+requirements when registration is enabled, and test whether referenced files/resources exist.
+
+23. Security, Privacy, and Operational
+Requirements
+
+ Strict workspace and challenge authorization with server-enforced tenant isolation.
+ Secure account/session handling and protection against common web vulnerabilities.
+ Signed and validated integration launch tokens.
+ Public-form spam protection and configurable registration approval.
+ Consent capture, privacy links, data export, and deletion workflow planning.
+ File type and size limits; malware-scanning strategy should be considered before broad uploads.
+ Private reflections and submissions must have explicit visibility and never leak into public feeds.
+ Audit logs for role changes, exports, challenge publication, moderation, and integration changes.
+ Secrets managed only through environment configuration and never committed.
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+ Error monitoring without logging sensitive submission content or authentication secrets.
+ Backups and recovery expectations defined before production launch.
+
+23.1 Special caution for sensitive niches
+
+Challenge Studio may be used for wellness, relationships, faith, recovery, or other sensitive topics. The
+product should not position itself as medical, legal, or crisis care. Creators must remain responsible for
+their content, and the platform should provide terms, reporting, moderation, and emergency-resource
+boundaries where appropriate.
+
+24. MVP Definition
+
+The MVP should prove that a creator can build and launch a polished challenge and that participants can
+register, progress, submit, interact, and complete it. It should not attempt the complete long-term vision.
+
+Area             MVP requirement
+
+Auth/workspace   Accounts, workspace, owner/admin roles, invitations
+
+Branding         Logo, icon, colors, workspace name, challenge cover
+
+Challenge setup  Create/edit/archive, mode, dates, timezone, visibility,
+                 arbitrary length
+
+Builder          Ordered steps with text, video link/embed, image,
+                 download, checklist, assignment, response, upload,
+                 reflection, discussion
+
+Publishing       Draft, preview, validation, publish, close
+
+Public funnel    Registration page, confirmation, welcome/orientation
+
+Enrollment       Public and invite-only, account linking, participant list
+
+Participation    Challenge hub, daily page, progress, completion,
+                 locked/unlocked rules
+
+Social           Dedicated feed or step discussion, comments, reactions,
+                 basic moderation
+
+Gamification     Points, simple streak, milestone badges, optional
+                 leaderboard
+
+Live sessions    Manual session records and join/replay links
+
+Email            Confirmation, start, daily unlock, live reminder, inactivity,
+                 completion
+
+Analytics        Registrations, activation, daily completion, overall
+                 completion, participant detail
+
+Offer            Configurable external CTA after final day
+
+Operations       Audit basics, error monitoring, responsive UI, Vercel
+                 deployment
+
+24.1 Recommended MVP scenario
+
+Primary acceptance scenario
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+A coach can create a branded 5-day cohort marketing challenge, publish a registration page, enroll
+participants, deliver five scheduled daily experiences with homework and discussion, host linked live
+sessions, view progress, celebrate completion, and direct finishers to an external paid offer.
+
+24.2 Explicitly deferred from MVP
+
+ AI challenge generation and AI coach
+ Native payments and checkout
+ Template marketplace
+ Advanced certificates
+ Zoom OAuth and automated attendance
+ SMS and mobile push
+ Native mobile apps
+ Agency client management
+ Custom domains unless unusually simple within the chosen architecture
+ Advanced quizzes, conditional branching, and workflow automation
+ Public API for third-party developers
+ Full Community Site embedded integration; build the integration boundary and plan first
+
+25. Post-MVP Roadmap
+
+Phase    Theme                       Capabilities
+Phase 2  Professional launch tools
+Phase 3  AI and templates            Advanced registration pages, native
+Phase 4  Community Site integration  offer tracking, cohorts, teams,
+Phase 5  Commerce and marketplace    improved communications,
+Phase 6  Agency and scale            certificates
+Phase 7  Mobile and ecosystem
+                                     AI challenge builder, AI feedback,
+                                     template library, cloning, imports
+
+                                     Module activation, shared identity,
+                                     entitlements, community
+                                     navigation/feed integration
+
+                                     Native paid challenges, template
+                                     marketplace, licensing and revenue
+                                     reporting
+
+                                     Client workspaces, reusable brand
+                                     kits, agency controls, white-label
+                                     options, API
+
+                                     Native apps, push notifications,
+                                     external integrations, developer
+                                     platform
+
+26. Page and Route Inventory
+
+         Confidential product planning document - Smartstack Platforms LLC
+Surface              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+Platform marketing     Pages / screens
+Authentication
+Workspace               Home, features, use cases, pricing, examples, login, signup,
+                        legal
+Challenges
+                        Signup, login, verify, forgot/reset password, accept
+Public challenge        invitation
+Participant account
+Platform admin          Dashboard, onboarding, branding, team, integrations,
+Integration             billing placeholder, settings
+
+                        List, create wizard, overview, builder, participants, cohorts,
+                        teams, submissions, community, live sessions,
+                        communications, rewards, offer, analytics, settings,
+                        preview
+
+                        Registration, confirmation, welcome, login/access,
+                        challenge home, day/step, feed, leaderboard, resources, live
+                        session, completion, offer
+
+                        My challenges, profile, preferences, notifications,
+                        certificates/badges later
+
+                        Workspaces, users, challenges, flags, support view, audit,
+                        system status
+
+                        Install/authorize, launch callback, health/status,
+                        deactivation/data export later
+
+26.1 Route naming
+
+The developer should propose route conventions that cleanly separate platform marketing, authenticated
+creator administration, public challenge pages, participant pages, and integration callbacks. Slugs must
+be validated, reserved names protected, and tenant resolution explicit.
+
+27. Acceptance Criteria
+
+Area                                                              Acceptance criterion
+Creator onboarding
+                                                                     A new owner can create a workspace, configure basic
+Challenge creation                                                   branding, and reach the challenge dashboard without
+                                                                     manual database intervention.
+Registration
+Scheduling                                                           A creator can build a five-step challenge, reorder steps,
+Participation                                                        configure schedule and visibility, preview it, and publish
+Privacy                                                              only when validation passes.
+
+                                                                     A public visitor can register once, receive confirmation,
+                                                                     create/access an account, and become enrolled without
+                                                                     duplicate active enrollments.
+
+                                                                     The correct day is unlocked based on challenge/cohort
+                                                                     timezone and configured release rules.
+
+                                                                     An enrolled participant can consume content, submit
+                                                                     required work, complete a day, and see accurate progress.
+
+                                                                     Private submissions cannot be accessed by unrelated
+
+                     Confidential product planning document - Smartstack Platforms LLC
+Community                      CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+Gamification                      participants or workspaces.
+Email
+Analytics                         Participants can comment/reply/react where enabled;
+Mobile                            moderators can remove content.
+Deployment
+                                  Eligible actions create auditable points and update
+                                  progress without double-awarding on retries.
+
+                                  Core transactional triggers are sent once, delivery failures
+                                  are observable, and unsubscribe rules are respected.
+
+                                  Creator totals match the underlying registrations,
+                                  enrollments, and completion records.
+
+                                  The complete participant flow works on common mobile
+                                  viewport sizes.
+
+                                  Preview and production deployments use separate
+                                  configuration and do not expose secrets.
+
+28. Testing and Quality Plan
+
+ Unit tests for schedule/unlock calculations, progress calculation, point idempotency, permission
+     decisions, and validation schemas.
+
+ Integration tests for registration, enrollment, challenge publication, step completion, uploads,
+     messaging triggers, and tenant isolation.
+
+ End-to-end tests for creator build/publish and participant register/complete flows.
+ Permission matrix tests across owner, admin, manager, facilitator, participant, and public visitor.
+ Cross-tenant security tests ensuring identifiers cannot be used to access another workspace.
+ Responsive UI testing for mobile participant screens and desktop creator screens.
+ Accessibility checks for forms, navigation, focus, contrast, labels, errors, and progress states.
+ Failure testing for email provider errors, storage failures, duplicate requests, expired tokens, and
+
+     invalid schedules.
+ Production smoke checklist after each deployment.
+
+29. Implementation Workstreams
+
+Workstream                     Output
+
+A. Product and UX foundation   Information architecture, user flows, low-fidelity screen
+                               plans, design tokens
+
+B. Project foundation          Repository, Next.js setup, environments, linting, tests,
+                               deployment pipeline
+
+C. Identity and tenancy        Auth, workspaces, memberships, authorization utilities
+
+D. Challenge domain            Challenge/step models, builder, lifecycle, scheduling
+
+E. Public funnel               Registration, confirmation, welcome, enrollment
+
+F. Participant experience      Hub, step view, progress, completion, uploads
+
+G. Community and gamification  Discussion/feed, comments, points, streaks, badges
+
+H. Communications              Templates, triggers, delivery records, preferences
+
+                           Confidential product planning document - Smartstack Platforms LLC
+I. Analytics and operations  CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+J. Integration readiness        Dashboards, exports, audit, monitoring
+K. Hardening and release
+                                Installation model, signed launch contract, Community Site
+                                mapping plan
+
+                                Security review, accessibility, E2E tests, documentation,
+                                production checklist
+
+29.1 Milestone discipline
+
+Each workstream should be broken into reviewable milestones that can be demonstrated through the
+deployed preview environment. The developer should avoid one large unreviewable build. Every
+milestone should state user-visible outcomes, schema dependencies, tests, deployment changes, and
+owner decisions.
+
+30. Developer Guardrails and
+Ownership
+
+ The Challenge Studio concept, product name, specifications, source code created under this
+     engagement, accounts, repositories, deployments, data models, designs, and related software assets
+     are owned by Robert Evans / the designated Smartstack entity, subject to the parties' written
+     agreement.
+
+ Development must occur only in repositories, Vercel projects, databases, domains, and service
+     accounts provided or approved by the owner.
+
+ Do not place production infrastructure, credentials, domains, or source code solely under a personal
+     developer account.
+
+ Do not introduce paid third-party services, restrictive licenses, or significant recurring costs without
+     approval.
+
+ Do not implement or apply production database migrations without a separate reviewed database
+     plan and explicit approval. Prepare schema proposals and migration files for review.
+
+ Do not modify The Community Site repository or database as part of the standalone build unless a
+     separate integration stage is explicitly authorized.
+
+ Keep secrets out of code and commit history. Use environment variables and document every
+     required variable.
+
+ Document architecture, setup, deployment, schema, APIs, operational procedures, and known
+     limitations throughout the build.
+
+ Use branches and small, understandable commits. Preserve a demonstrable deployed preview for
+     review.
+
+ Raise ambiguity rather than silently choosing a direction that changes product scope, access, billing,
+     or data ownership.
+
+31. Claude Code Planning Prompt
+
+The developer may paste the following instruction into Claude Code along with this document:
+
+                                              Confidential product planning document - Smartstack Platforms LLC
+                                                                                              CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+
+Planning prompt
+Review the attached Challenge Studio Product Requirements Document as the product source of truth.
+Do not begin implementation yet. Produce a detailed technical build plan for a standalone multi-tenant
+SaaS deployed on Vercel and designed for later integration as a paid module within The Community
+Site. Include: architecture, proposed stack and versions, repository structure, route map, component
+plan, conceptual schema, authorization model, challenge scheduling logic, integration boundaries, file-
+storage approach, email architecture, analytics event model, security risks, test strategy, milestone
+plan, deployment plan, environment variables, owner decisions, and features explicitly excluded from
+MVP. Identify conflicts, hidden complexity, and any assumptions. Database changes must be proposed
+separately and must not be applied until explicitly approved. Prefer incremental milestones that each
+produce a demonstrable result in a preview deployment.
+
+31.1 Expected output from Claude Code
+
+ Architecture decision record with alternatives considered.
+ MVP milestone sequence with acceptance criteria.
+ Proposed schema diagram or entity list, without applying migrations.
+ Route and component inventory.
+ Authorization and tenant-isolation plan.
+ Scheduling/unlock algorithm specification including timezone edge cases.
+ Integration contract proposal for future Community Site use.
+ Risks, open decisions, and estimates expressed as relative complexity rather than unsupported
+
+     promises.
+ First milestone implementation prompt only after the plan is reviewed and approved.
+
+32. Open Decisions and Assumptions
+
+Decision                           Current assumption for planning
+Standalone domain
+Initial pricing                    A Challenge Studio branded domain will be acquired; exact
+                                   domain is not yet fixed.
+Database/provider
+                                   Not decided; architecture should be entitlement-ready but
+Email provider                     billing is not an MVP prerequisite.
+File storage
+Video hosting                      Developer should propose based on owner stack
+Community Site integration timing  preference and future integration; no production
+AI features                        migration without approval.
+
+                                   Use an abstraction; Resend is a likely option but requires
+                                   approval/configuration.
+
+                                   Use secure object storage with signed access and tenant
+                                   ownership.
+
+                                   MVP uses supported external links/embeds rather than
+                                   becoming a video host.
+
+                                   Architecture-ready now; full integration after standalone
+                                   MVP is validated.
+
+                                   Deferred until core workflows and data model are stable.
+
+Confidential product planning document - Smartstack Platforms LLC
+Native checkout  CHALLENGE STUDIO | PRODUCT REQUIREMENTS & BUILD BRIEF
+Custom domains      Deferred; external CTA initially.
+                    Desirable but may be deferred from MVP.
+
+Any unresolved item should be surfaced in the technical plan. Lack of a decision is not permission to
+permanently hard-code an assumption.
+
+33. Final Handoff Checklist
+
+ Developer has access to the owner-controlled Git repository.
+ Developer has appropriate Vercel team/project access, not ownership outside the owner account.
+ Development and preview environments are created with separate secrets.
+ This PRD is stored in the repository under a docs or product folder.
+ Developer has produced and received approval on the technical build plan.
+ Database proposal has been reviewed separately before migrations are applied.
+ Milestone 1 has a defined demonstration and acceptance criteria.
+ All external services and costs are documented and approved.
+ Ownership, compensation, revenue-share, confidentiality, and post-engagement access are covered in
+
+     a separate written agreement.
+ The owner can independently access the repository, deployments, database, domains, logs, and
+
+     service accounts at all times.
+
+Closing Product Statement
+
+Challenge Studio should make it possible for a leader to turn a promise of change into a complete,
+motivating, community-powered experience. Its first release succeeds when one creator can run a
+professional 5-day marketing challenge without relying on a Facebook Group, while the same engine is
+clearly capable of powering ongoing community challenges, paid journeys, team initiatives, and future
+Community Site installations.
+
+North star
+Challenge Studio does not merely distribute daily content. It creates visible momentum toward a
+meaningful outcome.
+
+                 Confidential product planning document - Smartstack Platforms LLC
+

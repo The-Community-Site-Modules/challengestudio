@@ -17,14 +17,12 @@ const nextConfig: NextConfig = {
     '@aws-sdk/client-s3',
     '@aws-sdk/s3-request-presigner',
     'resend',
-    '@react-email/components',
-    'inngest',
     '@upstash/redis',
     '@upstash/ratelimit',
     '@sentry/nextjs',
   ],
   // The headers that never vary. Content-Security-Policy is not here: it
-  // carries a per-request nonce, so middleware.ts builds it.
+  // differs between development and production, so middleware.ts builds it.
   async headers() {
     const headers = [
       { key: 'X-Content-Type-Options', value: 'nosniff' },
