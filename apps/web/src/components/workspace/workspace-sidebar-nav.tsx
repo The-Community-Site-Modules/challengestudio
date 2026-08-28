@@ -35,7 +35,7 @@ const workspaceNav: NavItem[] = [
   { label: 'Content',      href: '/content',      Icon: FileText },
   { label: 'Participants', href: '/participants', Icon: Users },
   { label: 'Analytics',    href: '/analytics',    Icon: BarChart3 },
-  { label: 'Submissions',  href: '/submissions',  Icon: Inbox,          built: false },
+  { label: 'Submissions',  href: '/submissions',  Icon: Inbox },
   { label: 'Templates',    href: '/templates',    Icon: LayoutTemplate, built: false },
 ]
 

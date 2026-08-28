@@ -268,8 +268,18 @@ model Submission {
   participantId String   @map("participant_id")
   stepId        String   @map("step_id")
   data          Json     // submitted content
+  /// Set from the reflection block's own toggle. PRD §27: private work is for
+  /// the participant and authorised facilitators only, never other participants.
+  isPrivate     Boolean  @default(false) @map("is_private")
   submittedAt   DateTime @default(now()) @map("submitted_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Review (milestone 8's submission_feedback trigger). One review per
+  // submission — the plan's data model lists review as part of the submission
+  // record rather than a table of its own.
+  feedback     String?   @db.Text
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
 
   participant Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
   step        ChallengeStep @relation(fields: [stepId], references: [id], onDelete: Cascade)

@@ -253,10 +253,16 @@ export async function completeStepAction(
 
   // Upsert submission (removes participantId helper field before storing)
   const { participantId: _removed, ...cleanData } = submissionData as Record<string, unknown> & { participantId?: string }
+
+  // The reflection block's privacy toggle rides in with the payload. It now
+  // lives in a column as well, because a flag buried in JSON is one no query
+  // can filter on — and the review page has to.
+  const isPrivate = cleanData.isPrivate === true
+
   await db.submission.upsert({
     where:  { participantId_stepId: { participantId: participant.id, stepId } },
-    update: { data: cleanData as never },
-    create: { participantId: participant.id, stepId, data: cleanData as never },
+    update: { data: cleanData as never, isPrivate },
+    create: { participantId: participant.id, stepId, data: cleanData as never, isPrivate },
   })
 
   // Auto-complete participant when all required steps are done
