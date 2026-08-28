@@ -1,161 +1,166 @@
-'use client'
+// Route: /auth/signup
+//
+// A split screen: the form on the left, and on the right a panel that answers
+// "what am I signing up for" without asking anyone to read a marketing page.
+//
+// The right panel is hidden below `lg`. On a phone it would push the form
+// below the fold, and the form is the only thing on this page anybody came
+// for. It is not a smaller version of the panel — it is no panel.
+//
+// This page does not use `AuthShell` like the other auth pages, which is why
+// the shell moved out of the layout in the first place.
 
-import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { ArrowRight, Loader2, Eye, EyeOff, CheckCircle } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button }    from '@/components/ui/button'
-import { Input }     from '@/components/ui/input'
-import { Label }     from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { signUpAction } from '../actions'
+import { Suspense } from 'react'
+import { Check, Flame, Trophy, Users, Lock } from 'lucide-react'
+import { Logo } from '@/components/shared/logo'
+import { SignupForm } from './_components/signup-form'
+
+export const metadata = {
+  title: 'Create your account — Challenge Studio',
+  description: 'Start building your first challenge. Free during beta, no credit card.',
+}
+
+const INCLUDED = [
+  'Unlimited challenges while in beta',
+  'The whole builder — every content block',
+  'Community, points, streaks and badges',
+  'Automated email and full analytics',
+]
 
 export default function SignupPage() {
-  const searchParams = useSearchParams()
-  const error = searchParams.get('error')
-
-  const [showPassword, setShowPassword] = useState(false)
-  const [password,     setPassword]     = useState('')
-  const [isPending,    startTransition]  = useTransition()
-
-  useEffect(() => {
-    if (error) toast.error(decodeURIComponent(error))
-  }, [error])
-
-  const rules = [
-    { label: 'At least 8 characters', met: password.length >= 8 },
-    { label: 'At least one number',   met: /\d/.test(password) },
-  ]
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    startTransition(async () => {
-      await signUpAction(formData)
-    })
-  }
-
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="space-y-1 pb-4">
-        <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
-        <CardDescription>
-          Start building your first challenge — free, no credit card needed.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="firstName">First name</Label>
-              <Input
-                id="firstName"
-                name="firstName"
-                placeholder="Jane"
-                autoComplete="given-name"
-                required
-                disabled={isPending}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lastName">Last name</Label>
-              <Input
-                id="lastName"
-                name="lastName"
-                placeholder="Smith"
-                autoComplete="family-name"
-                disabled={isPending}
-              />
-            </div>
-          </div>
-
-          {/* Email */}
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-              disabled={isPending}
-            />
-          </div>
-
-          {/* Password */}
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Min. 8 characters"
-                autoComplete="new-password"
-                minLength={8}
-                required
-                disabled={isPending}
-                className="pr-10"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(p => !p)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-
-            {/* Password strength hints */}
-            {password.length > 0 && (
-              <ul className="mt-2 space-y-1">
-                {rules.map(rule => (
-                  <li key={rule.label} className="flex items-center gap-2 text-xs">
-                    <CheckCircle className={`h-3.5 w-3.5 shrink-0 ${
-                      rule.met ? 'text-green-500' : 'text-muted-foreground'
-                    }`} />
-                    <span className={rule.met ? 'text-green-700' : 'text-muted-foreground'}>
-                      {rule.label}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Terms */}
-          <p className="text-xs text-muted-foreground">
-            By creating an account you agree to our{' '}
-            <Link href="/legal/terms" className="underline hover:text-foreground">Terms of Service</Link>
-            {' '}and{' '}
-            <Link href="/legal/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
-          </p>
-
-          <Button type="submit" className="w-full" size="lg" disabled={isPending}>
-            {isPending
-              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account…</>
-              : <>Create account <ArrowRight className="ml-2 h-4 w-4" /></>}
-          </Button>
-        </form>
-
-        <Separator />
-
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <Link href="/auth/login" className="font-medium text-primary hover:underline">
-            Sign in
+    <div className="flex min-h-screen">
+      {/* ── Form ─────────────────────────────────────────────────────────── */}
+      <div className="flex w-full flex-col bg-background lg:w-[54%]">
+        <header className="flex h-16 shrink-0 items-center px-6 sm:px-10">
+          <Link href="/" className="flex items-center" aria-label="Challenge Studio home">
+            <Logo variant="lockup" className="h-7" priority />
           </Link>
-        </p>
-      </CardContent>
-    </Card>
+        </header>
+
+        <div className="flex flex-1 items-center justify-center px-6 py-8 sm:px-10">
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-[28px] font-bold leading-tight tracking-tight text-foreground">
+              Create your account
+            </h1>
+            <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+              Free while Challenge Studio is in beta. No card, and nothing goes
+              live until you publish it.
+            </p>
+
+            <div className="mt-7">
+              {/* useSearchParams needs a boundary, or the whole route opts out
+                  of static rendering. */}
+              <Suspense fallback={<div className="h-[560px]" aria-hidden="true" />}>
+                <SignupForm />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+
+        <footer className="shrink-0 px-6 py-5 text-center text-xs text-muted-foreground sm:px-10">
+          <Link href="/legal/privacy" className="hover:text-foreground hover:underline">Privacy</Link>
+          <span className="mx-2">·</span>
+          <Link href="/legal/terms" className="hover:text-foreground hover:underline">Terms</Link>
+        </footer>
+      </div>
+
+      {/* ── Brand panel ──────────────────────────────────────────────────── */}
+      <aside
+        aria-label="What Challenge Studio includes"
+        className="relative hidden overflow-hidden border-l border-border/60 bg-mesh lg:flex lg:w-[46%] lg:flex-col lg:justify-center"
+      >
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid opacity-[0.35]" />
+
+        <div className="relative px-12 py-16 xl:px-16">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            What you get
+          </p>
+          <h2 className="mt-4 text-[30px] font-bold leading-[1.15] tracking-tight text-foreground xl:text-[34px]">
+            Everything a challenge needs,{' '}
+            <span className="bg-gradient-to-br from-primary to-violet-500 bg-clip-text text-transparent">
+              from the first day
+            </span>
+          </h2>
+
+          <ul className="mt-8 space-y-3.5">
+            {INCLUDED.map((item) => (
+              <li key={item} className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                </span>
+                <span className="text-[15px] leading-relaxed text-foreground">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* A glimpse of the thing itself, rather than a stock photograph. */}
+          <div
+            aria-hidden="true"
+            className="mt-10 rounded-2xl border border-border/80 bg-card/90 p-5 shadow-xl shadow-primary/5 backdrop-blur"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Users className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold leading-tight text-foreground">
+                  5-Day Momentum Challenge
+                </p>
+                <p className="text-[11px] text-muted-foreground">247 registered · Day 4 of 5</p>
+              </div>
+              <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">
+                live
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {[
+                { label: 'Orientation', pct: 94 },
+                { label: 'Day 1 — Your Big Idea', pct: 88 },
+                { label: 'Day 2 — Know Your Buyer', pct: 79 },
+              ].map((d, i) => (
+                <div key={d.label} className="flex items-center gap-2.5">
+                  <span className="w-32 shrink-0 truncate text-[11px] text-muted-foreground">
+                    {d.label}
+                  </span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className={cnDelay(i)}
+                      style={{ width: `${d.pct}%` }}
+                    />
+                  </span>
+                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-foreground">
+                    {d.pct}%
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 border-t border-border/70 pt-3.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-900">
+                <Flame className="h-3 w-3" /> 88 on a streak
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                <Trophy className="h-3 w-3" /> 3 badges today
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-8 flex items-start gap-2.5 text-[13px] leading-relaxed text-muted-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            Participants’ private reflections stay private — withheld on the
+            server, not hidden in the page.
+          </p>
+        </div>
+      </aside>
+    </div>
   )
+}
+
+/** The three bars grow in sequence rather than all at once. */
+function cnDelay(index: number): string {
+  const delay = ['delay-1', 'delay-2', 'delay-3'][index] ?? ''
+  return `block h-full origin-left rounded-full bg-primary animate-grow-bar ${delay}`
 }

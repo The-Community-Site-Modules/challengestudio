@@ -57,6 +57,32 @@ test.describe('public pages', () => {
     await audit(page, 'signup')
   })
 
+  test('the sign-up form showing errors', async ({ page }) => {
+    // Submitting empty puts every field into its error state at once, which
+    // is the state most likely to fail contrast or lose its label.
+    await page.goto('/auth/signup')
+    await page.getByRole('button', { name: 'Create Account' }).click()
+    await page.waitForTimeout(300)
+    await audit(page, 'signup (errors)')
+  })
+
+  test('the sign-up form on a phone', async ({ page }) => {
+    // The brand panel is hidden below lg — a different rendering.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/auth/signup')
+    await audit(page, 'signup (mobile)')
+  })
+
+  // The auth layout was slimmed so sign-up could go full width; the rest keep
+  // their centred card through AuthShell. Auditing each one is also how a
+  // page that failed to render at all would be caught.
+  for (const path of ['/auth/forgot-password', '/auth/reset-password', '/auth/verify']) {
+    test(`${path}`, async ({ page }) => {
+      await page.goto(path)
+      await audit(page, path)
+    })
+  }
+
   test('the home page', async ({ page }) => {
     await page.goto('/')
     await audit(page, 'home')

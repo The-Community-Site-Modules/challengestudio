@@ -27,6 +27,8 @@ const config: Config = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          // For error text on a light surface — see globals.css.
+          strong: 'hsl(var(--destructive-strong))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

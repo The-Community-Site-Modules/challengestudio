@@ -8,6 +8,7 @@ import { db }          from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { acceptInvitationAction } from '@/app/(workspace)/actions'
 import { signOutAction } from '@/app/(auth)/auth/actions'
+import { AuthShell } from '../../../_components/auth-shell'
 
 interface Props {
   params: Promise<{ token: string }>
@@ -29,20 +30,20 @@ export default async function InvitationPage({ params }: Props) {
   if (!invitation) {
     return (
       <Card className="shadow-sm">
-        <CardHeader className="space-y-1 pb-4">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
-            <AlertTriangle className="h-6 w-6 text-destructive" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Invalid invitation</CardTitle>
-          <CardDescription>
-            This invitation link is invalid or has already been used.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/auth/login" className="text-sm text-primary hover:underline">
-            ← Back to sign in
-          </Link>
-        </CardContent>
+          <CardHeader className="space-y-1 pb-4">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Invalid invitation</CardTitle>
+            <CardDescription>
+              This invitation link is invalid or has already been used.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/auth/login" className="text-sm text-primary hover:underline">
+              ← Back to sign in
+            </Link>
+          </CardContent>
       </Card>
     )
   }
@@ -103,7 +104,8 @@ export default async function InvitationPage({ params }: Props) {
     currentUser.email.toLowerCase() !== invitation.email.toLowerCase()
 
   return (
-    <Card className="shadow-sm">
+    <AuthShell>
+      <Card className="shadow-sm">
       <CardHeader className="space-y-1 pb-4">
         <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
           <Users className="h-6 w-6 text-primary" />
@@ -214,6 +216,7 @@ export default async function InvitationPage({ params }: Props) {
         )}
 
       </CardContent>
-    </Card>
+      </Card>
+    </AuthShell>
   )
 }

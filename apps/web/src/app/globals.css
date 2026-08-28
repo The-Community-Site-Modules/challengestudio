@@ -23,6 +23,10 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    /* The same red, dark enough to read as text on a light surface. Use
+       `text-destructive-strong` for error messages; `--destructive` stays the
+       fill for destructive buttons, where the text on it is white. */
+    --destructive-strong: 0 72% 42%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 243.4 75.4% 58.6%;
@@ -48,6 +52,7 @@
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
+    --destructive-strong: 0 84% 70%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 238.4 79.4% 71.4%;
