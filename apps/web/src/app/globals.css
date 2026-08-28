@@ -78,3 +78,49 @@
     left: 0;
   }
 }
+
+@layer base {
+  /* Motion on the marketing pages is decoration. Anyone who has asked their
+     system for less of it gets the finished state immediately, not a faster
+     version of the same animation. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Entrance delays, so a row of cards arrives in sequence rather than
+     all at once. Paired with animate-fade-up. */
+  .delay-1 { animation-delay: 80ms; }
+  .delay-2 { animation-delay: 160ms; }
+  .delay-3 { animation-delay: 240ms; }
+  .delay-4 { animation-delay: 320ms; }
+  .delay-5 { animation-delay: 400ms; }
+
+  /* The soft coloured wash behind the hero and the CTA. A gradient rather
+     than an image keeps it sharp at any width and costs nothing to load. */
+  .bg-mesh {
+    background-image:
+      radial-gradient(60% 60% at 15% 0%, hsl(var(--primary) / 0.14) 0%, transparent 60%),
+      radial-gradient(50% 50% at 85% 10%, hsl(262 83% 68% / 0.12) 0%, transparent 60%),
+      radial-gradient(40% 40% at 50% 100%, hsl(var(--primary) / 0.07) 0%, transparent 70%);
+  }
+
+  /* A one-pixel grid that fades out downward — reads as graph paper under the
+     product mockup without drawing attention to itself. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: linear-gradient(to bottom, black, transparent 75%);
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 75%);
+  }
+}
