@@ -12,13 +12,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const db = {
-  challenge:     { findFirst: vi.fn() },
+  challenge:     { findFirst: vi.fn(), findUnique: vi.fn() },
   participant:   { findUnique: vi.fn(), update: vi.fn() },
   submission:    { upsert: vi.fn(), count: vi.fn(), findMany: vi.fn() },
   challengeStep: { count: vi.fn() },
   // Completing a step now also awards points and evaluates badges.
   pointsEvent:   { create: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
-  badgeAward:    { createMany: vi.fn() },
+  badgeAward:    { createMany: vi.fn(), findMany: vi.fn() },
+  profile:       { findUnique: vi.fn() },
   feedPost:      { count: vi.fn() },
   feedComment:   { count: vi.fn() },
 }
@@ -29,7 +30,12 @@ vi.mock('@/lib/gamification', () => ({
   awardPoints,
   totalPoints: async () => 0,
   earnedBadgeKeys: () => [],
+  badgeByKey: () => undefined,
 }))
+
+// Completion now also sends mail; dispatch has its own suite.
+const dispatch = vi.fn(async () => ({ status: 'sent' as const }))
+vi.mock('@/lib/communications', () => ({ dispatch }))
 
 class RedirectError extends Error {}
 vi.mock('next/navigation', () => ({
@@ -84,6 +90,11 @@ beforeEach(() => {
   db.feedPost.count.mockResolvedValue(0)
   db.feedComment.count.mockResolvedValue(0)
   db.badgeAward.createMany.mockResolvedValue({ count: 0 })
+  db.badgeAward.findMany.mockResolvedValue([])
+  db.profile.findUnique.mockResolvedValue({ email: 'ada@example.com', fullName: 'Ada Lovelace' })
+  db.challenge.findUnique.mockResolvedValue({
+    title: 'Design Sprint', slug: 'design-sprint', workspace: { name: 'Designify' },
+  })
 })
 
 describe('submitting work', () => {
@@ -227,5 +238,26 @@ describe('points on completion', () => {
     expect(awardPoints).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'challenge_completed' })
     )
+  })
+})
+
+describe('mail on completion', () => {
+  it('sends the completion message once the last required step lands', async () => {
+    db.challengeStep.count.mockResolvedValue(1)
+    db.submission.count.mockResolvedValue(1)
+    await submit('st1')
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'completion',
+        idempotencyKey: 'p1:completion',
+      })
+    )
+  })
+
+  it('sends nothing while the challenge is unfinished', async () => {
+    db.challengeStep.count.mockResolvedValue(3)
+    db.submission.count.mockResolvedValue(1)
+    await submit('st1')
+    expect(dispatch).not.toHaveBeenCalled()
   })
 })

@@ -4,7 +4,8 @@ import { redirect }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db }           from '@/lib/db'
 import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
-import { awardPoints, earnedBadgeKeys, totalPoints } from '@/lib/gamification'
+import { awardPoints, earnedBadgeKeys, totalPoints, badgeByKey } from '@/lib/gamification'
+import { dispatch } from '@/lib/communications'
 
 /**
  * Where a new participant starts.
@@ -34,8 +35,9 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      id: true, slug: true, title: true, status: true,
+      id: true, slug: true, title: true, status: true, workspaceId: true, startsAt: true,
       maxParticipants: true, requiresApproval: true, isPublic: true,
+      workspace: { select: { name: true } },
       registrationOpensAt: true, registrationClosesAt: true,
       _count: { select: { participants: true } },
     },
@@ -84,6 +86,23 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
         challengeId: challenge.id,
         profileId:   existingUser.id,
         status:      initialParticipantStatus(challenge.requiresApproval) as never,
+      },
+    })
+
+    await dispatch({
+      trigger:       'registration_confirm',
+      workspaceId:   challenge.workspaceId,
+      challengeId:   challenge.id,
+      profileId:     existingUser.id,
+      to:            existingUser.email ?? email,
+      idempotencyKey: `${existingUser.id}:${challenge.id}:registration_confirm`,
+      values: {
+        participantName: firstName,
+        challengeTitle:  challenge.title,
+        workspaceName:   challenge.workspace.name,
+        ...(challenge.startsAt
+          ? { startDate: challenge.startsAt.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) }
+          : {}),
       },
     })
 
@@ -278,12 +297,64 @@ export async function completeStepAction(
     })
   }
 
-  await evaluateBadges({
+  const newBadges = await evaluateBadges({
     challengeId:   challenge.id,
     participantId: participant.id,
     completedSteps: completedRequired,
     totalSteps:     allRequired,
   })
+
+  // Both of these are non-essential, so an unsubscribed participant is skipped
+  // inside dispatch rather than here.
+  if (finished || newBadges.length > 0) {
+    const profile = await db.profile.findUnique({
+      where:  { id: user.id },
+      select: { email: true, fullName: true },
+    })
+    const challengeRow = await db.challenge.findUnique({
+      where:  { id: challenge.id },
+      select: { title: true, slug: true, workspace: { select: { name: true } } },
+    })
+
+    if (profile && challengeRow) {
+      const common = {
+        participantName: profile.fullName?.split(' ')[0] ?? profile.email,
+        challengeTitle:  challengeRow.title,
+        workspaceName:   challengeRow.workspace.name,
+      }
+
+      for (const key of newBadges) {
+        const badge = badgeByKey(key)
+        if (!badge) continue
+        await dispatch({
+          trigger:        'milestone_earned',
+          workspaceId:    challenge.workspaceId,
+          challengeId:    challenge.id,
+          participantId:  participant.id,
+          profileId:      user.id,
+          to:             profile.email,
+          idempotencyKey: `${participant.id}:milestone_earned:${key}`,
+          values: { ...common, badgeName: badge.name },
+        })
+      }
+
+      if (finished) {
+        await dispatch({
+          trigger:        'completion',
+          workspaceId:    challenge.workspaceId,
+          challengeId:    challenge.id,
+          participantId:  participant.id,
+          profileId:      user.id,
+          to:             profile.email,
+          idempotencyKey: `${participant.id}:completion`,
+          values: {
+            ...common,
+            actionUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/c/${challengeRow.slug}/complete`,
+          },
+        })
+      }
+    }
+  }
 }
 
 /**
@@ -298,7 +369,7 @@ async function evaluateBadges(input: {
   participantId: string
   completedSteps: number
   totalSteps: number
-}) {
+}): Promise<string[]> {
   const [posts, comments, submissions] = await Promise.all([
     db.feedPost.count({ where: { participantId: input.participantId } }),
     db.feedComment.count({ where: { participantId: input.participantId } }),
@@ -315,16 +386,27 @@ async function evaluateBadges(input: {
     posts,
     comments,
   })
-  if (keys.length === 0) return
+  if (keys.length === 0) return []
+
+  // Which of these are new? createMany with skipDuplicates does not say, and
+  // mailing about a badge earned last week would be worse than not mailing.
+  const already = await db.badgeAward.findMany({
+    where:  { participantId: input.participantId, badgeKey: { in: keys } },
+    select: { badgeKey: true },
+  })
+  const had = new Set(already.map(a => a.badgeKey))
+  const fresh = keys.filter(k => !had.has(k))
+  if (fresh.length === 0) return []
 
   await db.badgeAward.createMany({
-    data: keys.map(badgeKey => ({
+    data: fresh.map(badgeKey => ({
       challengeId:   input.challengeId,
       participantId: input.participantId,
       badgeKey,
     })),
     skipDuplicates: true,
   })
+  return fresh
 }
 
 // ─── Get participant + step unlock status ─────────────────────────────────────

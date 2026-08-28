@@ -84,6 +84,7 @@ model Profile {
   ownedWorkspaces      Workspace[]
   participations       Participant[]
   sentInvitations      WorkspaceInvitation[]
+  notificationPrefs    NotificationPreference[]
 
   @@map("profiles")
 }
@@ -184,6 +185,7 @@ model Challenge {
   steps        ChallengeStep[]
   participants Participant[]
   feedPosts    FeedPost[]
+  messageTemplates MessageTemplate[]
 
   @@unique([workspaceId, slug])
   @@map("challenges")
@@ -380,4 +382,75 @@ model BadgeAward {
 
   @@unique([participantId, badgeKey])
   @@map("badge_awards")
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMUNICATIONS (Milestone 8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A creator's override for one message type on one challenge.
+///
+/// The catalogue itself lives in code (lib/communications/catalogue) — same
+/// reasoning as badges. A row exists only where a creator has changed
+/// something, so there is no seeding step and no template that can drift from
+/// the trigger the code fires. Null subject/body mean "use the default".
+model MessageTemplate {
+  id          String   @id @default(cuid())
+  challengeId String   @map("challenge_id")
+  trigger     String
+  enabled     Boolean  @default(true)
+  subject     String?
+  body        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, trigger])
+  @@map("message_templates")
+}
+
+/// Every send attempt, whether it worked or not.
+///
+/// PRD §27: "Core transactional triggers are sent once, delivery failures are
+/// observable." Both live here — the unique idempotency key is what makes
+/// "once" true at the database level rather than by caller discipline, and a
+/// failure is a row with status 'failed' rather than a silent nothing.
+model MessageDelivery {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  challengeId    String?  @map("challenge_id")
+  participantId  String?  @map("participant_id")
+  recipientEmail String   @map("recipient_email")
+  trigger        String
+  /// sent | failed | skipped_unsubscribed | skipped_disabled
+  status         String
+  provider       String?
+  error          String?
+  idempotencyKey String   @unique @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([workspaceId, createdAt])
+  @@index([challengeId, trigger])
+  @@map("message_deliveries")
+}
+
+/// Unsubscribe, scoped to one workspace.
+///
+/// PRD §15.2: "Workspace unsubscribe behavior should not accidentally
+/// unsubscribe a person from unrelated products or workspaces." The unique key
+/// is (profile, workspace) precisely so opting out of one says nothing about
+/// any other. Essential mail — access and security — ignores this entirely.
+model NotificationPreference {
+  id           String   @id @default(cuid())
+  profileId    String   @map("profile_id")
+  workspaceId  String   @map("workspace_id")
+  unsubscribed Boolean  @default(false)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, workspaceId])
+  @@map("notification_preferences")
 }

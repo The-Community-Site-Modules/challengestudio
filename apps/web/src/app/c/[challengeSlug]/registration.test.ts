@@ -41,6 +41,11 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
+// Registering a signed-in visitor now also sends the confirmation; dispatch
+// has its own suite.
+const dispatch = vi.fn(async () => ({ status: 'sent' as const }))
+vi.mock('@/lib/communications', () => ({ dispatch }))
+
 const { registerAction, enrollAfterAuthAction } = await import('./actions')
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -51,6 +56,9 @@ const OPEN_CHALLENGE = {
   slug: 'design-sprint',
   title: '30-Day Design Sprint',
   status: 'PUBLISHED',
+  workspaceId: 'ws1',
+  startsAt: new Date('2026-09-01T00:00:00Z'),
+  workspace: { name: 'Designify' },
   maxParticipants: null,
   requiresApproval: false,
   isPublic: true,
@@ -220,5 +228,23 @@ describe('new visitors', () => {
   it('surfaces a failure to send the magic link', async () => {
     auth.otpError = { message: 'email rate limit exceeded' }
     expect((await register()).redirectedTo).toContain('rate%20limit')
+  })
+})
+
+describe('registration confirmation', () => {
+  it('is sent once to a visitor who was already signed in', async () => {
+    auth.user = { id: 'u1', email: 'ada@example.com' }
+    await register()
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'registration_confirm',
+        idempotencyKey: 'u1:ch1:registration_confirm',
+      })
+    )
+  })
+
+  it('is not sent on the magic-link path, where the link itself is the message', async () => {
+    await register()
+    expect(dispatch).not.toHaveBeenCalled()
   })
 })
