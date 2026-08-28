@@ -1,150 +1,197 @@
 // Route: /pricing
 //
-// Pricing is genuinely undecided — PRD OD-11 is still open, and §19.2 defers
-// billing out of the MVP entirely. There is no payment processor wired up and
-// no plan to charge against.
+// A marketing pricing page, built ahead of the billing it describes.
 //
-// So this page says that, rather than inventing three tiers with prices
-// nobody has agreed to. A made-up price is worse than an absent one: it is a
-// promise to whoever reads it, and the first support conversation after
-// launch would be about why the number changed.
+// Native billing is deliberately excluded from the MVP and OD-11 — what the
+// plans actually cost — is still an open decision. Two consequences are
+// deliberate, not oversights:
 //
-// When OD-11 closes, replace the middle section with the real plans. The rest
-// of the page — what beta includes, and the questions — stays true either way.
+//   1. Nothing here reaches a checkout. Every call to action goes to sign-up,
+//      because there is no payment provider wired up and no plan record to
+//      buy. Building a checkout screen now would be scaffolding the one thing
+//      the plan says not to scaffold.
+//
+//   2. A banner at the top says the beta is free and these prices are not
+//      live yet. The page would otherwise be a promise to every visitor, and
+//      the first support conversation after launch would be about why the
+//      number changed.
+//
+// The numbers themselves live in _components/plans.ts. When they are decided,
+// that one file updates the cards and the comparison table together.
 
 import Link from 'next/link'
-import { ArrowRight, Check, Mail } from 'lucide-react'
+import { ArrowRight, Info, ShieldCheck, Download, Users, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { PlanCards } from './_components/plan-cards'
+import { Comparison } from './_components/comparison'
 
 export const metadata = {
   title: 'Pricing — Challenge Studio',
   description:
-    'Challenge Studio is in beta and free to use while we get it right. Pricing is being decided with the people using it.',
+    'Starter, Professional and Business plans. Challenge limits, participant limits, team members, analytics, branding and support compared.',
 }
 
-const included = [
-  'Unlimited challenges, of any length',
-  'Unlimited participants',
-  'The full builder — every content block',
-  'Community feed, comments and reactions',
-  'Points, streaks and badges',
-  'Automated email for every trigger',
-  'Live sessions, replays and calendar links',
-  'A post-challenge offer page',
-  'Analytics, per-participant reporting and CSV export',
-  'Multiple workspaces, with a team in each',
+const REASSURANCE = [
+  { icon: <Repeat className="h-4 w-4" />,      title: 'Change plan any time',   body: 'Up or down, from inside your workspace. Nothing is locked for a year.' },
+  { icon: <Users className="h-4 w-4" />,       title: 'Participants are not seats', body: 'You are charged for the team running challenges, never for the people taking them.' },
+  { icon: <Download className="h-4 w-4" />,    title: 'Your data leaves with you', body: 'Participants and progress export as CSV whenever you want.' },
+  { icon: <ShieldCheck className="h-4 w-4" />, title: 'No cut of your sales',   body: 'Challenge Studio never processes payments. A paid challenge checks an entitlement you grant elsewhere.' },
 ]
 
-const questions = [
+const FAQ = [
   {
-    q: 'Is it really free?',
-    a: 'While it is in beta, yes — everything above, with no card and no trial clock. It is free because it is early, not as a promotion.',
+    q: 'What counts as an active challenge?',
+    a: 'One that is published and accepting participants. Drafts are unlimited on every plan, and a challenge that has finished stops counting the moment you close it.',
   },
   {
-    q: 'What happens when pricing arrives?',
-    a: 'You will hear it from us before anything changes, and you will keep what you have built. Nobody in the beta will find a paywall in front of their own challenges.',
+    q: 'What happens if a challenge outgrows its participant limit?',
+    a: 'Registration pauses at the limit rather than silently turning people away — you are told, and you can move up a plan and reopen it. Nobody already enrolled is ever locked out.',
   },
   {
-    q: 'Will there be a free plan afterwards?',
-    a: 'That is one of the things still being decided. It is a fair question to put to us now, while the answer can still be influenced.',
+    q: 'Do team members need their own plan?',
+    a: 'No. Team members are included in your workspace at the number shown, and they inherit the plan’s features. Their role decides what they can see.',
   },
   {
-    q: 'Can I take my data with me?',
-    a: 'Yes. Participants and their progress export as CSV from any challenge, whenever you want.',
+    q: 'Can I run more than one brand?',
+    a: 'Business includes five workspaces, each with its own branding, team and challenges. Starter and Professional include one.',
   },
   {
-    q: 'Do you take a cut of what I charge?',
-    a: 'No. Challenge Studio does not process payments at all — a paid challenge checks an entitlement you grant elsewhere, and the money never passes through here.',
+    q: 'Is there a free plan?',
+    a: 'Everything is free during the beta. Whether a free tier survives beyond it is one of the things still being decided, and it is a fair question to put to us now while the answer can still be influenced.',
+  },
+  {
+    q: 'What if I need more than Business?',
+    a: 'Tell us what you are running. Challenges with tens of thousands of participants are exactly the case pricing has to work for, and we would rather hear about yours early.',
   },
 ]
 
 export default function PricingPage() {
   return (
     <main>
-      {/* Hero */}
-      <section className="bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="mx-auto max-w-3xl px-6 pb-16 pt-20 text-center">
-          <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium">
-            In beta
-          </Badge>
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
-            Free while we{' '}
-            <span className="text-primary">get it right</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-            We have not set prices yet, and we would rather say so than put three
-            invented tiers on a page. Everything is open during the beta, and
-            what it costs afterwards is being worked out with the people
-            actually running challenges on it.
+      {/* Beta banner — the page describes billing that is not switched on. */}
+      <div className="border-b border-primary/20 bg-primary/[0.06]">
+        <div className="mx-auto flex max-w-7xl items-start gap-3 px-6 py-3.5">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <p className="text-[13px] leading-relaxed text-foreground">
+            <span className="font-semibold">Challenge Studio is in beta and free to use.</span>{' '}
+            These plans are what pricing will look like — nothing is charged yet, and
+            beta accounts will hear from us well before anything changes.
           </p>
         </div>
-      </section>
+      </div>
 
-      {/* What beta includes */}
-      <section className="pb-20">
-        <div className="mx-auto max-w-3xl px-6">
-          <div className="rounded-2xl border border-border bg-card p-8 sm:p-10">
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                Everything, included
-              </h2>
-              <p className="text-sm text-muted-foreground">No card. No trial countdown.</p>
-            </div>
+      {/* Hero + cards */}
+      <section className="relative overflow-hidden bg-mesh">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid opacity-[0.3]" />
 
-            <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-              {included.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-sm text-foreground">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="h-12 px-8 text-base" asChild>
-                <Link href="/auth/signup">
-                  Start building free <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="h-12 px-8 text-base" asChild>
-                <Link href="/features">See what is included</Link>
-              </Button>
-            </div>
+        <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-14 sm:pt-16">
+          <div className="mx-auto max-w-2xl text-center">
+            <h1 className="animate-fade-up text-[40px] font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-[54px]">
+              Priced for the{' '}
+              <span className="bg-gradient-to-br from-primary to-violet-500 bg-clip-text text-transparent">
+                challenges you run
+              </span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl animate-fade-up delay-1 text-lg leading-relaxed text-muted-foreground">
+              Not for how many people take part. Every plan includes the whole
+              product — the builder, the community, the emails and the analytics.
+            </p>
           </div>
 
-          {/* Have a say */}
-          <div className="mt-6 flex items-start gap-4 rounded-xl border border-border bg-muted/30 p-6">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Mail className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-semibold text-foreground">Running something big?</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                If you are planning a challenge with thousands of participants, or
-                running them for clients, tell us before you start. Those are the
-                cases pricing has to work for, and we would rather hear about
-                yours while it can still shape the answer.
-              </p>
-            </div>
+          <div className="mt-11 animate-fade-up delay-2">
+            <PlanCards />
           </div>
         </div>
       </section>
 
-      {/* Questions */}
-      <section className="border-t border-border py-20">
+      {/* Reassurance strip */}
+      <section className="border-y border-border/60 bg-muted/25 py-12">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {REASSURANCE.map((r) => (
+              <div key={r.title} className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {r.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{r.title}</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{r.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison */}
+      <section className="py-20">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Compare the plans
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              The differences are limits and reporting depth. Nothing that makes a
+              challenge work is held back from the smallest plan.
+            </p>
+          </div>
+
+          <div className="mt-12">
+            <Comparison />
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="border-t border-border/60 bg-muted/25 py-20">
         <div className="mx-auto max-w-3xl px-6">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Fair questions
+            Questions worth asking
           </h2>
           <dl className="mt-8 divide-y divide-border">
-            {questions.map(({ q, a }) => (
+            {FAQ.map(({ q, a }) => (
               <div key={q} className="py-5">
                 <dt className="font-semibold text-foreground">{q}</dt>
                 <dd className="mt-2 text-sm leading-relaxed text-muted-foreground">{a}</dd>
               </div>
             ))}
           </dl>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="relative overflow-hidden bg-primary py-20">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              'radial-gradient(60% 60% at 20% 0%, rgba(255,255,255,0.25) 0%, transparent 60%), radial-gradient(50% 50% at 80% 100%, rgba(255,255,255,0.18) 0%, transparent 60%)',
+          }}
+        />
+        <div className="relative mx-auto max-w-3xl px-6 text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-primary-foreground sm:text-4xl">
+            Start on the free beta
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-lg text-primary-foreground/90">
+            Build a challenge, run it properly, and decide about a plan when there
+            is one to decide about.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button size="lg" variant="secondary" className="h-12 w-full px-8 text-base sm:w-auto" asChild>
+              <Link href="/auth/signup">
+                Create a Challenge <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 w-full border-primary-foreground/30 bg-transparent px-8 text-base text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto"
+              asChild
+            >
+              <Link href="/features">See what is included</Link>
+            </Button>
+          </div>
         </div>
       </section>
     </main>

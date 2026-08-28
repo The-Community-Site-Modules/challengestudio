@@ -76,6 +76,21 @@ test.describe('public pages', () => {
     await page.goto('/pricing')
     await audit(page, 'pricing')
   })
+
+  test('pricing, with monthly selected', async ({ page }) => {
+    // The toggle swaps every price and its billing line; audit both states.
+    await page.goto('/pricing')
+    await page.getByRole('radio', { name: /^Monthly$/ }).click()
+    await audit(page, 'pricing (monthly)')
+  })
+
+  test('pricing on a phone', async ({ page }) => {
+    // Below md the comparison is a stack of per-plan cards, not the table —
+    // a different rendering, so a different audit.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/pricing')
+    await audit(page, 'pricing (mobile)')
+  })
 })
 
 test.describe('participant pages', () => {
