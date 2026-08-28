@@ -79,7 +79,7 @@ export default async function RewardsPage({ params }: Props) {
           {/* Points */}
           <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-              <Star className="h-4 w-4 text-slate-400" />
+              <Star className="h-4 w-4 text-slate-500" />
               <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">Points</h2>
             </header>
             <ul className="divide-y divide-slate-100">
@@ -88,7 +88,7 @@ export default async function RewardsPage({ params }: Props) {
                   <span className="min-w-0 flex-1 text-sm text-slate-800">
                     {ACTION_LABEL[action] ?? action}
                     {CAP_NOTE[action] && (
-                      <span className="ml-2 text-[12px] text-slate-400">{CAP_NOTE[action]}</span>
+                      <span className="ml-2 text-[12px] text-slate-500">{CAP_NOTE[action]}</span>
                     )}
                   </span>
                   <span className="shrink-0 text-sm font-medium tabular-nums text-slate-900">
@@ -105,9 +105,9 @@ export default async function RewardsPage({ params }: Props) {
           {/* Badges */}
           <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-              <Trophy className="h-4 w-4 text-slate-400" />
+              <Trophy className="h-4 w-4 text-slate-500" />
               <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">Badges</h2>
-              <span className="ml-auto text-[12px] text-slate-400">
+              <span className="ml-auto text-[12px] text-slate-500">
                 {participants} participant{participants === 1 ? '' : 's'}
               </span>
             </header>
@@ -127,7 +127,7 @@ export default async function RewardsPage({ params }: Props) {
                       <span className="block text-sm font-medium tabular-nums text-slate-900">
                         {count}
                       </span>
-                      <span className="block text-[12px] text-slate-400">earned</span>
+                      <span className="block text-[12px] text-slate-500">earned</span>
                     </span>
                   </li>
                 )

@@ -138,7 +138,7 @@ function Row({ submission, workspaceSlug, challengeSlug, canReview }: {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-sm font-medium text-slate-900">{submission.authorName}</span>
             <span className="text-[13px] text-slate-500">{submission.stepTitle}</span>
-            <span className="text-[12px] text-slate-400">{when(submission.submittedAt)}</span>
+            <span className="text-[12px] text-slate-500">{when(submission.submittedAt)}</span>
             {submission.isPrivate && (
               <span
                 title="Marked private by the participant"
@@ -156,7 +156,7 @@ function Row({ submission, workspaceSlug, challengeSlug, canReview }: {
             </p>
           ) : (
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-              {submission.answer || <span className="text-slate-400">No written answer.</span>}
+              {submission.answer || <span className="text-slate-500">No written answer.</span>}
             </p>
           )}
 
@@ -217,7 +217,7 @@ function Row({ submission, workspaceSlug, challengeSlug, canReview }: {
                 <Check className="h-3.5 w-3.5" /> Sent
               </span>
             )}
-            <span className="ml-auto text-[12px] text-slate-400">
+            <span className="ml-auto text-[12px] text-slate-500">
               They are emailed when you send this.
             </span>
           </div>

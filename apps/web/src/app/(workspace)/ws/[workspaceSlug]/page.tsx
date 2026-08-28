@@ -302,16 +302,22 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                           </div>
                         ) : null}
 
+                        {/* A div inside a dl may hold only dt and dd, so the
+                            icons sit inside the dd rather than beside it. */}
                         <dl className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
                           <div className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5" />
                             <dt className="sr-only">Participants</dt>
-                            <dd className="tabular-nums">{c._count.participants}</dd>
+                            <dd className="flex items-center gap-1.5 tabular-nums">
+                              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                              {c._count.participants}
+                            </dd>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Layers className="h-3.5 w-3.5" />
                             <dt className="sr-only">Steps</dt>
-                            <dd className="tabular-nums">{c._count.steps}</dd>
+                            <dd className="flex items-center gap-1.5 tabular-nums">
+                              <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+                              {c._count.steps}
+                            </dd>
                           </div>
                         </dl>
 

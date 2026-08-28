@@ -138,7 +138,7 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
           <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-8 text-center space-y-4">
             <div className="text-4xl">🎉</div>
             <h3 className="text-xl font-bold text-green-800">Step {dayNumber} complete!</h3>
-            <p className="text-sm text-green-600">You earned {xpValue} XP.</p>
+            <p className="text-sm text-green-700">You earned {xpValue} XP.</p>
             <div className="flex flex-col gap-2 sm:flex-row justify-center">
               <Button variant="outline" asChild className="gap-2">
                 <Link href={`/c/${challengeSlug}/hub`}>

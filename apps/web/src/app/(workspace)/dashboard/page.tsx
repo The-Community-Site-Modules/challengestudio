@@ -61,7 +61,7 @@ export default async function DashboardPage() {
 
           <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 Workspaces
               </p>
               <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900">
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
             <>
               {/* A strip rather than four cards — this is context for the choice
                   below, not the subject of the page. */}
-              <dl className="mt-8 grid grid-cols-2 rounded-xl border border-slate-200 bg-white lg:grid-cols-4">
+              <div className="mt-8 grid grid-cols-2 rounded-xl border border-slate-200 bg-white lg:grid-cols-4">
                 {stats.map(({ icon: Icon, label, value }, i) => (
                   <div
                     key={label}
@@ -117,18 +117,18 @@ export default async function DashboardPage() {
                       i > 0 && 'lg:border-l lg:border-slate-100'
                     )}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500 ring-1 ring-slate-100">
                       <Icon className="h-4 w-4" />
                     </span>
-                    <div className="min-w-0">
-                      <dd className="text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+                    <div className="flex min-w-0 flex-col">
+                            <span className="text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
                         {value}
-                      </dd>
-                      <dt className="mt-1 text-[13px] leading-tight text-slate-500">{label}</dt>
+                      </span>
+                      <span className="mt-1 text-[13px] leading-tight text-slate-500">{label}</span>
                     </div>
                   </div>
                 ))}
-              </dl>
+              </div>
 
               <div className="mt-10">
                 <WorkspaceBrowser

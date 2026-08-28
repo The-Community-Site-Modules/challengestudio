@@ -16,7 +16,9 @@
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* 46.9% is 4.4:1 on the muted background — just under AA for body text.
+       40% clears it on white and on bg-muted alike. */
+    --muted-foreground: 215.4 16.3% 40%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;

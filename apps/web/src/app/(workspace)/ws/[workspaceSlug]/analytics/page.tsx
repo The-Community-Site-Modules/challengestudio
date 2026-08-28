@@ -83,20 +83,20 @@ export default async function AnalyticsPage({ params }: Props) {
             description={`How ${workspace.name} is doing. Counted live, nothing estimated.`}
           />
 
-          <dl className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {stats.map(({ Icon, label, value, hint }) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-white p-5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+              <div key={label} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500 ring-1 ring-slate-100">
                   <Icon className="h-4 w-4" />
                 </span>
-                <dd className="mt-3 text-[24px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+                <span className="mt-3 text-[24px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
                   {value}
-                </dd>
-                <dt className="mt-1.5 text-[13px] font-medium text-slate-700">{label}</dt>
+                </span>
+                <span className="mt-1.5 text-[13px] font-medium text-slate-700">{label}</span>
                 <p className="mt-0.5 text-[12px] leading-tight text-slate-500">{hint}</p>
               </div>
             ))}
-          </dl>
+          </div>
 
           <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
             <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
@@ -131,7 +131,7 @@ export default async function AnalyticsPage({ params }: Props) {
                     <span className="min-w-0 flex-1 truncate text-sm text-slate-800">
                       {c.title}
                     </span>
-                    <span className="shrink-0 text-[12px] uppercase tracking-wide text-slate-400">
+                    <span className="shrink-0 text-[12px] uppercase tracking-wide text-slate-500">
                       {String(c.status).toLowerCase()}
                     </span>
                     <span className="w-20 shrink-0 text-right text-[13px] tabular-nums text-slate-600">

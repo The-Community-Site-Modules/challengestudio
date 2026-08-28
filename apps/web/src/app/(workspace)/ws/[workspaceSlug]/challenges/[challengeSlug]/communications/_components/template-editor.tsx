@@ -83,7 +83,7 @@ function Row({ template, workspaceSlug, challengeSlug, first }: {
           onClick={() => setOpen(v => !v)}
           className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:underline"
         >
-          <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+          <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-500 transition-transform', open && 'rotate-180')} />
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium text-slate-900">
               {template.name}
@@ -163,7 +163,7 @@ function Row({ template, workspaceSlug, challengeSlug, first }: {
           </div>
 
           <div>
-            <p className="text-[12px] font-medium uppercase tracking-wide text-slate-400">
+            <p className="text-[12px] font-medium uppercase tracking-wide text-slate-500">
               Available variables
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">

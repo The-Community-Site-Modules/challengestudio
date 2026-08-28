@@ -86,20 +86,20 @@ export default async function ChallengeAnalyticsPage({ params }: Props) {
           </div>
 
           {/* Headline metrics */}
-          <dl className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {stats.map(({ Icon, label, value, hint }) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-white p-5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+              <div key={label} className="flex flex-col rounded-xl border border-slate-200 bg-white p-5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500 ring-1 ring-slate-100">
                   <Icon className="h-4 w-4" />
                 </span>
-                <dd className="mt-3 text-[24px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+                <span className="mt-3 text-[24px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
                   {value}
-                </dd>
-                <dt className="mt-1.5 text-[13px] font-medium text-slate-700">{label}</dt>
+                </span>
+                <span className="mt-1.5 text-[13px] font-medium text-slate-700">{label}</span>
                 <p className="mt-0.5 text-[12px] leading-tight text-slate-500">{hint}</p>
               </div>
             ))}
-          </dl>
+          </div>
 
           {/* Registration trend */}
           <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
@@ -132,7 +132,7 @@ export default async function ChallengeAnalyticsPage({ params }: Props) {
                   const rate = d.reached > 0 ? Math.round((d.completed / d.reached) * 100) : 0
                   return (
                     <li key={d.stepId} className="flex items-center gap-4 px-5 py-3.5 sm:px-6">
-                      <span className="w-7 shrink-0 text-[13px] tabular-nums text-slate-400">
+                      <span className="w-7 shrink-0 text-[13px] tabular-nums text-slate-500">
                         {d.order + 1}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{d.title}</span>
@@ -162,7 +162,7 @@ export default async function ChallengeAnalyticsPage({ params }: Props) {
             <ul className="divide-y divide-slate-100">
               {secondary.map(({ Icon, label, value }) => (
                 <li key={label} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
-                  <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+                  <Icon className="h-4 w-4 shrink-0 text-slate-500" />
                   <span className="min-w-0 flex-1 text-sm text-slate-700">{label}</span>
                   <span className="shrink-0 text-sm font-medium tabular-nums text-slate-900">{value}</span>
                 </li>
@@ -173,11 +173,11 @@ export default async function ChallengeAnalyticsPage({ params }: Props) {
           {/* At risk */}
           <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-6">
-              <AlertTriangle className={cn('h-4 w-4', m.atRisk.length > 0 ? 'text-amber-500' : 'text-slate-400')} />
+              <AlertTriangle className={cn('h-4 w-4', m.atRisk.length > 0 ? 'text-amber-500' : 'text-slate-500')} />
               <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
                 Falling behind
               </h2>
-              <span className="ml-auto text-[12px] text-slate-400">
+              <span className="ml-auto text-[12px] text-slate-500">
                 nothing submitted for 3 days or more
               </span>
             </header>
@@ -191,7 +191,7 @@ export default async function ChallengeAnalyticsPage({ params }: Props) {
                   <li key={p.participantId} className="flex items-center gap-4 px-5 py-3 sm:px-6">
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-slate-800">{p.name}</span>
-                      <span className="block truncate text-[12px] text-slate-400">{p.email}</span>
+                      <span className="block truncate text-[12px] text-slate-500">{p.email}</span>
                     </span>
                     <span className="w-28 shrink-0 text-right text-[13px] tabular-nums text-slate-600">
                       {p.completedSteps} of {p.totalSteps}

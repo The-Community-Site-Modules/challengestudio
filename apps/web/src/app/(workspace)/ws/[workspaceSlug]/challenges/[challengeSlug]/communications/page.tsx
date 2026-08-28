@@ -95,7 +95,7 @@ export default async function CommunicationsPage({ params }: Props) {
           />
 
           <p className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-600">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             {scheduled} of these are sent by an hourly sweep rather than by
             something a participant does. Account access is sent by the sign-in
             provider, so its wording lives in Supabase rather than here.
@@ -110,11 +110,11 @@ export default async function CommunicationsPage({ params }: Props) {
           {/* Delivery log */}
           <section className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-              <Mail className="h-4 w-4 text-slate-400" />
+              <Mail className="h-4 w-4 text-slate-500" />
               <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
                 Delivery log
               </h2>
-              <span className="ml-auto text-[12px] text-slate-400">
+              <span className="ml-auto text-[12px] text-slate-500">
                 {deliveries.length === 50 ? 'last 50' : `${deliveries.length} total`}
               </span>
             </header>
@@ -140,7 +140,7 @@ export default async function CommunicationsPage({ params }: Props) {
                       )}>
                         {s.label}
                       </span>
-                      <span className="shrink-0 text-[12px] tabular-nums text-slate-400">
+                      <span className="shrink-0 text-[12px] tabular-nums text-slate-500">
                         {d.createdAt.toLocaleString(undefined, {
                           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                         })}

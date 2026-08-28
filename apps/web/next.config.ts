@@ -23,17 +23,34 @@ const nextConfig: NextConfig = {
     '@upstash/ratelimit',
     '@sentry/nextjs',
   ],
+  // The headers that never vary. Content-Security-Policy is not here: it
+  // carries a per-request nonce, so middleware.ts builds it.
   async headers() {
-    return [
+    const headers = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      // Nothing in this product uses these, so they are switched off rather
+      // than left to a browser default that may change.
       {
-        source: '/(.*)',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
       },
+      // Reduces what a cross-origin page can learn about this one.
+      { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+      { key: 'X-DNS-Prefetch-Control', value: 'on' },
     ]
+
+    // HSTS only in production: sending it from localhost pins http://localhost
+    // to https in the browser and breaks development until the pin expires.
+    if (process.env.NODE_ENV === 'production') {
+      headers.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=63072000; includeSubDomains; preload',
+      })
+    }
+
+    return [{ source: '/(.*)', headers }]
   },
 }
 

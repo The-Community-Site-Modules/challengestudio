@@ -103,7 +103,7 @@ export default async function ContentPage({ params }: Props) {
                         <h2 className="truncate text-[15px] font-semibold tracking-tight text-slate-900">
                           {c.title}
                         </h2>
-                        <p className="mt-0.5 text-[12px] uppercase tracking-wide text-slate-400">
+                        <p className="mt-0.5 text-[12px] uppercase tracking-wide text-slate-500">
                           {String(c.status).toLowerCase()} · {c.steps.length} step
                           {c.steps.length === 1 ? '' : 's'}
                         </p>
@@ -126,7 +126,7 @@ export default async function ContentPage({ params }: Props) {
                           const empty = s._count.contentBlocks === 0
                           return (
                             <li key={s.id} className="flex items-center gap-3 px-5 py-3">
-                              <span className="w-7 shrink-0 text-[12px] tabular-nums text-slate-400">
+                              <span className="w-7 shrink-0 text-[12px] tabular-nums text-slate-500">
                                 {s.order + 1}
                               </span>
                               <span className="min-w-0 flex-1 truncate text-sm text-slate-800">
@@ -135,7 +135,7 @@ export default async function ContentPage({ params }: Props) {
                               <span
                                 className={cn(
                                   'shrink-0 text-[12px]',
-                                  s.isPublished ? 'text-emerald-700' : 'text-slate-400'
+                                  s.isPublished ? 'text-emerald-700' : 'text-slate-500'
                                 )}
                               >
                                 {s.isPublished ? 'Published' : 'Draft'}

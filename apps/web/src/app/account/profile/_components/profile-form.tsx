@@ -69,7 +69,7 @@ function SettingsRow({ icon: Icon, label, description, children }: {
   return (
     <div className="flex flex-col gap-4 px-7 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-8">
       <div className="flex min-w-0 gap-3.5">
-        <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-400" />
+        <Icon className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-500" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-900">{label}</p>
           <p className="mt-1 max-w-md text-[13px] leading-relaxed text-slate-500">{description}</p>
@@ -204,7 +204,7 @@ export function ProfileForm({
               </Label>
               <div className="mt-2 flex max-w-md items-center gap-2">
                 <div className="relative flex-1">
-                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                   <Input
                     id="avatarUrl"
                     name="avatarUrl"
@@ -227,7 +227,7 @@ export function ProfileForm({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 shrink-0 text-slate-400 hover:text-slate-700"
+                    className="h-10 w-10 shrink-0 text-slate-500 hover:text-slate-700"
                     onClick={() => setAvatarUrl('')}
                   >
                     <X className="h-4 w-4" />

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import { ALLOWED_EMOJI } from '../reactions'
+import { ALLOWED_EMOJI, EMOJI_LABEL } from '../reactions'
 import {
   createPostAction, createCommentAction, toggleReactionAction, hidePostAction,
   hideCommentAction,
@@ -98,7 +98,7 @@ export function FeedClient({ challengeSlug, posts, canModerate }: Props) {
         />
         {error && <p role="alert" className="mt-2 text-[13px] text-red-600">{error}</p>}
         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-          <span className="text-[12px] tabular-nums text-slate-400">
+          <span className="text-[12px] tabular-nums text-slate-500">
             {body.length}/2000
           </span>
           <Button
@@ -187,7 +187,7 @@ function Post({ post, challengeSlug, canModerate }: {
                 {post.stepLabel}
               </span>
             )}
-            <span className="text-[12px] text-slate-400">{ago(post.createdAt)}</span>
+            <span className="text-[12px] text-slate-500">{ago(post.createdAt)}</span>
           </div>
           <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
             {post.body}
@@ -222,6 +222,7 @@ function Post({ post, challengeSlug, canModerate }: {
               disabled={isBusy}
               onClick={() => react(emoji)}
               aria-pressed={r?.mine ?? false}
+              aria-label={`${EMOJI_LABEL[emoji]}${r?.count ? ` (${r.count})` : ''}`}
               className={cn(
                 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] transition-colors',
                 r?.mine
@@ -257,7 +258,7 @@ function Post({ post, challengeSlug, canModerate }: {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-medium text-slate-900">{c.authorName}</span>
-                  <span className="text-[11px] text-slate-400">{ago(c.createdAt)}</span>
+                  <span className="text-[11px] text-slate-500">{ago(c.createdAt)}</span>
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-600">
                   {c.body}

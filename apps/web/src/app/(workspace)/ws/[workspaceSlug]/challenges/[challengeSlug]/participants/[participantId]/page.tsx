@@ -155,19 +155,19 @@ export default async function ParticipantDetailPage({ params }: Props) {
             </div>
           </header>
 
-          <dl className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {facts.map(({ Icon, label, value }) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-white p-4">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
+              <div key={label} className="flex flex-col rounded-xl border border-slate-200 bg-white p-4">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500 ring-1 ring-slate-100">
                   <Icon className="h-4 w-4" />
                 </span>
-                <dd className="mt-2.5 text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
+                <span className="mt-2.5 text-[20px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums">
                   {value}
-                </dd>
-                <dt className="mt-1 text-[13px] text-slate-500">{label}</dt>
+                </span>
+                <span className="mt-1 text-[13px] text-slate-500">{label}</span>
               </div>
             ))}
-          </dl>
+          </div>
 
           {/* Badges */}
           {participant.badgeAwards.length > 0 && (
@@ -209,7 +209,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
                         <span className="text-sm font-medium text-slate-900">
                           {step ? step.title : 'Removed step'}
                         </span>
-                        <span className="text-[12px] text-slate-400">{when(s.submittedAt)}</span>
+                        <span className="text-[12px] text-slate-500">{when(s.submittedAt)}</span>
                         {s.isPrivate && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                             <Lock className="h-3 w-3" /> Private
@@ -223,7 +223,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
                       </div>
                       <p className={cn(
                         'mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed',
-                        withheld ? 'text-slate-400' : 'text-slate-700'
+                        withheld ? 'text-slate-500' : 'text-slate-700'
                       )}>
                         {withheld
                           ? 'Marked private. Opening it needs permission to view private submissions.'
@@ -245,11 +245,11 @@ export default async function ParticipantDetailPage({ params }: Props) {
           {/* Communication history */}
           <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-              <Mail className="h-4 w-4 text-slate-400" />
+              <Mail className="h-4 w-4 text-slate-500" />
               <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
                 Emails to this person
               </h2>
-              <span className="ml-auto text-[12px] text-slate-400">
+              <span className="ml-auto text-[12px] text-slate-500">
                 {participant._count.posts} posts · {participant._count.comments} comments
               </span>
             </header>
@@ -267,7 +267,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
                     )}>
                       {d.status}
                     </span>
-                    <span className="shrink-0 text-[12px] tabular-nums text-slate-400">
+                    <span className="shrink-0 text-[12px] tabular-nums text-slate-500">
                       {when(d.createdAt)}
                     </span>
                   </li>

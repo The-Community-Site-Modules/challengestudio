@@ -63,7 +63,7 @@ export function PreviewClient({
 
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-900">{challengeTitle}</p>
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+          <p className="flex items-center gap-1.5 text-xs text-slate-500">
             <Eye className="h-3 w-3" /> Preview — how a participant sees this
           </p>
         </div>
@@ -90,7 +90,7 @@ export function PreviewClient({
 
         {/* Step rail */}
         <nav aria-label="Steps" className="w-60 shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
-          <p className="px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <p className="px-4 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Steps ({steps.length})
           </p>
           <ul className="pb-4">
@@ -112,7 +112,7 @@ export function PreviewClient({
                       s.id === active?.id ? 'font-medium text-indigo-700' : 'text-slate-700')}>
                       {s.title}
                     </span>
-                    <span className="block text-[11px] text-slate-400">
+                    <span className="block text-[11px] text-slate-500">
                       {s.blocks.length} block{s.blocks.length === 1 ? '' : 's'}
                     </span>
                   </span>

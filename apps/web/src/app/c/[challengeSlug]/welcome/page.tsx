@@ -98,7 +98,7 @@ export default async function WelcomePage({ params }: Props) {
             <h2 className="font-bold text-foreground">Get ready</h2>
             <Badge variant="secondary">{setupDone}/{setupItems.length} done</Badge>
           </div>
-          <Progress value={setupPct} className="h-1.5" />
+          <Progress value={setupPct} className="h-1.5" aria-label={`Setup ${setupPct}% complete`} />
           <div className="space-y-3">
             {setupItems.map((item) => (
               <div key={item.label} className={`flex items-center gap-3 rounded-lg border p-3 ${

@@ -57,7 +57,7 @@ export default async function ParticipantOfferPage({ params }: Props) {
     <div className="min-h-screen bg-slate-50/70">
       <main className="mx-auto w-full max-w-2xl px-5 py-14 sm:py-20">
 
-        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
           {challenge.workspace.name}
         </p>
         <h1 className="mt-3 text-center text-[30px] font-semibold leading-tight tracking-tight text-slate-900">
@@ -83,7 +83,7 @@ export default async function ParticipantOfferPage({ params }: Props) {
         <div className="mt-8 text-center">
           {closed ? (
             <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <Clock className="h-4 w-4 text-slate-400" />
+              <Clock className="h-4 w-4 text-slate-500" />
               This closed on{' '}
               {offer.closesAt!.toLocaleDateString(undefined, {
                 day: 'numeric', month: 'long', year: 'numeric',
@@ -110,7 +110,7 @@ export default async function ParticipantOfferPage({ params }: Props) {
           )}
         </div>
 
-        <p className="mt-10 text-center text-[13px] text-slate-400">
+        <p className="mt-10 text-center text-[13px] text-slate-500">
           Offered by {challenge.workspace.name}, who ran {challenge.title}.
         </p>
       </main>

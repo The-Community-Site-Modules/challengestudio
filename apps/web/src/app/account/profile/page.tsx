@@ -24,7 +24,7 @@ export default async function ProfilePage() {
       <div className="mx-auto w-full max-w-[880px] px-5 pb-20 pt-10 sm:px-8 lg:pt-12">
 
         <header className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
             Settings
           </p>
           <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">

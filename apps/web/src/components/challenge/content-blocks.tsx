@@ -130,7 +130,11 @@ function ChecklistBlock({ data, blockId, onInteract, readOnly }: {
           {checked.length}/{items.length}
         </Badge>
       </div>
-      <Progress value={items.length > 0 ? (checked.length / items.length) * 100 : 0} className="h-1.5" />
+      <Progress
+        value={items.length > 0 ? (checked.length / items.length) * 100 : 0}
+        className="h-1.5"
+        aria-label={`${checked.length} of ${items.length} checked`}
+      />
       <div className="space-y-3">
         {items.map((item) => (
           <div key={item} className="flex items-start gap-3">

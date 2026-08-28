@@ -44,7 +44,7 @@ export function PreferenceToggle({ workspaceId, workspaceName, initiallyUnsubscr
         {error && <p role="alert" className="mt-1 text-[13px] text-red-600">{error}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+        {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
         <Switch
           checked={subscribed}
           onCheckedChange={change}

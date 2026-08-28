@@ -58,7 +58,7 @@ export function AccessClient({
           We sent a sign-in link to <strong className="text-slate-700">{sentTo}</strong>.
           Opening it brings you straight back to {challengeTitle}.
         </p>
-        <p className="mt-4 text-[13px] text-slate-400">
+        <p className="mt-4 text-[13px] text-slate-500">
           Nothing after a minute? Check your spam folder.
         </p>
       </div>
@@ -132,7 +132,7 @@ export function AccessClient({
         <>
           <div className="relative my-6">
             <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-[11px] uppercase tracking-wide text-slate-400">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-[11px] uppercase tracking-wide text-slate-500">
               or
             </span>
           </div>

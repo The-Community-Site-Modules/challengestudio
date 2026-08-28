@@ -121,7 +121,7 @@ export default async function WorkspaceSubmissionsPage({ params }: Props) {
                         <span className="block truncate text-sm font-medium text-slate-900">
                           {c.title}
                         </span>
-                        <span className="mt-0.5 block text-[12px] uppercase tracking-wide text-slate-400">
+                        <span className="mt-0.5 block text-[12px] uppercase tracking-wide text-slate-500">
                           {c.status}
                         </span>
                       </span>

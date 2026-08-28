@@ -54,14 +54,14 @@ export function AppHeader({ sectionLabel, userName = '', userEmail = '', userAva
         <button
           type="button"
           aria-label="Help"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-600"
         >
           <HelpCircle className="h-[18px] w-[18px]" />
         </button>
         <button
           type="button"
           aria-label="Notifications"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-600"
         >
           <Bell className="h-[18px] w-[18px]" />
         </button>

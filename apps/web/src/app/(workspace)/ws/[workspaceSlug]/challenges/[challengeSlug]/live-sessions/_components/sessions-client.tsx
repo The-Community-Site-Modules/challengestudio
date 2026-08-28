@@ -117,7 +117,7 @@ function SessionCard({ session, workspaceSlug, challengeSlug }: {
       <div className="flex items-start gap-3 p-5">
         <span className={cn(
           'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1',
-          past ? 'bg-slate-50 text-slate-400 ring-slate-100' : 'bg-indigo-50 text-indigo-600 ring-indigo-100'
+          past ? 'bg-slate-50 text-slate-500 ring-slate-100' : 'bg-indigo-50 text-indigo-600 ring-indigo-100'
         )}>
           {past && session.replayUrl ? <Video className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
         </span>
@@ -130,7 +130,7 @@ function SessionCard({ session, workspaceSlug, challengeSlug }: {
             </span>
             {session.durationMinutes && <span>{session.durationMinutes} min</span>}
             {session.hostName && <span>with {session.hostName}</span>}
-            {past && <span className="text-slate-400">past</span>}
+            {past && <span className="text-slate-500">past</span>}
           </p>
           {!session.joinUrl && !past && (
             <p className="mt-1.5 text-[13px] text-amber-700">

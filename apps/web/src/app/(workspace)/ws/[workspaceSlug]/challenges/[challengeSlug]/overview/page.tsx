@@ -201,7 +201,7 @@ export default async function ChallengeOverviewPage({ params }: Props) {
                     return (
                       <div key={d.stepId} className="flex items-center gap-3">
                         <span className="w-44 shrink-0 truncate text-sm text-foreground">{d.title}</span>
-                        <Progress value={rate} className="h-2 flex-1" />
+                        <Progress value={rate} className="h-2 flex-1" aria-label={`${d.title}: ${rate}% completed`} />
                         <span className={`w-24 text-right text-xs ${d.reached === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
                           {d.reached === 0 ? 'not open yet' : `${rate}% (${d.completed})`}
                         </span>

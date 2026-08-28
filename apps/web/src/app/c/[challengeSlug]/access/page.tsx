@@ -52,7 +52,7 @@ export default async function AccessPage({ params, searchParams }: Props) {
       <main className="mx-auto w-full max-w-md px-5 py-14 sm:py-20">
 
         <header className="mb-6 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
             {challenge.workspace.name}
           </p>
           <h1 className="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-slate-900">

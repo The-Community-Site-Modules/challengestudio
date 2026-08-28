@@ -131,7 +131,7 @@ function PostRow({ post, workspaceSlug, challengeSlug }: {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
             <span className="text-sm font-medium text-slate-900">{post.authorName}</span>
-            <span className="text-[12px] text-slate-400">{when(post.createdAt)}</span>
+            <span className="text-[12px] text-slate-500">{when(post.createdAt)}</span>
             {post.isHidden && (
               <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                 Removed
@@ -140,11 +140,11 @@ function PostRow({ post, workspaceSlug, challengeSlug }: {
           </div>
           <p className={cn(
             'mt-1.5 whitespace-pre-wrap text-sm leading-relaxed',
-            post.isHidden ? 'text-slate-400' : 'text-slate-700'
+            post.isHidden ? 'text-slate-500' : 'text-slate-700'
           )}>
             {post.body}
           </p>
-          <p className="mt-2 text-[12px] text-slate-400">
+          <p className="mt-2 text-[12px] text-slate-500">
             {post.reactionCount} reaction{post.reactionCount === 1 ? '' : 's'} ·{' '}
             {post.comments.length} comment{post.comments.length === 1 ? '' : 's'}
           </p>
@@ -201,7 +201,7 @@ function CommentRow({ comment, workspaceSlug, challengeSlug }: {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-slate-900">{comment.authorName}</span>
-          <span className="text-[11px] text-slate-400">{when(comment.createdAt)}</span>
+          <span className="text-[11px] text-slate-500">{when(comment.createdAt)}</span>
           {comment.isHidden && (
             <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
               Removed
@@ -210,7 +210,7 @@ function CommentRow({ comment, workspaceSlug, challengeSlug }: {
         </div>
         <p className={cn(
           'mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed',
-          comment.isHidden ? 'text-slate-400' : 'text-slate-600'
+          comment.isHidden ? 'text-slate-500' : 'text-slate-600'
         )}>
           {comment.body}
         </p>
@@ -222,7 +222,7 @@ function CommentRow({ comment, workspaceSlug, challengeSlug }: {
         onClick={() => start(async () => {
           await moderateCommentAction(workspaceSlug, challengeSlug, comment.id, !comment.isHidden)
         })}
-        className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:text-slate-700"
+        className="shrink-0 rounded-md p-1 text-slate-500 transition-colors hover:text-slate-700"
       >
         {isBusy
           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />

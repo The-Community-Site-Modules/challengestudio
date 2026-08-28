@@ -44,7 +44,7 @@ export default async function NotificationsPage() {
       <div className="mx-auto w-full max-w-[880px] px-5 pb-20 pt-10 sm:px-8 lg:pt-12">
 
         <header className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
             Settings
           </p>
           <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">
@@ -58,7 +58,7 @@ export default async function NotificationsPage() {
         <section className="mt-9 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <header className="border-b border-slate-100 px-5 py-5 sm:px-6">
             <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-slate-900">
-              <Mail className="h-4 w-4 text-slate-400" />
+              <Mail className="h-4 w-4 text-slate-500" />
               Challenge email
             </h2>
             <p className="mt-0.5 text-[13px] text-slate-500">
@@ -87,7 +87,7 @@ export default async function NotificationsPage() {
         {/* Being explicit about what a switch does not turn off. */}
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white px-5 py-5 sm:px-6">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-slate-900">
-            <ShieldCheck className="h-4 w-4 text-slate-400" />
+            <ShieldCheck className="h-4 w-4 text-slate-500" />
             Always sent
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
@@ -98,7 +98,7 @@ export default async function NotificationsPage() {
             {essential.map((m) => (
               <li key={m.trigger} className="text-[13px] text-slate-700">
                 {m.name}
-                <span className="ml-2 text-slate-400">{m.when}</span>
+                <span className="ml-2 text-slate-500">{m.when}</span>
               </li>
             ))}
           </ul>

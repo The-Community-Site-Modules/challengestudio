@@ -125,7 +125,7 @@ export default async function LeaderboardPage({ params }: Props) {
                     row.isMe && 'bg-indigo-50/60'
                   )}
                 >
-                  <span className="w-7 shrink-0 text-center text-[13px] tabular-nums text-slate-400">
+                  <span className="w-7 shrink-0 text-center text-[13px] tabular-nums text-slate-500">
                     {MEDAL[row.rank] ?? row.rank}
                   </span>
 
