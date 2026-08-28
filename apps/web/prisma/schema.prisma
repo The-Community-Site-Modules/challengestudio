@@ -539,3 +539,32 @@ model OfferClick {
   @@index([offerId, clickedAt])
   @@map("offer_clicks")
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT (Milestone 10)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A record of something worth being able to answer for later.
+///
+/// PRD §17.3 requires exports be "permission-checked, logged, and designed to
+/// avoid unintentionally exposing private submission content". This is the
+/// logged part: who exported what, from where, and how much of it — so the
+/// question "who took a copy of our participant list" has an answer.
+///
+/// Append-only by convention: nothing updates or deletes these.
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  actorId     String   @map("actor_id")
+  /// e.g. "export.participants"
+  action      String
+  /// What it was about — a challenge id, usually.
+  subjectId   String?  @map("subject_id")
+  /// Row counts, filters, anything worth reconstructing the action from.
+  detail      Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
+}
