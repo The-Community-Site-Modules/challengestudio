@@ -50,6 +50,28 @@ export default async function ChallengeHubPage({ params }: Props) {
   const badges = awards
     .map(a => badgeByKey(a.badgeKey))
     .filter((b): b is NonNullable<typeof b> => b !== undefined)
+
+  // Live sessions. joinUrl is selected here because this page is already
+  // behind enrolment — PRD §16 asks that join links stay off public surfaces.
+  const now = new Date()
+  const sessions = await db.liveSession.findMany({
+    where:   { challenge: { slug: challengeSlug } },
+    orderBy: { startsAt: 'asc' },
+    select: {
+      id: true, title: true, startsAt: true, durationMinutes: true,
+      hostName: true, joinUrl: true, replayUrl: true,
+    },
+  })
+  const upcoming = sessions.filter(s => s.startsAt >= now).slice(0, 3)
+  const replays  = sessions.filter(s => s.startsAt < now && s.replayUrl).slice(0, 3)
+
+  // Only shown once they have finished, and only if the creator turned it on.
+  const offer = completedCount >= totalRequired && totalRequired > 0
+    ? await db.offer.findFirst({
+        where:  { challenge: { slug: challengeSlug }, enabled: true },
+        select: { headline: true },
+      })
+    : null
   const base = `/c/${challengeSlug}`
 
   // Find today's active step (first unlocked but not completed)
@@ -193,6 +215,69 @@ export default async function ChallengeHubPage({ params }: Props) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Live sessions */}
+            {(upcoming.length > 0 || replays.length > 0) && (
+              <Card>
+                <CardContent className="p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Live sessions
+                  </p>
+                  <div className="space-y-3">
+                    {upcoming.map((s) => (
+                      <div key={s.id} className="rounded-lg border border-border p-3">
+                        <p className="text-sm font-medium text-foreground">{s.title}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {s.startsAt.toLocaleString(undefined, {
+                            weekday: 'short', day: 'numeric', month: 'short',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                          {s.durationMinutes ? ` · ${s.durationMinutes} min` : ''}
+                          {s.hostName ? ` · ${s.hostName}` : ''}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                          {s.joinUrl && (
+                            <a href={s.joinUrl} target="_blank" rel="noopener noreferrer"
+                              className="font-medium text-primary hover:underline">
+                              Join
+                            </a>
+                          )}
+                          <a href={`${base}/sessions/${s.id}/calendar`}
+                            className="text-muted-foreground hover:text-foreground">
+                            Add to calendar
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                    {replays.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="min-w-0 truncate text-muted-foreground">{s.title}</span>
+                        <a href={s.replayUrl!} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 font-medium text-primary hover:underline">
+                          Watch replay
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Offer, once they have finished */}
+            {offer && (
+              <Card>
+                <CardContent className="p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Next step
+                  </p>
+                  <p className="text-sm font-medium text-foreground">{offer.headline}</p>
+                  <Link href={`${base}/offer`}
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                    Take a look <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Badges */}
             <Card>

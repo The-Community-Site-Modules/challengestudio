@@ -186,6 +186,8 @@ model Challenge {
   participants Participant[]
   feedPosts    FeedPost[]
   messageTemplates MessageTemplate[]
+  liveSessions LiveSession[]
+  offer        Offer?
 
   @@unique([workspaceId, slug])
   @@map("challenges")
@@ -453,4 +455,77 @@ model NotificationPreference {
 
   @@unique([profileId, workspaceId])
   @@map("notification_preferences")
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE SESSIONS & OFFER (Milestone 9)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A scheduled call attached to a challenge (PRD §16).
+///
+/// joinUrl is deliberately not part of any public query. §16: "External join
+/// URLs must be protected from public discovery when the challenge is
+/// private" — so it is selected only for enrolled participants.
+model LiveSession {
+  id              String    @id @default(cuid())
+  challengeId     String    @map("challenge_id")
+  title           String
+  description     String?
+  startsAt        DateTime  @map("starts_at")
+  durationMinutes Int?      @map("duration_minutes")
+  hostName        String?   @map("host_name")
+  joinUrl         String?   @map("join_url")
+  replayUrl       String?   @map("replay_url")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId, startsAt])
+  @@map("live_sessions")
+}
+
+/// The post-challenge call to action (PRD §12.2).
+///
+/// External only: "The MVP may support a configured CTA to an external
+/// checkout or sales page." Nothing here takes payment, and one offer per
+/// challenge is enough for that.
+model Offer {
+  id          String    @id @default(cuid())
+  challengeId String    @unique @map("challenge_id")
+  enabled     Boolean   @default(false)
+  headline    String
+  body        String?
+  ctaLabel    String    @default("Get started") @map("cta_label")
+  ctaUrl      String    @map("cta_url")
+  /// Bullet points, stored as a JSON array of strings.
+  bonuses     Json?
+  /// Question/answer pairs, stored as a JSON array of objects.
+  faq         Json?
+  closesAt    DateTime? @map("closes_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  challenge Challenge    @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  clicks    OfferClick[]
+
+  @@map("offers")
+}
+
+/// One click through to the external page.
+///
+/// PRD §8.1 step 43 asks creators to "monitor registrations, participation,
+/// submissions, attendance, completion, and offer clicks". This is that last
+/// one — an event row rather than a counter, so it stays auditable like points.
+model OfferClick {
+  id            String   @id @default(cuid())
+  offerId       String   @map("offer_id")
+  participantId String?  @map("participant_id")
+  clickedAt     DateTime @default(now()) @map("clicked_at")
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId, clickedAt])
+  @@map("offer_clicks")
 }

@@ -13,8 +13,7 @@ export interface TemplateRow {
   trigger: string
   name: string
   when: string
-  /** 'scheduled' messages need a job runner that is not configured yet. */
-  firing: 'event' | 'scheduled'
+  firing: 'event' | 'scheduled' | 'provider'
   essential: boolean
   enabled: boolean
   subject: string
@@ -95,10 +94,18 @@ function Row({ template, workspaceSlug, challengeSlug, first }: {
 
         {template.firing === 'scheduled' && (
           <span
-            title="Needs a scheduled job runner, which is not configured yet"
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+            title="Sent by the hourly sweep"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
           >
-            <Clock className="h-3 w-3" /> Not scheduled
+            <Clock className="h-3 w-3" /> Scheduled
+          </span>
+        )}
+        {template.firing === 'provider' && (
+          <span
+            title="Sent by the sign-in provider; edit its wording in Supabase"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
+          >
+            Sent by sign-in
           </span>
         )}
 

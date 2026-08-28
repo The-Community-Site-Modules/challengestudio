@@ -2,11 +2,9 @@
 //
 // Templates and the delivery log (PRD §15.1, §27). Was placeholder text.
 //
-// Two honesty points are built into this page. Messages whose trigger is the
-// clock are marked "Not scheduled", because the job runner is OD-04 and still
-// an open decision — they can be edited, they will not fire. And the delivery
-// log shows skips and failures rather than only successes, since §27 asks for
-// failures to be observable and a silently skipped message is the same problem.
+// The delivery log shows skips and failures rather than only successes, since
+// §27 asks for failures to be observable and a silently skipped message is the
+// same problem wearing a different hat.
 
 import { notFound } from 'next/navigation'
 import { Mail, AlertCircle } from 'lucide-react'
@@ -96,11 +94,11 @@ export default async function CommunicationsPage({ params }: Props) {
             description="The emails this challenge sends, and what has gone out."
           />
 
-          <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            {scheduled} of these fire on a schedule rather than on something a
-            participant does. Scheduled sending is not configured yet, so those
-            can be written and turned on but will not go out until it is.
+          <p className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-600">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            {scheduled} of these are sent by an hourly sweep rather than by
+            something a participant does. Account access is sent by the sign-in
+            provider, so its wording lives in Supabase rather than here.
           </p>
 
           <TemplateEditor

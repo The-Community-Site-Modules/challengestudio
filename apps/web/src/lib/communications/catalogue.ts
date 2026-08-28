@@ -30,12 +30,19 @@ export type Trigger =
   | 'completion'
   | 'offer_closing'
 
-/** How a message gets fired, which decides whether it can work today. */
+/** How a message gets fired, which decides where it comes from. */
 export type Firing =
-  /** Fired by something a person just did. Works now. */
+  /** Fired by something a person just did, from the action that did it. */
   | 'event'
-  /** Fired by the clock. Needs the job runner in OD-04, which is undecided. */
+  /** Fired by the clock, from the sweep in scheduled.ts. */
   | 'scheduled'
+  /**
+   * Sent by the auth provider, not by us. Supabase owns the magic link and the
+   * token inside it; sending our own version would either arrive without a
+   * working link or duplicate theirs. Editing it means editing the template in
+   * the Supabase dashboard.
+   */
+  | 'provider'
 
 export interface MessageDefinition {
   trigger: Trigger
@@ -71,7 +78,7 @@ export const MESSAGES: readonly MessageDefinition[] = [
     trigger: 'account_setup',
     name: 'Account access',
     when: 'A registration needs an account created',
-    firing: 'event',
+    firing: 'provider',
     essential: true,
     defaultSubject: 'Your sign-in link for {{challengeTitle}}',
     defaultBody:
