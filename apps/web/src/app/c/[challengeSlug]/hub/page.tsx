@@ -10,6 +10,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ProgressRing }     from '@/components/participant/progress-ring'
 import { getCurrentUser }   from '@/lib/auth/session'
 import { getParticipantProgress } from '../actions'
+import { db } from '@/lib/db'
+import { badgeByKey } from '@/lib/gamification'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -36,7 +38,18 @@ export default async function ChallengeHubPage({ params }: Props) {
     redirect(`/c/${challengeSlug}/welcome`)
   }
 
-  const { steps, streak, xp, progressPct, completedCount, totalRequired } = progress
+  const { participant, steps, streak, xp, progressPct, completedCount, totalRequired } = progress
+
+  // Badges are awarded on completion but nothing rendered them, so nobody
+  // could see what they had earned.
+  const awards = await db.badgeAward.findMany({
+    where:   { participantId: participant.id },
+    orderBy: { awardedAt: 'asc' },
+    select:  { badgeKey: true },
+  })
+  const badges = awards
+    .map(a => badgeByKey(a.badgeKey))
+    .filter((b): b is NonNullable<typeof b> => b !== undefined)
   const base = `/c/${challengeSlug}`
 
   // Find today's active step (first unlocked but not completed)
@@ -178,6 +191,37 @@ export default async function ChallengeHubPage({ params }: Props) {
                     <p className="text-[10px] text-muted-foreground">XP earned</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Badges */}
+            <Card>
+              <CardContent className="p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Badges
+                </p>
+                {badges.length === 0 ? (
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                    None yet. Completing your first step earns one.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2.5">
+                    {badges.map((b) => (
+                      <div
+                        key={b.key}
+                        title={b.description}
+                        className="flex w-14 flex-col items-center gap-1 text-center"
+                      >
+                        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50 text-xl ring-1 ring-amber-100">
+                          {b.icon}
+                        </span>
+                        <span className="text-[10px] leading-tight text-muted-foreground">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
