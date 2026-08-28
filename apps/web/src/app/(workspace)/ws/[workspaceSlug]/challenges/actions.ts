@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { requirePermission } from '@/lib/permissions'
+import { avoidReserved } from '@/lib/slugs/reserved'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,9 @@ export async function createChallengeAction(workspaceSlug: string, data: WizardD
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.create')
 
-  let slug = data.slug ? slugify(data.slug) : slugify(data.title)
+  // Derived from a title as often as typed, so a clash is nudged aside
+  // rather than refused.
+  let slug = avoidReserved(data.slug ? slugify(data.slug) : slugify(data.title))
   const existing = await db.challenge.findUnique({
     where: { workspaceId_slug: { workspaceId: ws.id, slug } },
   })
@@ -157,7 +160,7 @@ export async function saveDraftAction(workspaceSlug: string, data: Partial<Wizar
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.create')
 
-  let slug = data.slug ? slugify(data.slug) : slugify(data.title ?? `draft-${Date.now().toString(36)}`)
+  let slug = avoidReserved(data.slug ? slugify(data.slug) : slugify(data.title ?? `draft-${Date.now().toString(36)}`))
   const existing = await db.challenge.findUnique({
     where: { workspaceId_slug: { workspaceId: ws.id, slug } },
   })

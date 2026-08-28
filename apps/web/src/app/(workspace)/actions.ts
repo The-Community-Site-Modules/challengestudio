@@ -7,6 +7,7 @@ import { requireUser } from '@/lib/auth/session'
 import { requirePermission, getMembership } from '@/lib/permissions'
 import { sendEmail, renderWorkspaceInvitation } from '@/lib/email'
 import { WorkspaceRole } from '.prisma/client'
+import { checkSlug } from '@/lib/slugs/reserved'
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   OWNER:  'an owner',
@@ -48,6 +49,13 @@ export async function createWorkspaceAction(formData: FormData) {
   if (!name) return redirect('/dashboard?error=' + encodeURIComponent('Workspace name is required.'))
 
   let slug = slugify(name)
+
+  // Some names belong to the product, and some read as the product's own
+  // pages. See lib/slugs/reserved.ts.
+  const available = checkSlug(slug)
+  if (!available.ok) {
+    return redirect('/dashboard?error=' + encodeURIComponent(available.error!))
+  }
 
   // ensure slug is unique
   const existing = await db.workspace.findUnique({ where: { slug } })

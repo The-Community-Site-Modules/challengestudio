@@ -61,10 +61,23 @@ if either area appears broken in production, check the variable first.
 | ✅ | Private submissions withheld on the server, not hidden in the page | `e2e/permissions.spec.ts` |
 | ✅ | Export permission-checked, audit-logged, and carries no submission bodies | `lib/analytics/export.ts` |
 | ✅ | Rate limits on registration, social actions and auth attempts (PRD §22.2) | `lib/rate-limit` |
-| ✅ | Security headers, and a nonce-based CSP | `next.config.ts`, `middleware.ts` |
+| ✅ | Security headers and a Content-Security-Policy | `next.config.ts`, `middleware.ts` |
 | ✅ | Open-redirect guard on `next=` parameters | `safeNext` in the auth actions |
-| ☐ | Reserved slugs (`admin`, `api`, `auth`, `ws`, `c`) blocked at workspace and challenge creation | **not done** |
+| ✅ | Reserved slugs blocked at workspace and challenge creation | `lib/slugs/reserved.ts` |
 | ☐ | Dependency audit in CI (`pnpm audit`) | **not done** |
+
+### Why the CSP has no nonce
+
+A nonce-based policy was written first, and a production build showed it could
+not work: ten routes are statically prerendered, so their HTML is generated at
+build time and can never carry a per-request nonce. With `'strict-dynamic'` the
+browser refused every script on those pages and they silently failed to
+hydrate — a login form that renders and does nothing. Development mode hid it.
+
+The policy therefore allows `'unsafe-inline'` for scripts and keeps
+`object-src`, `base-uri`, `form-action` and `frame-ancestors` strict. If a
+nonce is wanted later, every page must first be made dynamic, and
+`e2e/headers.spec.ts` is the test that will tell you whether it worked.
 
 ### The RLS boundary — read this before changing database policy
 
