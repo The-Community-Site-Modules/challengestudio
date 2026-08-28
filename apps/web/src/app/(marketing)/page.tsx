@@ -98,7 +98,7 @@ export default function HomePage() {
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="h-12 px-8 text-base" asChild>
-              <Link href="/examples">See example challenges</Link>
+              <Link href="/features">See how it works</Link>
             </Button>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
@@ -276,7 +276,7 @@ export default function HomePage() {
           <h2 className="text-3xl font-bold text-primary-foreground sm:text-4xl">
             Ready to launch your first challenge?
           </h2>
-          <p className="mt-4 text-primary-foreground/80">
+          <p className="mt-4 text-primary-foreground/90">
             Join creators who are turning ideas into transformational experiences.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -296,6 +296,7 @@ export default function HomePage() {
             <Logo className="h-10" />
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
               <Link href="/features" className="hover:text-foreground">Features</Link>
+              <Link href="/use-cases" className="hover:text-foreground">Use Cases</Link>
               <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
               <Link href="/legal/privacy" className="hover:text-foreground">Privacy</Link>
               <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>

@@ -6,11 +6,14 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/shared/logo'
 
+// 'Examples' used to sit at the end of this list and pointed at /examples,
+// which has no route and returned 404. It is out until there is a real
+// challenge to show — a gallery of invented examples would be worse than the
+// missing link.
 const navLinks = [
   { label: 'Features', href: '/features' },
   { label: 'Use Cases', href: '/use-cases' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Examples', href: '/examples' },
 ]
 
 export function MarketingNav() {

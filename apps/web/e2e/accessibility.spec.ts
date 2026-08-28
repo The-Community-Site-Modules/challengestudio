@@ -56,6 +56,26 @@ test.describe('public pages', () => {
     await page.goto('/auth/signup')
     await audit(page, 'signup')
   })
+
+  test('the home page', async ({ page }) => {
+    await page.goto('/')
+    await audit(page, 'home')
+  })
+
+  test('features', async ({ page }) => {
+    await page.goto('/features')
+    await audit(page, 'features')
+  })
+
+  test('use cases', async ({ page }) => {
+    await page.goto('/use-cases')
+    await audit(page, 'use-cases')
+  })
+
+  test('pricing', async ({ page }) => {
+    await page.goto('/pricing')
+    await audit(page, 'pricing')
+  })
 })
 
 test.describe('participant pages', () => {

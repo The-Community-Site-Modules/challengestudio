@@ -84,7 +84,7 @@ export default async function WelcomePage({ params }: Props) {
             <h1 className="text-3xl font-extrabold">
               Welcome, {firstName}! 🎉
             </h1>
-            <p className="text-primary-foreground/80">
+            <p className="text-primary-foreground/90">
               You&apos;re registered for{' '}
               <strong className="text-white">{challenge.title}</strong>.
               {startDate && <><br />Challenge starts <strong className="text-white">{startDate}</strong>.</>}
