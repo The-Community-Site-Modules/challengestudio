@@ -10,7 +10,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const db = {
   workspace: { findUnique: vi.fn() },
-  challenge: { findUnique: vi.fn(), update: vi.fn() },
+  // findFirst is the ownership check: the action confirms the challenge id
+  // belongs to this workspace before touching it (see cross-tenant.test.ts).
+  challenge: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
 
@@ -47,6 +49,7 @@ const READY = {
 }
 
 const withChallenge = (patch: Record<string, unknown> = {}) => {
+  db.challenge.findFirst.mockResolvedValue({ id: 'ch1', slug: READY.slug })
   db.challenge.findUnique.mockResolvedValue({ ...READY, ...patch })
 }
 

@@ -74,6 +74,41 @@ async function resolveWorkspace(workspaceSlug: string) {
   return ws
 }
 
+/**
+ * Confirm a challenge id really belongs to this workspace.
+ *
+ * Build Plan §4 rule 1: every tenant-owned row is queried through its
+ * workspace_id. The permission check answers "may this person edit challenges
+ * *here*" — it says nothing about whether the id they sent is one of ours.
+ * Both ids arrive from the browser, so without this an owner of one workspace
+ * could edit, publish, close or delete another tenant's challenge by passing
+ * its id alongside their own slug.
+ *
+ * Prisma connects as the table owner and is exempt from row-level security,
+ * so this check is the only thing enforcing the boundary.
+ */
+async function requireChallengeIn(workspaceId: string, workspaceSlug: string, challengeId: string) {
+  const challenge = await db.challenge.findFirst({
+    where:  { id: challengeId, workspaceId },
+    select: { id: true, slug: true },
+  })
+  if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
+  return challenge
+}
+
+/**
+ * The same, for a step. A step belongs to a workspace through its challenge,
+ * so the ownership question is asked in one query rather than two.
+ */
+async function requireStepIn(workspaceId: string, workspaceSlug: string, stepId: string) {
+  const step = await db.challengeStep.findFirst({
+    where:  { id: stepId, challenge: { workspaceId } },
+    select: { id: true, challengeId: true },
+  })
+  if (!step) redirect(`/ws/${workspaceSlug}/challenges`)
+  return step
+}
+
 // ─── Create Challenge (from wizard) ──────────────────────────────────────────
 
 export async function createChallengeAction(workspaceSlug: string, data: WizardData) {
@@ -160,6 +195,7 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
   const challenge = await db.challenge.update({
     where: { id: challengeId },
@@ -192,6 +228,7 @@ export async function publishChallengeAction(challengeId: string, workspaceSlug:
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.publish')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
   // The publish gate (Build Plan §1.1): schedule, at least one step, and the
   // fields the public registration page is built from. Publishing with those
@@ -307,6 +344,7 @@ export async function closeChallengeAction(challengeId: string, workspaceSlug: s
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.close')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
   const updated = await db.challenge.update({
     where: { id: challengeId },
@@ -324,6 +362,7 @@ export async function deleteChallengeAction(challengeId: string, workspaceSlug: 
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.delete')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
   await db.challenge.delete({ where: { id: challengeId } })
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
@@ -336,6 +375,7 @@ export async function addStepAction(challengeId: string, workspaceSlug: string, 
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
   const maxOrder = await db.challengeStep.aggregate({
     where: { challengeId },
@@ -378,6 +418,7 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireStepIn(ws.id, workspaceSlug, stepId)
 
   const step = await db.challengeStep.update({
     where: { id: stepId },
@@ -402,6 +443,7 @@ export async function deleteStepAction(stepId: string, workspaceSlug: string) {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireStepIn(ws.id, workspaceSlug, stepId)
 
   await db.challengeStep.delete({ where: { id: stepId } })
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
@@ -412,10 +454,14 @@ export async function reorderStepsAction(challengeId: string, workspaceSlug: str
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
+  // Scoping the challenge is not enough here: the array is a second set of
+  // client-supplied ids. `updateMany` with the challenge in the filter means a
+  // foreign id simply matches nothing instead of being reordered.
   await Promise.all(
     stepIds.map((id, index) =>
-      db.challengeStep.update({ where: { id }, data: { order: index } })
+      db.challengeStep.updateMany({ where: { id, challengeId }, data: { order: index } })
     )
   )
 
@@ -450,6 +496,7 @@ export async function saveBlocksAction(stepId: string, workspaceSlug: string, bl
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
+  await requireStepIn(ws.id, workspaceSlug, stepId)
 
   // Delete all existing blocks for this step and re-create in order
   // This is simpler than diffing and ensures order is always consistent
