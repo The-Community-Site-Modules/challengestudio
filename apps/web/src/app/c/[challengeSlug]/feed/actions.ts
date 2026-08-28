@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { createClient } from '@/lib/supabase/server'
 import { awardPoints } from '@/lib/gamification'
 import { hasPermission } from '@/lib/permissions'
+import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { ALLOWED_EMOJI } from './reactions'
 
 /**
@@ -60,11 +61,27 @@ function refresh(challengeSlug: string) {
   revalidatePath(`/c/${challengeSlug}/feed`)
 }
 
+/**
+ * PRD §22.2 asks for limits on social actions. Keyed by participant rather
+ * than by IP: these are all signed-in actions, and a shared office address
+ * should not spend one person's budget on another.
+ */
+async function withinLimit(
+  action: 'social_post' | 'social_comment' | 'social_reaction',
+  actor: Actor
+): Promise<{ success: false; error: string } | null> {
+  const limit = await checkRateLimit(action, actor.participantId)
+  return limit.allowed ? null : { success: false, error: rateLimitMessage(limit) }
+}
+
 // ─── Posting ─────────────────────────────────────────────────────────────────
 
 export async function createPostAction(challengeSlug: string, body: string, stepId?: string) {
   const actor = await actorFor(challengeSlug)
   if (!actor) return { success: false, error: 'You need to be taking part to post here.' }
+
+  const limited = await withinLimit('social_post', actor)
+  if (limited) return limited
 
   const text = body.trim()
   if (!text)                 return { success: false, error: 'Write something first.' }
@@ -98,6 +115,9 @@ export async function createPostAction(challengeSlug: string, body: string, step
 export async function createCommentAction(challengeSlug: string, postId: string, body: string) {
   const actor = await actorFor(challengeSlug)
   if (!actor) return { success: false, error: 'You need to be taking part to comment.' }
+
+  const limited = await withinLimit('social_comment', actor)
+  if (limited) return limited
 
   const text = body.trim()
   if (!text)                 return { success: false, error: 'Write something first.' }
@@ -143,6 +163,9 @@ export async function createCommentAction(challengeSlug: string, postId: string,
 export async function toggleReactionAction(challengeSlug: string, postId: string, emoji: string) {
   const actor = await actorFor(challengeSlug)
   if (!actor) return { success: false, error: 'You need to be taking part to react.' }
+
+  const limited = await withinLimit('social_reaction', actor)
+  if (limited) return limited
 
   // An open set would let anything through, including text dressed as an emoji.
   if (!(ALLOWED_EMOJI as readonly string[]).includes(emoji)) {

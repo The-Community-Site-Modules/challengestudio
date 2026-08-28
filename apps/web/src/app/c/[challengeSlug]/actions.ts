@@ -6,6 +6,8 @@ import { db }           from '@/lib/db'
 import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
 import { awardPoints, earnedBadgeKeys, totalPoints, badgeByKey } from '@/lib/gamification'
 import { dispatch } from '@/lib/communications'
+import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { callerIp } from '@/lib/rate-limit/caller'
 
 /**
  * Where a new participant starts.
@@ -21,6 +23,13 @@ function initialParticipantStatus(requiresApproval: boolean) {
 // ─── Register (public — no auth required) ────────────────────────────────────
 
 export async function registerAction(challengeSlug: string, formData: FormData) {
+  // PRD §22.2: the registration form is open to the internet, so it is limited
+  // before anything is read from it or written anywhere.
+  const limit = await checkRateLimit('public_registration', await callerIp())
+  if (!limit.allowed) {
+    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent(rateLimitMessage(limit)))
+  }
+
   const firstName = (formData.get('firstName') as string).trim()
   const lastName  = (formData.get('lastName')  as string).trim()
   const email     = (formData.get('email')     as string).trim().toLowerCase()

@@ -36,10 +36,13 @@ const {
   hidePostAction, hideCommentAction,
 } = await import('./actions')
 
+const { __resetRateLimits, RATE_LIMITS } = await import('@/lib/rate-limit')
+
 const SLUG = 'design-sprint'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  __resetRateLimits()
   auth.user = { id: 'u1' }
   hasPermission.mockResolvedValue(false)
   db.challenge.findFirst.mockResolvedValue({ id: 'ch1', workspaceId: 'ws1' })
@@ -197,5 +200,43 @@ describe('moderation', () => {
 
     hasPermission.mockResolvedValue(true)
     expect((await hideCommentAction(SLUG, 'c1')).success).toBe(true)
+  })
+})
+
+describe('rate limits (PRD §22.2)', () => {
+  it('stops a run of posts once the hourly budget is spent', async () => {
+    const { requests } = RATE_LIMITS.social_post
+    for (let i = 0; i < requests; i++) {
+      expect((await createPostAction(SLUG, `post ${i}`)).success, `post ${i}`).toBe(true)
+    }
+    const over = await createPostAction(SLUG, 'one too many')
+    expect(over.success).toBe(false)
+    expect(over.error).toContain('Too many attempts')
+  })
+
+  it('does not write the post it refused', async () => {
+    const { requests } = RATE_LIMITS.social_post
+    for (let i = 0; i < requests; i++) await createPostAction(SLUG, `post ${i}`)
+    db.feedPost.create.mockClear()
+    await createPostAction(SLUG, 'one too many')
+    expect(db.feedPost.create).not.toHaveBeenCalled()
+  })
+
+  it('keeps each action on its own budget', async () => {
+    const { requests } = RATE_LIMITS.social_post
+    for (let i = 0; i < requests; i++) await createPostAction(SLUG, `post ${i}`)
+    expect((await createPostAction(SLUG, 'blocked')).success).toBe(false)
+    // Commenting has its own, larger allowance and is untouched.
+    expect((await createCommentAction(SLUG, 'post1', 'still fine')).success).toBe(true)
+  })
+
+  it('spends the budget per participant, not per challenge', async () => {
+    const { requests } = RATE_LIMITS.social_post
+    for (let i = 0; i < requests; i++) await createPostAction(SLUG, `post ${i}`)
+    expect((await createPostAction(SLUG, 'blocked')).success).toBe(false)
+
+    // A different person in the same challenge starts fresh.
+    db.participant.findUnique.mockResolvedValue({ id: 'p2', status: 'REGISTERED' })
+    expect((await createPostAction(SLUG, 'their first')).success).toBe(true)
   })
 })

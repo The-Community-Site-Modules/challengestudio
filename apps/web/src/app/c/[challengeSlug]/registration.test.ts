@@ -46,7 +46,14 @@ vi.mock('@/lib/supabase/server', () => ({
 const dispatch = vi.fn(async () => ({ status: 'sent' as const }))
 vi.mock('@/lib/communications', () => ({ dispatch }))
 
+// The action is rate limited (PRD §22.2), and the limiter reads the caller's
+// address off the request. There is no request here, so give it one header.
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.7' }),
+}))
+
 const { registerAction, enrollAfterAuthAction } = await import('./actions')
+const { __resetRateLimits } = await import('@/lib/rate-limit')
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -93,6 +100,9 @@ async function register(fd = form()) {
 const createdStatus = () => db.participant.upsert.mock.calls[0]?.[0]?.create?.status
 
 beforeEach(() => {
+  // Every test registers from the same address; without this the fifth one
+  // would be refused by the limiter rather than by the gate under test.
+  __resetRateLimits()
   vi.clearAllMocks()
   auth.user = null
   auth.otpError = null

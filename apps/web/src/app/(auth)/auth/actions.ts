@@ -2,10 +2,34 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { callerIp } from '@/lib/rate-limit/caller'
+
+/**
+ * PRD §22.2 asks for a limit on authentication attempts.
+ *
+ * Keyed by IP, which is the only identifier available before anyone is signed
+ * in — and the one that matters, since the attack this stops is one caller
+ * trying many addresses or many passwords. The budget is shared across sign-in,
+ * sign-up, magic links, password resets and verification resends on purpose:
+ * they are all ways of asking the auth server to do work for an unknown caller.
+ *
+ * Returns an error path to redirect to, or null when the attempt may proceed.
+ * Not exported — a 'use server' module may only export server actions.
+ */
+async function authAttemptBlocked(errorPath: string): Promise<string | null> {
+  const limit = await checkRateLimit('auth_attempt', await callerIp())
+  if (limit.allowed) return null
+  const join = errorPath.includes('?') ? '&' : '?'
+  return `${errorPath}${join}error=${encodeURIComponent(rateLimitMessage(limit))}`
+}
 
 // ── Sign Up ───────────────────────────────────────────────────────────────
 
 export async function signUpAction(formData: FormData) {
+  const blocked = await authAttemptBlocked('/auth/signup')
+  if (blocked) return redirect(blocked)
+
   const supabase = await createClient()
 
   const firstName = (formData.get('firstName') as string).trim()
@@ -40,6 +64,9 @@ export async function signInAction(formData: FormData) {
   const next = safeNext(formData.get('next') as string | null)
   const onError = safeNext(formData.get('errorPath') as string | null) ?? '/auth/login'
 
+  const blocked = await authAttemptBlocked(onError)
+  if (blocked) return redirect(blocked)
+
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
@@ -63,6 +90,9 @@ export async function signInWithMagicLinkAction(formData: FormData) {
   const next = safeNext(formData.get('next') as string | null)
 
   const onError = safeNext(formData.get('errorPath') as string | null) ?? '/auth/login'
+
+  const blocked = await authAttemptBlocked(onError)
+  if (blocked) return redirect(blocked)
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -91,6 +121,9 @@ export async function signInWithMagicLinkAction(formData: FormData) {
 // ── Forgot Password ───────────────────────────────────────────────────────
 
 export async function forgotPasswordAction(formData: FormData) {
+  const blocked = await authAttemptBlocked('/auth/forgot-password')
+  if (blocked) return redirect(blocked)
+
   const supabase = await createClient()
 
   const email = (formData.get('email') as string).trim()
@@ -162,6 +195,9 @@ export async function resendVerificationAction(formData: FormData) {
   const supabase = await createClient()
 
   const email = (formData.get('email') as string).trim()
+
+  const blocked = await authAttemptBlocked(`/auth/verify?email=${encodeURIComponent(email)}`)
+  if (blocked) return redirect(blocked)
 
   const { error } = await supabase.auth.resend({
     type: 'signup',
