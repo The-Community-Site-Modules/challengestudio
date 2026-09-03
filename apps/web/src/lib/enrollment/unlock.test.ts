@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { calculateUnlocks, type UnlockInput, type ChallengeMode } from './unlock'
+import { calculateUnlocks, type UnlockInput, type ChallengeMode, normaliseMidnightHour } from './unlock'
 
 const step = (order: number, availableAt: Date | null = null) => ({
   id: `s${order}`, order, availableAt,
@@ -189,5 +189,48 @@ describe('day 1', () => {
       now:               new Date('2026-03-01T10:00:00Z'),
     })
     expect(openIds(i)).toEqual([])
+  })
+})
+
+describe('midnight, as engines report it', () => {
+  /**
+   * This is the bug that made CI fail on every commit from Milestone 5 to
+   * Milestone 11 while the same tests passed on the machine they were written
+   * on. With `hour12: false`, Node 20's ICU formats midnight as hour 24;
+   * Node 24's formats it as 0. Passing 24 to Date.UTC rolls the date forward,
+   * so the zone offset came out 24 hours wrong and every unlock landed a day
+   * early.
+   *
+   * It cannot be reproduced on an engine that reports 0, which is exactly why
+   * it survived for six milestones. So the clamp is tested directly rather
+   * than through a formatter whose behaviour depends on the runtime.
+   */
+  it('treats hour 24 as hour 0', () => {
+    expect(normaliseMidnightHour(24)).toBe(0)
+  })
+
+  it('leaves every real hour alone', () => {
+    for (let hour = 0; hour <= 23; hour++) {
+      expect(normaliseMidnightHour(hour)).toBe(hour)
+    }
+  })
+
+  it('is what stops a day-wide error in the offset', () => {
+    // Date.UTC(2026, 1, 28, 24) is 1 March, not 28 February. That single
+    // rollover is the whole bug.
+    const rolled = Date.UTC(2026, 1, 28, 24, 0, 0)
+    const clamped = Date.UTC(2026, 1, 28, normaliseMidnightHour(24), 0, 0)
+    expect(rolled - clamped).toBe(86_400_000)
+  })
+
+  it('asks the formatter for a 0-23 clock in the first place', () => {
+    // The clamp is the safety net; hourCycle is the fix. If someone reverts
+    // to hour12:false this still passes, which is why the clamp is kept.
+    const midnightNewYork = new Date('2026-02-28T05:00:00Z')
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hourCycle: 'h23', hour: '2-digit',
+    }).formatToParts(midnightNewYork).find(part => part.type === 'hour')?.value
+
+    expect(Number(hour)).toBeLessThan(24)
   })
 })

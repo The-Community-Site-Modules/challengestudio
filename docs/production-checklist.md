@@ -44,6 +44,15 @@ Set in **every** Vercel environment unless noted.
 | `RESEND_API_KEY` | sending email | messages are logged, never sent |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | shared rate-limit counters | limits fall back to per-instance memory, which on serverless is much weaker |
 
+**Set `DIRECT_URL` even where nothing migrates.** It is read during
+`pnpm install` — `postinstall` runs `prisma generate`, which loads
+`prisma.config.ts`. Until 2026-08-29 that file threw whenever the variable was
+absent, so a Vercel project without it died at the *install* step, before Next
+started, blaming a Prisma config file. Every deployment of this repository
+failed that way. The check is now scoped to the commands that actually open a
+connection, and a production build succeeds with no environment at all — but
+the app still needs these values to serve a request.
+
 Two of these fail **closed** on purpose. An unset `CRON_SECRET` or
 `PLATFORM_ADMIN_EMAIL` denies everyone rather than letting everyone through;
 if either area appears broken in production, check the variable first.

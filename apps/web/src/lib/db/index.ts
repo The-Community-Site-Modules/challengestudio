@@ -1,15 +1,34 @@
 /**
  * Prisma Client singleton for Challenge Studio.
  *
- * Prisma 7 with @prisma/adapter-pg for the Supabase connection pooler.
- * DATABASE_URL → transaction-mode pooler (port 6543, pgbouncer=true)
+ * Prisma 7 with @prisma/adapter-pg over the Supabase connection pooler.
+ * DATABASE_URL → transaction-mode pooler (port 6543, pgbouncer=true).
  *
- * In development the singleton is stored on globalThis to survive hot-reloads
- * without exhausting the Supabase connection limit.
+ * In development the singleton lives on globalThis so hot reloads do not
+ * exhaust the Supabase connection limit.
  *
- * Usage (Server Components, Server Actions, API Routes — server-only):
+ * Usage — server only (Server Components, Server Actions, route handlers):
  *   import { db } from '@/lib/db'
  *   const challenges = await db.challenge.findMany()
+ *
+ * ── Why the client is built lazily ──────────────────────────────────────────
+ *
+ * `export const db = createPrismaClient()` ran at module load, which meant
+ * importing this file required DATABASE_URL. Next evaluates every route module
+ * during "collect page data" at build time, so a production build failed
+ * without a database URL — reported as "Failed to collect page data for
+ * /c/[challengeSlug]/…", with the real cause several lines up. That is the
+ * second reason deployments of this repository failed; the first was in
+ * prisma.config.ts.
+ *
+ * No query runs at build time. Building the client then is work done to be
+ * thrown away, and a hard requirement for a variable nothing was about to use.
+ * The proxy below defers construction to the first property access, so:
+ *
+ *   - a build with no DATABASE_URL succeeds, because nothing touches the
+ *     client while collecting page data;
+ *   - the first real query still throws the same message it always did, at
+ *     the moment the connection is genuinely needed.
  */
 
 // In Prisma 7 the generated client lives in .prisma/client
@@ -41,8 +60,28 @@ function createPrismaClient(): PrismaClientType {
   })
 }
 
-export const db: PrismaClientType = globalForPrisma.prisma ?? createPrismaClient()
+let client: PrismaClientType | undefined
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db
+function getClient(): PrismaClientType {
+  if (!client) {
+    client = globalForPrisma.prisma ?? createPrismaClient()
+    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = client
+  }
+  return client
 }
+
+/**
+ * Behaves exactly like a PrismaClient; it just is not one until something
+ * asks it for something. Methods are bound to the real client so `this` is
+ * correct when they are destructured, which `db.$transaction` relies on.
+ */
+export const db: PrismaClientType = new Proxy({} as PrismaClientType, {
+  get(_target, property) {
+    const target = getClient()
+    const value = Reflect.get(target, property) as unknown
+    return typeof value === 'function' ? value.bind(target) : value
+  },
+  has(_target, property) {
+    return Reflect.has(getClient(), property)
+  },
+})

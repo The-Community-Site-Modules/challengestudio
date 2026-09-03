@@ -35,9 +35,16 @@ jobs:
         with:
           version: 9.15.4
 
+      # Node 20 reached end of life in April 2026, and GitHub now warns that
+      # actions targeting it are forced onto 24. Worth recording what it caught
+      # on the way out: Node 20's ICU formats midnight as hour 24 under
+      # `hour12: false`, which made the unlock engine compute every timezone
+      # offset a day out. Every commit from Milestone 5 to 11 failed here while
+      # passing on a developer machine running Node 24. The engine no longer
+      # depends on which one it gets — see normaliseMidnightHour.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies

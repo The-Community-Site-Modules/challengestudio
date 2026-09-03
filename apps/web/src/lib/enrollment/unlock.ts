@@ -59,10 +59,32 @@ const COHORT_ANCHORED: ReadonlySet<ChallengeMode> = new Set<ChallengeMode>([
   'COHORT', 'SPRINT', 'LIVE_EVENT', 'DRIP',
 ])
 
+/**
+ * Midnight, as some engines report it.
+ *
+ * With `hour12: false`, older ICU builds format midnight as hour **24** rather
+ * than 0 — Node 20 does, Node 24 does not. Feeding 24 to `Date.UTC` rolls the
+ * date forward a day, so every offset computed from it was 24 hours out, and
+ * every unlock landed a day early.
+ *
+ * That is not hypothetical: it is why CI failed on every commit from Milestone
+ * 5 onward while the same tests passed locally. The runtime differed, and the
+ * bug was invisible on the newer one.
+ *
+ * `hourCycle: 'h23'` asks for 0–23 explicitly, which fixes it on its own. This
+ * clamp stays because the failure mode is silent and a day wide, and because
+ * it is the part that can be tested on an engine that never had the quirk.
+ */
+export function normaliseMidnightHour(hour: number): number {
+  return hour === 24 ? 0 : hour
+}
+
 /** The offset of a zone from UTC at a given instant, in milliseconds. */
 function zoneOffsetMs(instant: Date, timeZone: string): number {
   const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone, hour12: false,
+    timeZone,
+    // h23 rather than hour12:false — see normaliseMidnightHour above.
+    hourCycle: 'h23',
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
@@ -70,10 +92,9 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
   for (const { type, value } of dtf.formatToParts(instant)) {
     if (type !== 'literal') p[type] = Number(value)
   }
-  // Intl gives hour 24 for midnight in some engines; Date.UTC normalises it.
   const asUtc = Date.UTC(
     p.year ?? 1970, (p.month ?? 1) - 1, p.day ?? 1,
-    p.hour ?? 0, p.minute ?? 0, p.second ?? 0
+    normaliseMidnightHour(p.hour ?? 0), p.minute ?? 0, p.second ?? 0
   )
   return asUtc - instant.getTime()
 }
