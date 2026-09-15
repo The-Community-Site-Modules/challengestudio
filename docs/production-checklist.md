@@ -154,6 +154,29 @@ domain before believing any send.
 | ✅ | Keyboard reachability and a visible focus ring on interactive controls |
 | ☐ | Screen-reader pass by a person | **not done — needs a human** |
 
+---
+
+## 9. Legal
+
+| | Item | State |
+|---|---|---|
+| ✅ | Privacy Policy written from the schema, not a template | `/legal/privacy` |
+| ✅ | Terms of Service matching a product with no billing | `/legal/terms` |
+| ☐ | **Both reviewed by a lawyer** | **not done** |
+| ☐ | `contactEmail` and `privacyEmail` pointed at real inboxes | `legal/_components/config.ts` |
+| ☐ | `jurisdiction` confirmed — the state the LLC is registered in | same file |
+
+Everything else on those pages was read out of the code: what the schema
+stores, which cookie the middleware sets, the Supabase region in
+`DATABASE_URL`, and the fact that `next/font/google` self-hosts Inter so no
+visitor data reaches a font network.
+
+**That is also the risk.** The policy is accurate today because it describes
+this codebase. The moment file uploads land, or an analytics script is added,
+or a provider changes, it is wrong until someone edits it. Treat
+`/legal/privacy` as a file that ships with the feature, not as a document
+written once.
+
 Automated checks catch roughly a third of what matters. They do not tell you
 whether the page makes sense read aloud.
 

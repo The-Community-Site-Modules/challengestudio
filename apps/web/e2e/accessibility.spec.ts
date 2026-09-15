@@ -98,6 +98,15 @@ test.describe('public pages', () => {
     await audit(page, 'use-cases')
   })
 
+  for (const path of ['/legal/privacy', '/legal/terms']) {
+    test(`${path}`, async ({ page }) => {
+      // Long documents with a contents list — the headings and the jump links
+      // are the part most likely to be wrong.
+      await page.goto(path)
+      await audit(page, path)
+    })
+  }
+
   test('pricing', async ({ page }) => {
     await page.goto('/pricing')
     await audit(page, 'pricing')
