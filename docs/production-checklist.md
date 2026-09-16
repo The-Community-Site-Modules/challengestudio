@@ -20,6 +20,13 @@ that cannot be made from inside the repository.
 | ✅ | Build passes from a clean checkout | `pnpm build` |
 | ✅ | Cron entry registered for scheduled messages | `vercel.json`, hourly |
 
+**Vercel refuses to deploy a Next.js version with known CVEs.** The build
+completes, `/vercel/output` is written, and then the deploy step stops with
+"Vulnerable version of Next.js detected". Nothing in the build log explains it,
+because nothing in the build was wrong. Keep Next current; the app's auth
+gating runs in middleware, which is exactly what CVE-2025-29927 bypassed
+before 15.2.3.
+
 **Set the Vercel Root Directory to `apps/web`.** This is the one deploy
 setting that cannot be fixed from the repository, and it was the third and last
 reason deployments failed. Vercel's Next.js preset looks for `next` in the
