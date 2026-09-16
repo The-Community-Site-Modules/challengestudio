@@ -12,28 +12,36 @@ that cannot be made from inside the repository.
 
 | | Item | State |
 |---|---|---|
-| ☐ | GitHub repository linked to Vercel | **blocked — owner** |
+| ✅ | GitHub repository linked to Vercel | done — pushes trigger deployments |
+| ☐ | **Root Directory set to `apps/web`** | **blocked — owner or Robert** |
 | ☐ | `dev`, `preview` and `production` environments created (PRD §19, §33) | **blocked — owner** |
 | ☐ | Preview deployment per branch, so a milestone can be clicked rather than trusted (PRD §29.1) | **blocked — owner** |
 | ☐ | Production domain attached, HTTPS verified | **blocked — owner** |
 | ✅ | Build passes from a clean checkout | `pnpm build` |
 | ✅ | Cron entry registered for scheduled messages | `vercel.json`, hourly |
 
+**Set the Vercel Root Directory to `apps/web`.** This is the one deploy
+setting that cannot be fixed from the repository, and it was the third and last
+reason deployments failed. Vercel's Next.js preset looks for `next` in the
+Root Directory's `package.json`; at the repo root there is none — correctly,
+since Next belongs to the app — so the build ended with *"No Next.js version
+detected"*.
+
+With the Root Directory on the app, Vercel's monorepo support handles the rest:
+it detects Next.js, installs from the pnpm workspace root, and runs
+`next build`. Every override `vercel.json` used to carry was compensating for
+the Root Directory being wrong, and they are all gone.
+
+**`vercel.json` lives at `apps/web/vercel.json`**, because Vercel reads it from
+the Root Directory. Move the Root Directory and the file has to move with it,
+or the cron entry is silently ignored — which would take the scheduled-message
+engine down without any error.
+
 **`vercel.json` cannot hold comments.** Its schema rejects unknown top-level
 keys, and a rejected config fails the commit with a link to Vercel's
 configuration docs rather than to a deployment — there is no deployment to
-link to, because none was created. If the status says "Deployment failed" and
-the target URL is a docs page, suspect the config file, not the build. Keep
-notes about it here instead.
-
-**Vercel paths are relative to the Root Directory, which is the repo root.**
-`vercel.json` once prefixed its install and build commands with `cd ../..`,
-which only makes sense if the Root Directory is `apps/web` — while
-`outputDirectory` was `apps/web/.next`, which only makes sense from the repo
-root. The two contradicted each other, the `cd` walked above the checkout, and
-pnpm reported `ERR_PNPM_NO_PKG_MANIFEST No package.json found in /`. Every
-deployment failed there, in three seconds, before install began. Fixed
-2026-09-16; the file now carries a comment saying not to reintroduce it.
+link to, because none was created. If a status says "Deployment failed" and the
+target URL is a docs page, suspect the config file, not the build.
 
 **Note.** `next build` rewrites `apps/web/tsconfig.json` as a side effect
 (reformats it, and appends the active `distDir` to `include`). Restore it
