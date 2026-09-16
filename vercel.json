@@ -1,17 +1,7 @@
 {
   "framework": "nextjs",
-  "_comment": [
-    "Every path here is relative to the Vercel Root Directory, which is the",
-    "repository root. Do not add `cd ../..` to these commands: that is what",
-    "broke every deployment until 2026-09-16. It assumed a Root Directory of",
-    "apps/web, while outputDirectory below assumed the repo root, so the two",
-    "contradicted each other and the cd walked above the checkout — pnpm then",
-    "reported ERR_PNPM_NO_PKG_MANIFEST for /.",
-    "If Root Directory is ever changed to apps/web, outputDirectory must",
-    "become .next in the same edit."
-  ],
-  "buildCommand": "pnpm turbo run build --filter=@challenge-studio/web",
   "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm turbo run build --filter=@challenge-studio/web",
   "outputDirectory": "apps/web/.next",
   "git": {
     "deploymentEnabled": {

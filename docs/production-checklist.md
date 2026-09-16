@@ -19,6 +19,13 @@ that cannot be made from inside the repository.
 | ✅ | Build passes from a clean checkout | `pnpm build` |
 | ✅ | Cron entry registered for scheduled messages | `vercel.json`, hourly |
 
+**`vercel.json` cannot hold comments.** Its schema rejects unknown top-level
+keys, and a rejected config fails the commit with a link to Vercel's
+configuration docs rather than to a deployment — there is no deployment to
+link to, because none was created. If the status says "Deployment failed" and
+the target URL is a docs page, suspect the config file, not the build. Keep
+notes about it here instead.
+
 **Vercel paths are relative to the Root Directory, which is the repo root.**
 `vercel.json` once prefixed its install and build commands with `cd ../..`,
 which only makes sense if the Root Directory is `apps/web` — while
