@@ -19,6 +19,15 @@ that cannot be made from inside the repository.
 | ✅ | Build passes from a clean checkout | `pnpm build` |
 | ✅ | Cron entry registered for scheduled messages | `vercel.json`, hourly |
 
+**Vercel paths are relative to the Root Directory, which is the repo root.**
+`vercel.json` once prefixed its install and build commands with `cd ../..`,
+which only makes sense if the Root Directory is `apps/web` — while
+`outputDirectory` was `apps/web/.next`, which only makes sense from the repo
+root. The two contradicted each other, the `cd` walked above the checkout, and
+pnpm reported `ERR_PNPM_NO_PKG_MANIFEST No package.json found in /`. Every
+deployment failed there, in three seconds, before install began. Fixed
+2026-09-16; the file now carries a comment saying not to reintroduce it.
+
 **Note.** `next build` rewrites `apps/web/tsconfig.json` as a side effect
 (reformats it, and appends the active `distDir` to `include`). Restore it
 after building, or a stray path gets committed:
