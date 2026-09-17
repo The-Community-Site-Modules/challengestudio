@@ -42,7 +42,13 @@ export async function signUpAction(formData: FormData) {
     password,
     options: {
       data: { full_name: `${firstName} ${lastName}`.trim() },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify`,
+      // /api/auth/callback, not /auth/verify. /auth/verify is the "check your
+      // inbox" page — it reads email/error/message off the query string and
+      // never touches the `code`, so clicking the confirmation link landed
+      // there, created no session, and left the person to sign in by hand.
+      // Every other flow already pointed at the callback; sign-up was the
+      // odd one out.
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
     },
   })
 
