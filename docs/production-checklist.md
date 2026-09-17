@@ -200,16 +200,34 @@ Two consequences, and the second is the one that matters:
    reputation of a domain verified only days ago. A new domain has no
    reputation to absorb that.
 
-Turn "Confirm email" back on under Authentication → Sign In / Providers →
-Email, then confirm the setting rather than trusting the toggle:
+Turn "Confirm email" on under Authentication → Sign In / Providers → Email,
+then confirm the setting rather than trusting the toggle:
 
 ```
-curl -s https://<project>.supabase.co/auth/v1/settings | grep autoconfirm
+curl -s -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+  https://<project>.supabase.co/auth/v1/settings |
+  grep -o '"mailer_autoconfirm":[a-z]*'
 ```
 
-That endpoint is public and unauthenticated, which makes it the cheapest way to
-verify an auth setting without opening the dashboard — and the only way to
-check it from CI.
+The publishable key is required — without the header the endpoint answers 401
+`No API key found in request`, which is easy to misread as the setting being
+absent. The key is the same one the browser already carries, so this needs no
+secret and runs anywhere, including CI.
+
+**If the toggle will not stay on**, the dashboard is not the only route. The
+Management API reports *why*, which the UI does not:
+
+```
+curl -s -X PATCH -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mailer_autoconfirm": false}' \
+  https://api.supabase.com/v1/projects/<ref>/config/auth
+```
+
+A personal access token comes from Account → Access Tokens and inherits the
+caller's own rights, so a **403** here means the org role cannot change auth
+settings and the project owner has to — worth knowing before a second hour is
+spent clicking a toggle that was never going to move.
 
 ---
 
