@@ -37,7 +37,7 @@ function Frame({ children, className }: { children: React.ReactNode; className?:
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-green-400/70" />
         <span className="ml-3 hidden rounded-md bg-background/70 px-2.5 py-0.5 text-[11px] text-muted-foreground sm:block">
-          challengestudio.app/ws/momentum/overview
+          mychallengestudio.com/ws/momentum/overview
         </span>
       </div>
       {children}

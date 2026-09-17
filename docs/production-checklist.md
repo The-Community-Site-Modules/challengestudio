@@ -13,10 +13,10 @@ that cannot be made from inside the repository.
 | | Item | State |
 |---|---|---|
 | ✅ | GitHub repository linked to Vercel | done — pushes trigger deployments |
-| ☐ | **Root Directory set to `apps/web`** | **blocked — owner or Robert** |
+| ✅ | Root Directory set to `apps/web` | done |
 | ☐ | `dev`, `preview` and `production` environments created (PRD §19, §33) | **blocked — owner** |
 | ☐ | Preview deployment per branch, so a milestone can be clicked rather than trusted (PRD §29.1) | **blocked — owner** |
-| ☐ | Production domain attached, HTTPS verified | **blocked — owner** |
+| ✅ | Production domain attached, HTTPS verified | `www.mychallengestudio.com` — see the note below |
 | ✅ | Build passes from a clean checkout | `pnpm build` |
 | ✅ | Cron entry registered for scheduled messages | `vercel.json`, hourly |
 
@@ -43,6 +43,21 @@ the Root Directory being wrong, and they are all gone.
 the Root Directory. Move the Root Directory and the file has to move with it,
 or the cron entry is silently ignored — which would take the scheduled-message
 engine down without any error.
+
+
+**`www` is the canonical host, not the apex.** `mychallengestudio.com`
+308-redirects to `www.mychallengestudio.com`. `NEXT_PUBLIC_APP_URL` must be the
+host Vercel serves — `https://www.mychallengestudio.com` — because that value
+is pasted verbatim into every emailed link and compared verbatim by Supabase
+against its redirect allow-list. A link built on the apex survives the redirect
+today only because Vercel preserves the query string; it is not something to
+depend on for the one link a new user ever clicks.
+
+`NEXT_PUBLIC_APP_URL` is a **build-time** value. Next inlines every
+`NEXT_PUBLIC_` variable into the bundle during `next build`, so changing it in
+the Vercel dashboard does nothing to the running deployment. Redeploy, or the
+old URL stays baked in — and because the symptom is an email that looks fine
+and lands on the wrong host, nothing in any log will say so.
 
 **`vercel.json` cannot hold comments.** Its schema rejects unknown top-level
 keys, and a rejected config fails the commit with a link to Vercel's
@@ -150,19 +165,51 @@ before the first paying customer.
 
 ## 5. Email
 
-| | Item |
-|---|---|
-| ☐ | Resend API key set | **blocked — owner** |
-| ☐ | Sending domain verified in Resend | **blocked — owner** |
-| ☐ | SPF, DKIM and DMARC records published | **blocked — owner** |
+| | Item | State |
+|---|---|---|
+| ✅ | Resend API key set | done |
+| ✅ | Sending domain verified in Resend | `mychallengestudio.com` |
+| ✅ | Supabase SMTP configured, so auth mail sends from the product domain | |
+| ☐ | **Email confirmation enabled in Supabase** (`mailer_autoconfirm: false`) | **currently off — see below** |
+| ☐ | `EMAIL_FROM_ADDRESS` / `EMAIL_FROM_NAME` on the verified domain | |
+| ☐ | One real send proven to an address that is **not** the Resend account owner | |
+| ◐ | SPF and DKIM published (Resend requires them to verify); DMARC not confirmed | |
 | ✅ | Delivery log with per-recipient idempotency keys | `message_deliveries` |
 | ✅ | Unsubscribe honoured per workspace | `lib/communications` |
-| ✅ | Failures and skips both recorded, not only successes |
+| ✅ | Failures and skips both recorded, not only successes | |
 
 **The trap.** Resend accepts an API key without a verified domain and then
 silently refuses to deliver to anyone but the account owner. A test that
 "works" for you and reaches nobody else is the usual first symptom. Verify the
 domain before believing any send.
+
+**Supabase is not sending confirmation emails at all right now.** Its public
+settings endpoint reports `"mailer_autoconfirm": true`, which means a new
+account is marked confirmed the moment it is created and no confirm-signup mail
+is generated. Nothing in the app can tell the difference: sign-up succeeds, the
+person is logged straight in, and the flow looks healthier than it is.
+
+Two consequences, and the second is the one that matters:
+
+1. The confirmation-link fix (commit `1126524`, which pointed
+   `emailRedirectTo` at `/api/auth/callback`) is currently dead code. It is
+   still correct and still pinned by `redirects.test.ts`; it simply never runs.
+2. **Nobody proves they own the address they signed up with.** For a product
+   whose whole job is emailing participants on a schedule, that means typo'd
+   and borrowed addresses enter the send list, bounce, and spend the sending
+   reputation of a domain verified only days ago. A new domain has no
+   reputation to absorb that.
+
+Turn "Confirm email" back on under Authentication → Sign In / Providers →
+Email, then confirm the setting rather than trusting the toggle:
+
+```
+curl -s https://<project>.supabase.co/auth/v1/settings | grep autoconfirm
+```
+
+That endpoint is public and unauthenticated, which makes it the cheapest way to
+verify an auth setting without opening the dashboard — and the only way to
+check it from CI.
 
 ---
 
@@ -194,7 +241,7 @@ domain before believing any send.
 | ✅ | Privacy Policy written from the schema, not a template | `/legal/privacy` |
 | ✅ | Terms of Service matching a product with no billing | `/legal/terms` |
 | ☐ | **Both reviewed by a lawyer** | **not done** |
-| ☐ | `contactEmail` and `privacyEmail` pointed at real inboxes | `legal/_components/config.ts` |
+| ◐ | `contactEmail` and `privacyEmail` now on `mychallengestudio.com`; **the two inboxes must exist** | `legal/_components/config.ts` |
 | ☐ | `jurisdiction` confirmed — the state the LLC is registered in | same file |
 
 Everything else on those pages was read out of the code: what the schema
