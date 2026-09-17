@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { isPlatformAdmin } from '@/lib/permissions'
+import { isUniqueViolationOn } from '@/lib/db/errors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,18 +80,9 @@ async function ensureProfile(input: {
       select,
     })
   } catch (error) {
-    if (!isUniqueEmailViolation(error)) throw error
+    if (!isUniqueViolationOn(error, 'email')) throw error
     return reclaimProfileByEmail({ ...input, email }, select)
   }
-}
-
-/** Prisma P2002 — a unique constraint failed, and the field was email. */
-function isUniqueEmailViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false
-  const e = error as { code?: string; meta?: { target?: unknown } }
-  if (e.code !== 'P2002') return false
-  const target = e.meta?.target
-  return Array.isArray(target) ? target.includes('email') : target === 'email'
 }
 
 /**

@@ -461,7 +461,11 @@ model NotificationPreference {
   unsubscribed Boolean  @default(false)
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  // onUpdate matters here, not just onDelete: session.ts recovers a leftover
+  // profile by moving its id onto the new auth user, and this was the one
+  // foreign key into profiles that did not follow. See the migration
+  // fix_notification_preferences_update_cascade.sql.
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([profileId, workspaceId])
   @@map("notification_preferences")

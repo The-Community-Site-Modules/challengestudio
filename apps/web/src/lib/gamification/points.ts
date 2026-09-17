@@ -18,6 +18,7 @@
  */
 
 import { db } from '@/lib/db'
+import { isUniqueViolation } from '@/lib/db/errors'
 
 export type PointAction =
   | 'day_completed'
@@ -106,11 +107,6 @@ export async function awardPoints(input: AwardInput): Promise<AwardResult> {
     if (isUniqueViolation(e)) return { awarded: false, points: 0, reason: 'duplicate' }
     throw e
   }
-}
-
-function isUniqueViolation(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e &&
-    (e as { code?: string }).code === 'P2002'
 }
 
 /** A participant's total, summed from the ledger rather than read off a counter. */

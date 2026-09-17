@@ -17,6 +17,7 @@
  */
 
 import { db } from '@/lib/db'
+import { isUniqueViolation } from '@/lib/db/errors'
 import { sendEmail, type EmailTrigger } from '@/lib/email'
 import { messageFor, isEssential, render, type Trigger } from './catalogue'
 
@@ -44,12 +45,6 @@ export type DispatchStatus =
 export interface DispatchResult {
   status: DispatchStatus
   reason?: string
-}
-
-/** Postgres refusing a duplicate is the mechanism working, not a failure. */
-function isUniqueViolation(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e &&
-    (e as { code?: string }).code === 'P2002'
 }
 
 export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
