@@ -12,7 +12,7 @@ import { Logo } from '@/components/shared/logo'
 // missing link.
 const navLinks = [
   { label: 'Features', href: '/features' },
-  { label: 'Use Cases', href: '/use-cases' },
+  { label: 'Use cases', href: '/use-cases' },
   { label: 'Pricing', href: '/pricing' },
 ]
 
@@ -46,7 +46,7 @@ export function MarketingNav() {
             <Link href="/auth/login">Sign in</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/auth/signup">Get started free</Link>
+            <Link href="/auth/signup">Start free</Link>
           </Button>
         </div>
 
@@ -77,7 +77,7 @@ export function MarketingNav() {
           </nav>
           <div className="mt-6 flex flex-col gap-2">
             <Button variant="outline" asChild><Link href="/auth/login">Sign in</Link></Button>
-            <Button asChild><Link href="/auth/signup">Get started free</Link></Button>
+            <Button asChild><Link href="/auth/signup">Start free</Link></Button>
           </div>
         </div>
       )}

@@ -76,6 +76,13 @@ const config: Config = {
           from: { transform: 'scaleX(0)' },
           to:   { transform: 'scaleX(1)' },
         },
+        // The column chart's vertical twin. `grow-bar` is scaleX, so using it
+        // on an upright bar squeezes it sideways instead of raising it —
+        // subtly wrong in a way that reads as a rendering glitch.
+        'grow-col': {
+          from: { transform: 'scaleY(0)' },
+          to:   { transform: 'scaleY(1)' },
+        },
         'pulse-ring': {
           '0%':        { transform: 'scale(0.9)', opacity: '0.7' },
           '70%, 100%': { transform: 'scale(1.6)', opacity: '0' },
@@ -90,6 +97,7 @@ const config: Config = {
         'fade-in': 'fade-in 0.8s ease-out both',
         float: 'float 6s ease-in-out infinite',
         'grow-bar': 'grow-bar 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'grow-col': 'grow-col 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
         'pulse-ring': 'pulse-ring 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite',
         marquee: 'marquee 40s linear infinite',
       },

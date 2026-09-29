@@ -1,9 +1,9 @@
 // Route: / — the marketing homepage.
 //
-// One thing to know before editing: the two social-proof sections do not
-// invent customers.
+// One thing to know before editing: the social-proof section does not invent
+// customers.
 //
-// The old version of this page carried three testimonials attributed to
+// An earlier version of this page carried three testimonials attributed to
 // "Sarah K.", "Marcus T." and "Priya M." — the same placeholder names that
 // were sitting in the mock creator dashboard — one of them claiming a
 // completion rate "went from 12% to 61%". Those are the words a visitor
@@ -14,21 +14,24 @@
 // is an empty array with the card design ready for it. Add real quotes and
 // the section appears; until then the page shows an honest beta panel in the
 // same position. Nothing here needs rewriting when the quotes arrive.
+//
+// The same rule governs the numbers in the mockups: they describe one
+// imaginary challenge, defined once in `_components/mockups.tsx`, and none of
+// them is presented as a customer's result.
 
 import Link from 'next/link'
 import {
-  ArrowRight, CheckCircle2, Sparkles, Blocks, PlayCircle, TrendingUp,
-  Users, Trophy, Mail, BarChart3, CalendarClock, Radio, ShieldCheck,
-  Smartphone, Layers, Quote, Mic, BookOpen, GraduationCap, HeartPulse,
-  Church, Building2, HandHeart, Briefcase,
+  ArrowRight, CheckCircle2, Blocks, PlayCircle, TrendingUp,
+  Users, Trophy, Mail, CalendarClock, MessagesSquare, Quote,
+  Mic, BookOpen, GraduationCap, HeartPulse, Church, Building2,
+  HandHeart, Briefcase,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Logo } from '@/components/shared/logo'
 import {
-  DashboardMockup, StreakCard, BadgeCard, DailyExperienceMockup,
-  CommunityMockup, AnalyticsMockup,
+  HeroShowcase, DayBuilderMockup, RetentionMockup, FeedMockup, UnlockMockup,
 } from './_components/mockups'
 
 export const metadata = {
@@ -37,13 +40,13 @@ export const metadata = {
     'Create, launch and run multi-day challenges that people actually finish. Content, daily action, progress, community and rewards in one place.',
 }
 
-// ─── Section 1: who it is built for ──────────────────────────────────────────
+// ─── Who it is built for ─────────────────────────────────────────────────────
 
 const BUILT_FOR = [
   { icon: <Mic className="h-4 w-4" />,           label: 'Coaches' },
   { icon: <BookOpen className="h-4 w-4" />,      label: 'Authors' },
   { icon: <GraduationCap className="h-4 w-4" />, label: 'Course creators' },
-  { icon: <Users className="h-4 w-4" />,         label: 'Communities' },
+  { icon: <Users className="h-4 w-4" />,         label: 'Community owners' },
   { icon: <HeartPulse className="h-4 w-4" />,    label: 'Wellness leaders' },
   { icon: <Church className="h-4 w-4" />,        label: 'Churches' },
   { icon: <Building2 className="h-4 w-4" />,     label: 'Teams' },
@@ -51,54 +54,51 @@ const BUILT_FOR = [
   { icon: <HandHeart className="h-4 w-4" />,     label: 'Nonprofits' },
 ]
 
-// ─── Section 2: build, run, grow ─────────────────────────────────────────────
+// ─── Build · Run · Grow ──────────────────────────────────────────────────────
 
 const PILLARS = [
   {
     step: 'Build',
-    icon: <Blocks className="h-6 w-6" />,
+    icon: <Blocks className="h-5 w-5" />,
     headline: 'Design the days, not a page',
-    body: 'Assemble each day from content blocks — video, downloads, checklists, assignments, reflections. Mark the ones that matter as required, and completion starts meaning something.',
+    body: 'A guided setup asks for the promise first. Then you fill each day with blocks — video, worksheet, assignment, reflection — and mark what must be done.',
   },
   {
     step: 'Run',
-    icon: <PlayCircle className="h-6 w-6" />,
+    icon: <PlayCircle className="h-5 w-5" />,
     headline: 'It carries itself once it starts',
-    body: 'Days unlock on schedule in the challenge’s own timezone. Emails go out on their own. The feed keeps people talking. You show up to facilitate, not to operate.',
+    body: 'Days unlock in each person’s own timezone, emails go out on schedule, and the feed keeps people talking. You show up to lead, not to operate.',
   },
   {
     step: 'Grow',
-    icon: <TrendingUp className="h-6 w-6" />,
+    icon: <TrendingUp className="h-5 w-5" />,
     headline: 'See what actually happened',
-    body: 'Who started, who finished, which day lost people, and who has gone quiet — counted from the records, not estimated. Then a closing offer for the ones who finished.',
+    body: 'Who started, who finished, which day lost people — counted from real records. Then point finishers at your next thing while the momentum is high.',
   },
 ]
 
-// ─── Section 3: the creation workflow ────────────────────────────────────────
+// ─── One engine, many shapes ─────────────────────────────────────────────────
 
-const WORKFLOW = [
-  { n: '01', title: 'Name the promise', body: 'What someone will be able to do by the end. The wizard asks for it first, because everything else follows from it.' },
-  { n: '02', title: 'Build the days',   body: 'Add steps, fill them with blocks, decide what is required. Publish a day at a time or all at once.' },
-  { n: '03', title: 'Set the shape',    body: 'Cohort or evergreen, public or invite-only, three days or ninety. Change your mind later; nothing is baked in.' },
-  { n: '04', title: 'Open the doors',   body: 'You get a registration page on a shareable URL. A publish gate refuses to let an empty challenge go live.' },
+const SHAPES = [
+  { title: 'Marketing challenge', body: 'Public registration, daily content, live sessions and a final offer.' },
+  { title: 'Cohort challenge',    body: 'A group starts and finishes together on shared dates.' },
+  { title: 'Evergreen challenge', body: 'Each person’s Day 1 is the day they join.' },
+  { title: 'Habit challenge',     body: 'Repeated check-ins, streaks and optional measurements.' },
+  { title: 'Internal challenge',  body: 'Only for members of a community or organisation you already have.' },
+  { title: 'Paid challenge',      body: 'Enrolment needs a purchase you took somewhere else.' },
+  { title: 'Team challenge',      body: 'People join teams with shared progress and scores.' },
+  { title: 'Milestone journey',   body: 'Steps in order, not tied to calendar days.' },
 ]
 
-// ─── Section 7: the feature grid ─────────────────────────────────────────────
+/**
+ * Lengths a challenge can run for. Rendered as plain chips, not buttons: they
+ * illustrate the range rather than offering a choice, and a control that looks
+ * pressable but does nothing is worse than a label.
+ */
+const LENGTHS = ['3 days', '5 days', '7 days', '21 days', '30 days', '90 days', '365 days', 'Milestones']
+const LENGTH_EXAMPLE = '5 days'
 
-const FEATURES = [
-  { icon: <Blocks className="h-5 w-5" />,        title: 'Ten content block types',   body: 'Video, downloads, checklists, assignments, reflections, discussion prompts.' },
-  { icon: <CalendarClock className="h-5 w-5" />, title: 'Unlocking that respects time zones', body: 'Local midnight stays local midnight, daylight saving included.' },
-  { icon: <Users className="h-5 w-5" />,         title: 'A feed of its own',         body: 'Posts, comments and reactions beside the work — no Facebook Group.' },
-  { icon: <Trophy className="h-5 w-5" />,        title: 'Points, streaks, badges',   body: 'Daily caps, so taking part beats gaming it. Leaderboard optional.' },
-  { icon: <Mail className="h-5 w-5" />,          title: 'Automated email',           body: 'Ten triggers, editable per challenge, every send logged.' },
-  { icon: <Radio className="h-5 w-5" />,         title: 'Live sessions',             body: 'Join links, replays, and a calendar file participants can save.' },
-  { icon: <BarChart3 className="h-5 w-5" />,     title: 'Analytics and export',      body: 'Day-by-day completion, at-risk participants, permission-checked CSV.' },
-  { icon: <ShieldCheck className="h-5 w-5" />,   title: 'Private work stays private', body: 'Reflections are withheld on the server, not hidden in the page.' },
-  { icon: <Smartphone className="h-5 w-5" />,    title: 'Built for a phone',         body: 'Where participants actually are, in a spare ten minutes.' },
-  { icon: <Layers className="h-5 w-5" />,        title: 'Multiple workspaces',       body: 'Separate brands or clients, each with its own team.' },
-]
-
-// ─── Section 8: testimonials ─────────────────────────────────────────────────
+// ─── Testimonials ────────────────────────────────────────────────────────────
 
 interface Testimonial {
   quote: string
@@ -125,80 +125,72 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-mesh">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-grid opacity-[0.35]" />
 
-        <div className="relative mx-auto max-w-7xl px-6 pb-16 pt-16 sm:pt-20">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge
-              variant="secondary"
-              className="mb-6 animate-fade-up gap-1.5 border border-border/60 bg-background/80 px-4 py-1.5 text-sm font-medium backdrop-blur"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              In beta — free while we get it right
-            </Badge>
+        <div className="relative mx-auto max-w-7xl px-6 pb-20 pt-16 sm:pt-20">
+          <div className="grid items-center gap-16 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
+            {/* Copy */}
+            <div>
+              <Badge
+                variant="secondary"
+                className="mb-6 animate-fade-up gap-2 border border-border/60 bg-background/80 px-3.5 py-1.5 text-sm font-medium backdrop-blur"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                Free during beta — no card needed
+              </Badge>
 
-            <h1 className="animate-fade-up delay-1 text-[42px] font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-6xl lg:text-[68px]">
-              Build a challenge.{' '}
-              <span className="bg-gradient-to-br from-primary to-violet-500 bg-clip-text text-transparent">
-                Guide a transformation.
-              </span>
-            </h1>
-
-            <p className="mx-auto mt-6 max-w-2xl animate-fade-up delay-2 text-lg leading-relaxed text-muted-foreground">
-              A course gets bought and abandoned. A checklist gets closed. A challenge
-              gives people a reason to come back tomorrow — content, daily action,
-              visible progress, other people, and something to earn.
-            </p>
-
-            <div className="mt-9 flex animate-fade-up delay-3 flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button size="lg" className="h-12 w-full px-8 text-base sm:w-auto" asChild>
-                <Link href="/auth/signup">
-                  Create a Challenge <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="h-12 w-full bg-background/70 px-8 text-base backdrop-blur sm:w-auto" asChild>
-                <Link href="#how-it-works">See How It Works</Link>
-              </Button>
-            </div>
-
-            <div className="mt-6 flex animate-fade-up delay-4 flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              {['No credit card', 'Unlimited participants', 'Live in under an hour'].map((item) => (
-                <span key={item} className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  {item}
+              <h1 className="animate-fade-up delay-1 text-[40px] font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-[56px] lg:text-[62px]">
+                Build a challenge.{' '}
+                <span className="bg-gradient-to-br from-primary to-violet-500 bg-clip-text text-transparent">
+                  Guide a transformation.
                 </span>
-              ))}
-            </div>
-          </div>
+              </h1>
 
-          {/* Product preview */}
-          <div className="relative mx-auto mt-14 max-w-5xl animate-fade-up delay-5">
-            <div aria-hidden="true">
-              <DashboardMockup />
+              <p className="mt-6 max-w-xl animate-fade-up delay-2 text-lg leading-relaxed text-muted-foreground">
+                Courses get bought and abandoned. A challenge gives people one clear
+                thing to do today, others doing it beside them, and progress they can
+                see. Build it here, run it here, and see exactly who finished.
+              </p>
+
+              <div className="mt-9 flex animate-fade-up delay-3 flex-col gap-3 sm:flex-row">
+                <Button size="lg" className="h-12 px-7 text-base" asChild>
+                  <Link href="/auth/signup">
+                    Create your first challenge <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 bg-background/70 px-7 text-base backdrop-blur"
+                  asChild
+                >
+                  <Link href="#how-it-works">
+                    <PlayCircle className="mr-2 h-4 w-4" /> Walk through a 5-day example
+                  </Link>
+                </Button>
+              </div>
+
+              <ul className="mt-7 flex animate-fade-up delay-4 flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                {['Live in under an hour', 'Unlimited participants in beta', 'No app to install'].map((item) => (
+                  <li key={item} className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            {/* Floating detail cards — the participant's side of the same story */}
-            <div
-              aria-hidden="true"
-              className="absolute -left-14 top-[38%] hidden animate-float xl:block"
-              style={{ animationDelay: '0.4s' }}
-            >
-              <StreakCard />
-            </div>
-            <div
-              aria-hidden="true"
-              className="absolute -right-14 bottom-16 hidden animate-float xl:block"
-              style={{ animationDelay: '1.6s' }}
-            >
-              <BadgeCard />
+            {/* Product preview */}
+            <div aria-hidden="true" className="animate-fade-up delay-5 lg:pl-6">
+              <HeroShowcase />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 1. Built for ────────────────────────────────────────────────── */}
+      {/* ── Built for ───────────────────────────────────────────────────── */}
       <section className="border-y border-border/60 bg-muted/25 py-10">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Built for the people who run challenges
+            Built for people who run challenges
           </p>
           <ul className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             {BUILT_FOR.map((b) => (
@@ -206,7 +198,7 @@ export default function HomePage() {
                 key={b.label}
                 className="flex items-center gap-2 rounded-full border border-border/70 bg-background px-3.5 py-1.5 text-sm text-foreground"
               >
-                <span className="text-primary">{b.icon}</span>
+                <span className="text-primary" aria-hidden="true">{b.icon}</span>
                 {b.label}
               </li>
             ))}
@@ -214,15 +206,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 2. Build · Run · Grow ───────────────────────────────────────── */}
+      {/* ── How it works ────────────────────────────────────────────────── */}
       <section id="how-it-works" className="scroll-mt-20 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Build it, run it, and see what it did
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Three jobs that usually need six tools and a spreadsheet holding them together.
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-end">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                How it works
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                From an idea to a finish line in three moves
+              </h2>
+            </div>
+            <p className="text-muted-foreground lg:pb-1">
+              Three jobs that usually need six tools and a spreadsheet holding them
+              together.
             </p>
           </div>
 
@@ -235,11 +233,11 @@ export default function HomePage() {
                 />
                 <CardContent className="p-7">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       {p.icon}
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                      {String(i + 1).padStart(2, '0')} · {p.step}
+                      {i + 1} · {p.step}
                     </span>
                   </div>
                   <h3 className="mt-5 text-lg font-semibold text-foreground">{p.headline}</h3>
@@ -251,246 +249,228 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 3. The creation workflow ────────────────────────────────────── */}
+      {/* ── Everything in one place ─────────────────────────────────────── */}
       <section className="border-y border-border/60 bg-muted/25 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                Creating one
-              </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                From an idea to open registration
-              </h2>
-              <p className="mt-4 text-muted-foreground">
-                A guided wizard, four decisions, and a page you can send to people.
-                Nothing to design and no template to fight.
-              </p>
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              Everything in one place
+            </p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Not a course builder with a countdown
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              Stitching six tools together is the reason most challenges never launch.
+              Here, every piece already knows about the others.
+            </p>
+          </div>
 
-              <ol className="mt-10 space-y-7">
-                {WORKFLOW.map((w, i) => (
-                  <li key={w.n} className="relative flex gap-5">
-                    {/* Connector */}
-                    {i < WORKFLOW.length - 1 && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute left-[19px] top-11 h-[calc(100%+0.75rem)] w-px bg-border"
-                      />
-                    )}
-                    <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-background text-xs font-bold text-primary">
-                      {w.n}
-                    </span>
-                    <div className="pt-1">
-                      <h3 className="font-semibold text-foreground">{w.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{w.body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            {/* Builder illustration */}
-            <div aria-hidden="true" className="rounded-2xl border border-border/80 bg-card p-6 shadow-xl shadow-primary/5">
-              <p className="text-sm font-semibold text-foreground">Day 3 — Craft your offer</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">4 blocks · published</p>
-              <div className="mt-5 space-y-2.5">
-                {[
-                  { label: 'Heading', sub: '“Craft your offer”', required: false },
-                  { label: 'Video', sub: 'The offer stack · 6 min', required: false },
-                  { label: 'Assignment', sub: 'Write your offer', required: true },
-                  { label: 'Reflection', sub: 'What felt hardest?', required: true },
-                ].map((b) => (
-                  <div
-                    key={b.label}
-                    className="flex items-center gap-3 rounded-xl border border-border/70 bg-background p-3"
+          <div className="mt-14 grid gap-4 lg:grid-cols-3">
+            {/* The builder — the one that earns the extra width */}
+            <div className="rounded-2xl border border-border/70 bg-background p-6 lg:col-span-2">
+              <div className="grid gap-6 sm:grid-cols-2 sm:items-center">
+                <div>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Blocks className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold text-foreground">
+                    Build each day, block by block
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Ten block types, drag to reorder, mark what is required. A publish
+                    check catches empty days and missing links before your participants
+                    do.
+                  </p>
+                  <Link
+                    href="/features"
+                    className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
                   >
-                    <span className="flex h-5 w-5 shrink-0 flex-col justify-center gap-[3px]">
-                      {[0, 1, 2].map((n) => (
-                        <span key={n} className="h-[2px] w-3.5 rounded-full bg-border" />
-                      ))}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{b.label}</p>
-                      <p className="truncate text-xs text-muted-foreground">{b.sub}</p>
-                    </div>
-                    {b.required && (
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        Required
-                      </span>
-                    )}
-                  </div>
-                ))}
-                <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  + Add a block
+                    See the builder <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <div aria-hidden="true">
+                  <DayBuilderMockup />
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── 4. The participant's day ────────────────────────────────────── */}
-      <section className="py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
-            <div aria-hidden="true" className="order-2 lg:order-1">
-              <DailyExperienceMockup />
+            {/* Unlocking */}
+            <div className="rounded-2xl border border-border/70 bg-background p-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CalendarClock className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">
+                Unlocks on their clock
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Cohort, evergreen or self-paced. Day 2 opens at 8 AM wherever each
+                person lives — daylight saving included.
+              </p>
+              <div className="mt-5" aria-hidden="true">
+                <UnlockMockup />
+              </div>
             </div>
 
-            <div className="order-1 lg:order-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                The participant’s day
+            {/* Community */}
+            <div className="rounded-2xl border border-border/70 bg-background p-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <MessagesSquare className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">
+                A feed that belongs to the challenge
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Posts, comments and reactions beside the work — no Facebook Group, no
+                algorithm deciding who sees what.
               </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                One day at a time, on the phone in their hand
-              </h2>
-              <p className="mt-4 leading-relaxed text-muted-foreground">
-                Tomorrow is locked, and that is the point. A challenge works because
-                there is exactly one thing to do today and it is small enough to
-                finish before the coffee goes cold.
-              </p>
-
-              <ul className="mt-8 space-y-4">
-                {[
-                  { title: 'Today is obvious', body: 'No syllabus to navigate. Open it and the next thing is right there.' },
-                  { title: 'Required means required', body: 'A day is complete when the work is done, not when a box is ticked.' },
-                  { title: 'Progress they can feel', body: 'A streak, a bar that moves, and a badge at the moments worth marking.' },
-                  { title: 'Some things stay theirs', body: 'A reflection can be marked private — other participants never see it.' },
-                ].map((f) => (
-                  <li key={f.title} className="flex gap-3.5">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                    <div>
-                      <p className="font-semibold text-foreground">{f.title}</p>
-                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-5" aria-hidden="true">
+                <FeedMockup />
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── 5. Community and gamification ───────────────────────────────── */}
-      <section className="border-y border-border/60 bg-muted/25 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                Community and rewards
+            {/* Rewards — the one dark cell.
+                Fixed slate rather than `bg-foreground`: that token flips with the
+                theme, so in dark mode the deliberately dark card would render
+                white and become the brightest thing on the page. */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-50">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                <Trophy className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold">Points, streaks and badges</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                Earned for doing the work, capped so volume cannot beat effort.
+                Leaderboard optional — off for sensitive groups.
               </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                People finish things other people can see
-              </h2>
-              <p className="mt-4 leading-relaxed text-muted-foreground">
-                The usual answer is a Facebook Group, where the conversation lives a
-                tab away from the work and the algorithm decides who reads it. Here
-                the feed belongs to the challenge, sitting beside the day it is about.
-              </p>
-
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {[
-                  { icon: <Users className="h-4 w-4" />,  title: 'A feed per challenge', body: 'Posts, comments, reactions — and moderation that hides rather than deletes.' },
-                  { icon: <Trophy className="h-4 w-4" />, title: 'Points and badges',    body: 'Earned for doing the work, capped daily so volume cannot beat effort.' },
-                ].map((f) => (
-                  <div key={f.title} className="rounded-xl border border-border/70 bg-background p-4">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      {f.icon}
-                    </span>
-                    <p className="mt-3 font-semibold text-foreground">{f.title}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-                  </div>
+              <div className="mt-5 flex gap-1.5" aria-hidden="true">
+                {[100, 100, 100, 100, 60, 25].map((w, i) => (
+                  <span
+                    key={i}
+                    className="h-1.5 flex-1 rounded-full bg-amber-400"
+                    style={{ opacity: w / 100 }}
+                  />
                 ))}
               </div>
             </div>
 
-            <div aria-hidden="true">
-              <CommunityMockup />
+            {/* Email */}
+            <div className="rounded-2xl border border-border/70 bg-background p-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Mail className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">
+                Emails that send themselves
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Confirmation, day unlocked, live-session reminder, “we miss you” nudge,
+                completion. Edit the words, keep the timing.
+              </p>
             </div>
+          </div>
+
+          <div className="mt-10 text-center">
+            <Button variant="outline" size="lg" asChild>
+              <Link href="/features">
+                See all features <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* ── 6. Analytics ────────────────────────────────────────────────── */}
+      {/* ── Analytics ───────────────────────────────────────────────────── */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
             <div aria-hidden="true" className="order-2 lg:order-1">
-              <AnalyticsMockup />
+              <RetentionMockup />
             </div>
 
             <div className="order-1 lg:order-2">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                What actually happened
+                Analytics
               </p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                 The number that matters is who finished
               </h2>
               <p className="mt-4 leading-relaxed text-muted-foreground">
                 Registrations flatter everyone. Completion tells you whether the
-                challenge worked, which day lost people, and who is about to drop
-                out while there is still time to reach them.
+                challenge worked, which day lost people, and who is about to drop out
+                while there is still time to reach them.
               </p>
 
               <ul className="mt-8 space-y-4">
                 {[
-                  { title: 'Counted, never estimated', body: 'Every figure is derived from the records that produced it.' },
-                  { title: 'Day-by-day, not just totals', body: 'See exactly which day the curve falls off — that is where to edit.' },
-                  { title: 'At-risk participants, by name', body: 'Quiet for three days or more, so the nudge can be a real message.' },
-                  { title: 'Export without exposure', body: 'CSV carries counts and dates. Submission text is never in the file.' },
+                  { title: 'Counted, never estimated.', body: 'Every figure comes from the records that produced it.' },
+                  { title: 'At-risk list, by name.', body: 'Quiet for two days or more? One click sends a real nudge.' },
+                  { title: 'Export without exposure.', body: 'CSV carries counts and dates; private reflections never leave.' },
                 ].map((f) => (
                   <li key={f.title} className="flex gap-3.5">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                    <div>
-                      <p className="font-semibold text-foreground">{f.title}</p>
-                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-                    </div>
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                    <p className="leading-relaxed">
+                      <span className="font-semibold text-foreground">{f.title}</span>{' '}
+                      <span className="text-muted-foreground">{f.body}</span>
+                    </p>
                   </li>
                 ))}
               </ul>
-
-              <Button variant="outline" className="mt-8" asChild>
-                <Link href="/features">
-                  Everything included <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 7. Feature grid ─────────────────────────────────────────────── */}
+      {/* ── One engine, many shapes ─────────────────────────────────────── */}
       <section className="border-y border-border/60 bg-muted/25 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Not a course builder with a countdown
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Everything a challenge needs is here, because a challenge needs all of it
-              at once — and stitching it together from six tools is the reason most
-              never launch.
-            </p>
-          </div>
+          <div className="grid gap-14 lg:grid-cols-[0.85fr_1.15fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                One engine
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                Pick the shape,
+                <br className="hidden sm:block" /> not the product
+              </h2>
+              <p className="mt-4 leading-relaxed text-muted-foreground">
+                A prayer challenge and a sales sprint are the same thing underneath: a
+                promise, a schedule, daily steps. These are settings — change your mind
+                after you build.
+              </p>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="rounded-xl border border-border/70 bg-background p-5 transition-colors hover:border-primary/40"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {f.icon}
-                </span>
-                <p className="mt-3.5 font-semibold leading-snug text-foreground">{f.title}</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            ))}
+              <p className="mt-8 text-sm font-medium text-foreground">
+                However long it needs to be
+              </p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {LENGTHS.map((l) => (
+                  <li
+                    key={l}
+                    className={
+                      l === LENGTH_EXAMPLE
+                        ? 'rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground'
+                        : 'rounded-lg border border-border/70 bg-background px-3 py-1.5 text-sm text-muted-foreground'
+                    }
+                  >
+                    {l}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {SHAPES.map((s) => (
+                <li
+                  key={s.title}
+                  className="rounded-xl border border-border/70 bg-background p-5 transition-colors hover:border-primary/40"
+                >
+                  <h3 className="font-semibold text-foreground">{s.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* ── 8. Testimonials, when there are real ones ───────────────────── */}
+      {/* ── Testimonials, when there are real ones ──────────────────────── */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           {TESTIMONIALS.length > 0 ? (
@@ -523,7 +503,7 @@ export default function HomePage() {
               </div>
             </>
           ) : (
-            <div className="mx-auto max-w-3xl rounded-2xl border border-border/70 bg-muted/25 p-10 text-center sm:p-14">
+            <div className="mx-auto max-w-3xl text-center">
               <Badge variant="secondary" className="mb-5 px-3.5 py-1 text-sm">
                 Early access
               </Badge>
@@ -531,18 +511,14 @@ export default function HomePage() {
                 No testimonials yet — and we are not going to invent any
               </h2>
               <p className="mx-auto mt-4 max-w-xl leading-relaxed text-muted-foreground">
-                Challenge Studio is new. The first creators are building on it now,
-                and when they have something honest to say about it, their words go
-                here with their names on them. Until then this space stays empty on
-                purpose.
+                The first creators are building on Challenge Studio now. When they have
+                something honest to say about it, their words go here with their names
+                on them. Until then, the builder is free — judge it yourself in about
+                an hour.
               </p>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                If you would rather judge it yourself than read a quote, the builder
-                is free and takes about an hour.
-              </p>
-              <Button className="mt-8" size="lg" asChild>
+              <Button variant="link" className="mt-4 text-base" asChild>
                 <Link href="/auth/signup">
-                  Try it and decide <ArrowRight className="ml-2 h-4 w-4" />
+                  Try it and decide <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Link>
               </Button>
             </div>
@@ -550,7 +526,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 9. Final CTA ────────────────────────────────────────────────── */}
+      {/* ── Final CTA ───────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-primary py-24">
         <div
           aria-hidden="true"
@@ -565,13 +541,13 @@ export default function HomePage() {
             Your challenge is a weekend of work away
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-lg text-primary-foreground/90">
-            Build it, look at it, and only publish when it is right. Nothing goes
-            live until you say so.
+            Build it, look at it, and only publish when it is right. Nothing goes live
+            until you say so.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" variant="secondary" className="h-12 w-full px-8 text-base sm:w-auto" asChild>
               <Link href="/auth/signup">
-                Create a Challenge <ArrowRight className="ml-2 h-4 w-4" />
+                Create a challenge <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <Button
@@ -580,7 +556,7 @@ export default function HomePage() {
               className="h-12 w-full border-primary-foreground/30 bg-transparent px-8 text-base text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground sm:w-auto"
               asChild
             >
-              <Link href="/use-cases">See who it is for</Link>
+              <Link href="/pricing">See pricing</Link>
             </Button>
           </div>
           <p className="mt-5 text-sm text-primary-foreground/80">
@@ -589,7 +565,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 10. Footer ──────────────────────────────────────────────────── */}
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-background">
         <div className="mx-auto max-w-7xl px-6 py-14">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -606,7 +582,7 @@ export default function HomePage() {
                 heading: 'Product',
                 links: [
                   { label: 'Features', href: '/features' },
-                  { label: 'Use Cases', href: '/use-cases' },
+                  { label: 'Use cases', href: '/use-cases' },
                   { label: 'Pricing', href: '/pricing' },
                 ],
               },
