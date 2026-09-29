@@ -212,7 +212,12 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-muted/30">
+    // `flex-1 w-full min-w-0` is load-bearing, not decoration. The workspace
+    // layout is `lg:flex-row`, so this is a flex *item*: without a grow or an
+    // explicit width it sizes to its content and leaves dead space down the
+    // right of the viewport. `min-w-0` then lets the middle pane shrink instead
+    // of being forced wide by a long block title.
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-muted/30">
       {/* ── Top bar ──────────────────────────────────────────────────── */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-3">
         <Link

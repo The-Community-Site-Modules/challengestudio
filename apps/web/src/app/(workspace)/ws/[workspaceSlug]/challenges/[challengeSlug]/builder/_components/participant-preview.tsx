@@ -238,9 +238,13 @@ export function DesktopPreview({ day }: { day: DayView }) {
 // ─── Phone frame ─────────────────────────────────────────────────────────────
 
 export function MobilePreview({ day, onBackToEditing }: { day: DayView; onBackToEditing: () => void }) {
+  // Side by side only at xl. This pane sits between a 255px journey panel and a
+  // 300px settings panel, so an `lg` viewport leaves it around 850px — enough
+  // for the breakpoint to fire and not enough for a 360px phone plus a readable
+  // column beside it.
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col items-start gap-10 px-6 py-8 lg:flex-row lg:gap-14">
-      <div className="mx-auto w-[360px] shrink-0 overflow-hidden rounded-[2.5rem] border-[10px] border-foreground bg-background shadow-2xl">
+    <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-10 px-6 py-8 xl:flex-row xl:items-start xl:gap-14">
+      <div className="w-[360px] shrink-0 overflow-hidden rounded-[2.5rem] border-[10px] border-foreground bg-background shadow-2xl">
         <div className="flex items-center justify-between bg-background px-6 py-2 text-[11px] font-medium text-foreground">
           <span>9:41</span>
           <span className="h-1 w-16 rounded-full bg-foreground/15" aria-hidden="true" />
@@ -249,7 +253,7 @@ export function MobilePreview({ day, onBackToEditing }: { day: DayView; onBackTo
         <DayBody day={day} compact />
       </div>
 
-      <div className="max-w-sm pt-4">
+      <div className="min-w-0 max-w-sm xl:pt-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
           Participant preview
         </p>
