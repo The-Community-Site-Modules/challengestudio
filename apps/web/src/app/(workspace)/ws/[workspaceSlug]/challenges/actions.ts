@@ -480,6 +480,7 @@ export interface BlockData {
   order:    number
   data:     Record<string, unknown>
   required: boolean
+  points?:  number
 }
 
 const BLOCK_TYPE_MAP: Record<string, string> = {
@@ -507,11 +508,15 @@ export async function saveBlocksAction(stepId: string, workspaceSlug: string, bl
 
   if (blocks.length > 0) {
     await db.contentBlock.createMany({
+      // `required` and `points` fold into `data` because `content_blocks` has
+      // no column for either. Until 2026-09-29 `required` was accepted here
+      // and then dropped on the floor — the toggle in the editor had never
+      // once persisted, and a block marked required came back optional.
       data: blocks.map((b, i) => ({
         stepId,
         type:  (BLOCK_TYPE_MAP[b.type] ?? b.type.toUpperCase()) as never,
         order: i,
-        data:  b.data as never,
+        data:  { ...b.data, required: b.required, points: b.points ?? 0 } as never,
       })),
     })
   }

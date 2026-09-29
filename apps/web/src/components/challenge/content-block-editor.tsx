@@ -38,7 +38,7 @@ interface ContentBlockUI {
 }
 
 // ─── Individual block editors ─────────────────────────────────────────────
-function BlockPayloadEditor({ block, onChange }: {
+export function BlockPayloadEditor({ block, onChange }: {
   block: ContentBlockUI
   onChange: (payload: Record<string, string>) => void
 }) {
@@ -318,7 +318,10 @@ export interface BlockItem {
   type:     string
   label:    string
   payload:  Record<string, string>
+  /** Persisted inside the block's `data` JSON — `content_blocks` has no column. */
   required: boolean
+  /** Same: lives in `data`. 0 or absent means the block awards nothing. */
+  points?:  number
   expanded: boolean
 }
 

@@ -207,6 +207,10 @@ model ChallengeStep {
   estimatedMinutes Int?    @map("estimated_minutes")
   completionMethod String? @map("completion_method") // manual|required_blocks
   pointsXp         Int?    @map("points_xp")
+  /// scheduled_date|after_previous|immediately. NULL keeps the derived behaviour.
+  unlockRule       String? @map("unlock_rule")
+  /// One line shown at the end of this day, naming what comes next.
+  tomorrowTeaser   String? @map("tomorrow_teaser")
 
   // Schedule (for drip mode)
   availableAt DateTime? @map("available_at")
