@@ -494,6 +494,8 @@ const BLOCK_TYPE_MAP: Record<string, string> = {
   assignment:       'ASSIGNMENT',
   reflection:       'REFLECTION',
   discussion_prompt: 'DISCUSSION_PROMPT',
+  live_session:      'LIVE_SESSION',
+  offer_cta:         'OFFER_CTA',
 }
 
 export async function saveBlocksAction(stepId: string, workspaceSlug: string, blocks: BlockData[]) {

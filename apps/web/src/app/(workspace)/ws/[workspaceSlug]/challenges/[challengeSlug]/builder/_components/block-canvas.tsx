@@ -33,6 +33,30 @@ function str(payload: Record<string, string>, key: string): string {
   return typeof v === 'string' ? v : ''
 }
 
+/**
+ * A `datetime-local` value, split for display.
+ *
+ * Deliberately parsed as a wall clock and not as an instant: the creator typed
+ * "Oct 14, 3:00 PM" meaning that time where the challenge runs, and passing it
+ * through `new Date()` in the browser would re-interpret it in the creator's
+ * own zone and show them a different hour than the one they entered.
+ */
+function parseWhen(value: string): { month: string; day: string; full: string } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
+  if (!m) return null
+  const [, y, mo, d, hh, mm] = m
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthIndex = Number(mo) - 1
+  const month = monthNames[monthIndex] ?? '—'
+  const weekday = new Date(Date.UTC(Number(y), monthIndex, Number(d)))
+    .toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+  return {
+    month: month.toUpperCase(),
+    day: String(Number(d)),
+    full: `${weekday}, ${month} ${Number(d)} · ${hh}:${mm}`,
+  }
+}
+
 function typeLabel(type: string): string {
   return BLOCK_TYPES.find((b) => b.type === type)?.label ?? type
 }
@@ -249,6 +273,55 @@ function BlockPreview({ block }: { block: BlockItem }) {
             Private reflection — only this participant sees it
           </div>
         </>
+      )
+
+    case 'live_session': {
+      const when = parseWhen(str(p, 'startsAt'))
+      const mins = str(p, 'durationMinutes')
+      return (
+        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border p-4">
+          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center overflow-hidden rounded-lg border border-border">
+            <span className="w-full bg-primary py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-primary-foreground">
+              {when?.month ?? '—'}
+            </span>
+            <span className="flex-1 text-[15px] font-bold leading-none text-foreground">
+              {when?.day ?? '–'}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-foreground">
+              {str(p, 'title') || 'Live session'}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {[when?.full, mins ? `${mins} min` : null].filter(Boolean).join(' · ') ||
+                'No time set yet'}
+            </p>
+          </div>
+          <span className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground">
+            Add to calendar
+          </span>
+        </div>
+      )
+    }
+
+    case 'offer_cta':
+      return (
+        <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-5">
+          {str(p, 'eyebrow') && (
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
+              {str(p, 'eyebrow')}
+            </p>
+          )}
+          <p className="mt-1.5 text-[17px] font-bold tracking-tight text-foreground">
+            {str(p, 'title') || 'Your next step'}
+          </p>
+          {str(p, 'body') && (
+            <p className="mt-1 text-sm text-muted-foreground">{str(p, 'body')}</p>
+          )}
+          <span className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+            {str(p, 'ctaLabel') || 'Get access'}
+          </span>
+        </div>
       )
 
     default:

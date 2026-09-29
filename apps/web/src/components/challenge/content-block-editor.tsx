@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import {
   Type, Video, Image as ImageIcon, Download, CheckSquare, ClipboardList,
-  MessageSquare, Upload, BookOpen, Users, GripVertical,
+  MessageSquare, Upload, BookOpen, GripVertical,
   Trash2, ChevronDown, ChevronUp, Plus, X,
+  Share2, Radio, BadgeDollarSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,9 @@ export const BLOCK_TYPES = [
   { type: 'text_response',    label: 'Text Response',      icon: <MessageSquare className="h-4 w-4" />, color: 'bg-yellow-100 text-yellow-600' },
   { type: 'file_upload',      label: 'File Upload',        icon: <Upload className="h-4 w-4" />,        color: 'bg-cyan-100 text-cyan-600' },
   { type: 'reflection',       label: 'Reflection',         icon: <BookOpen className="h-4 w-4" />,      color: 'bg-indigo-100 text-indigo-600' },
-  { type: 'discussion_prompt',label: 'Discussion Prompt',  icon: <Users className="h-4 w-4" />,         color: 'bg-pink-100 text-pink-600' },
+  { type: 'discussion_prompt',label: 'Community Share',    icon: <Share2 className="h-4 w-4" />,        color: 'bg-pink-100 text-pink-600' },
+  { type: 'live_session',     label: 'Live Session',       icon: <Radio className="h-4 w-4" />,         color: 'bg-teal-100 text-teal-600' },
+  { type: 'offer_cta',        label: 'Offer / CTA',        icon: <BadgeDollarSign className="h-4 w-4" />, color: 'bg-emerald-100 text-emerald-600' },
 ]
 
 interface ContentBlockUI {
@@ -165,8 +168,68 @@ export function BlockPayloadEditor({ block, onChange }: {
       return (
         <div className="space-y-3">
           <div className="space-y-1.5">
+            <Label className="text-xs">Title</Label>
+            <Input placeholder="e.g. Post Your Progress" value={block.payload.title ?? ''} onChange={e => update('title', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
             <Label className="text-xs">Discussion prompt</Label>
             <Textarea placeholder="e.g. Share your Ideal Client Profile below and give feedback to 2 others!" rows={3} value={block.payload.prompt ?? ''} onChange={e => update('prompt', e.target.value)} />
+          </div>
+        </div>
+      )
+    // Both of the blocks below describe *where in the day* something appears.
+    // The session's time and the offer's price stay on their own screens; a
+    // `sessionId` / `offerId` here points at them, so nothing is kept twice.
+    case 'live_session':
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Session title</Label>
+            <Input placeholder="e.g. Live Launch Party" value={block.payload.title ?? ''} onChange={e => update('title', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Starts at</Label>
+            <Input type="datetime-local" value={block.payload.startsAt ?? ''} onChange={e => update('startsAt', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Length (minutes)</Label>
+              <Input type="number" min={0} placeholder="60" value={block.payload.durationMinutes ?? ''} onChange={e => update('durationMinutes', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Join link</Label>
+              <Input placeholder="https://zoom.us/j/…" value={block.payload.joinUrl ?? ''} onChange={e => update('joinUrl', e.target.value)} />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Participants get an “Add to calendar” file built from these details.
+          </p>
+        </div>
+      )
+    case 'offer_cta':
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Eyebrow</Label>
+            <Input placeholder="e.g. Next step" value={block.payload.eyebrow ?? ''} onChange={e => update('eyebrow', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Headline</Label>
+            <Input placeholder="e.g. Continue Your Journey" value={block.payload.title ?? ''} onChange={e => update('title', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Description</Label>
+            <Textarea rows={2} placeholder="e.g. Join the Launch Lab to keep building with support." value={block.payload.body ?? ''} onChange={e => update('body', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Button label</Label>
+              <Input placeholder="Get Access" value={block.payload.ctaLabel ?? ''} onChange={e => update('ctaLabel', e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Button link</Label>
+              <Input placeholder="https://…" value={block.payload.ctaUrl ?? ''} onChange={e => update('ctaUrl', e.target.value)} />
+            </div>
           </div>
         </div>
       )

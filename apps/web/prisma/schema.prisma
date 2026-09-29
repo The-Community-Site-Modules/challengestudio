@@ -58,6 +58,11 @@ enum StepBlockType {
   ASSIGNMENT
   REFLECTION
   DISCUSSION_PROMPT
+  /// Points at a LiveSession row by id in the block's `data`, rather than
+  /// copying its time — the session is still edited in one place.
+  LIVE_SESSION
+  /// Same arrangement for an Offer.
+  OFFER_CTA
 }
 
 enum ParticipantStatus {

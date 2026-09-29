@@ -32,6 +32,7 @@ import {
 import { JourneySidebar } from './journey-sidebar'
 import { DaySettings, type DayPatch } from './day-settings'
 import { BlockCanvas, DayHeader } from './block-canvas'
+import { DesktopPreview, MobilePreview } from './participant-preview'
 
 export type BuilderDay = BuilderStep & {
   blocks: BlockItem[]
@@ -54,13 +55,12 @@ interface Props {
   initialSteps: BuilderDay[]
 }
 
+/**
+ * Three modes, not three widths. Edit is the block canvas; Desktop and Mobile
+ * render the day the way a participant meets it, in the frame that matches.
+ * Judging whether a day works is a different job from assembling it.
+ */
 type Viewport = 'edit' | 'desktop' | 'mobile'
-
-const VIEWPORT_WIDTH: Record<Viewport, string> = {
-  edit: 'max-w-[720px]',
-  desktop: 'max-w-[960px]',
-  mobile: 'max-w-[390px]',
-}
 
 export function BuilderClient({ challenge, initialSteps }: Props) {
   const [steps, setSteps] = useState<BuilderDay[]>(initialSteps)
@@ -68,6 +68,15 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   const [viewport, setViewport] = useState<Viewport>('edit')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [dirty, setDirty] = useState(false)
+  /**
+   * Undo history for the open day's blocks. Per-day and in memory only:
+   * switching days starts a fresh stack, because undoing across a day boundary
+   * would silently rewrite a day the creator is no longer looking at.
+   */
+  const [history, setHistory] = useState<BlockItem[][]>(() =>
+    initialSteps[0] ? [initialSteps[0].blocks] : []
+  )
+  const [historyIndex, setHistoryIndex] = useState(initialSteps[0] ? 0 : -1)
   const [isSaving, startSaving] = useTransition()
   const [isPublishing, startPublishing] = useTransition()
   const [publishErrors, setPublishErrors] = useState<string[]>([])
@@ -77,6 +86,15 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   const activeStep = activeIndex >= 0 ? steps[activeIndex] : undefined
 
   const isLive = challenge.status === 'PUBLISHED' || challenge.status === 'ACTIVE'
+
+  const dayView = {
+    dayNumber: activeIndex + 1,
+    totalDays: steps.length,
+    title: activeStep?.title ?? '',
+    description: activeStep?.description ?? null,
+    blocks: activeStep?.blocks ?? [],
+    hasNextDay: activeIndex >= 0 && activeIndex < steps.length - 1,
+  }
 
   function patchActive(patch: Partial<BuilderDay>) {
     setSteps((prev) => prev.map((s) => (s.id === activeStepId ? { ...s, ...patch } : s)))
@@ -101,6 +119,10 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
       }
       setSteps((prev) => [...prev, day])
       setActiveStepId(result.id)
+      // A brand new day is not in `steps` yet, so its history starts here
+      // rather than going through handleSelectStep.
+      setHistory([[]])
+      setHistoryIndex(0)
     })
   }
 
@@ -125,9 +147,32 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     })
   }
 
+  function handleSelectStep(id: string) {
+    setActiveStepId(id)
+    const next = steps.find((s) => s.id === id)
+    setHistory(next ? [next.blocks] : [])
+    setHistoryIndex(next ? 0 : -1)
+  }
+
   // ── Blocks ─────────────────────────────────────────────────────────────
   function handleBlocksChange(blocks: BlockItem[]) {
     patchActive({ blocks, blockCount: blocks.length })
+    setDirty(true)
+    // Anything after the current point is a branch the creator undid past and
+    // has now replaced, so it is dropped rather than kept as a redo.
+    setHistory((h) => [...h.slice(0, historyIndex + 1), blocks])
+    setHistoryIndex((i) => i + 1)
+  }
+
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex >= 0 && historyIndex < history.length - 1
+
+  function stepHistory(delta: -1 | 1) {
+    const target = historyIndex + delta
+    const blocks = history[target]
+    if (!blocks) return
+    patchActive({ blocks, blockCount: blocks.length })
+    setHistoryIndex(target)
     setDirty(true)
   }
 
@@ -191,23 +236,22 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
         <Badge variant={isLive ? 'success' : 'secondary'}>{isLive ? 'Live' : 'Draft'}</Badge>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Disabled rather than absent: the design has them, the builder has
-              no history stack, and a control that looks live but does nothing
-              is the worse of the two. */}
           <div className="hidden items-center gap-0.5 sm:flex">
             <button
               type="button"
-              disabled
-              aria-label="Undo — not available yet"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground/40"
+              onClick={() => stepHistory(-1)}
+              disabled={!canUndo}
+              aria-label="Undo"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <Undo2 className="h-4 w-4" />
             </button>
             <button
               type="button"
-              disabled
-              aria-label="Redo — not available yet"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground/40"
+              onClick={() => stepHistory(1)}
+              disabled={!canRedo}
+              aria-label="Redo"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <Redo2 className="h-4 w-4" />
             </button>
@@ -241,8 +285,17 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
             ))}
           </div>
 
+          {/* Opens in its own tab: the whole point is to see the challenge
+              without losing the day being edited, and unsaved blocks live in
+              this component's state — navigating away would drop them.
+              `rel` is not optional on a `_blank` link; without it the opened
+              page gets `window.opener` back. */}
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
-            <Link href={`/ws/${ws}/challenges/${challenge.slug}/preview`}>
+            <Link
+              href={`/ws/${ws}/challenges/${challenge.slug}/preview`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Eye className="h-4 w-4" /> Preview Challenge
             </Link>
           </Button>
@@ -317,7 +370,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
             challengeTitle={challenge.title}
             modeLabel={challenge.modeLabel}
             settingsHref={`/ws/${ws}/challenges/${challenge.slug}/settings`}
-            onSelectStep={setActiveStepId}
+            onSelectStep={handleSelectStep}
             onAddStep={handleAddStep}
             onReorder={handleReorder}
           />
@@ -325,7 +378,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
 
         <main className="min-w-0 flex-1 overflow-y-auto">
           {activeStep ? (
-            <div className={cn('mx-auto', VIEWPORT_WIDTH[viewport])}>
+            viewport === 'edit' ? (
               <BlockCanvas
                 blocks={activeStep.blocks}
                 onBlocksChange={handleBlocksChange}
@@ -341,7 +394,11 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
                   />
                 }
               />
-            </div>
+            ) : viewport === 'desktop' ? (
+              <DesktopPreview day={dayView} />
+            ) : (
+              <MobilePreview day={dayView} onBackToEditing={() => setViewport('edit')} />
+            )
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center">
               <div>
