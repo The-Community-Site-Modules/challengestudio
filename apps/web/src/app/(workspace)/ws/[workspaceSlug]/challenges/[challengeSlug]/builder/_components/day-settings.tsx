@@ -14,6 +14,7 @@
  */
 
 import { Settings2, CalendarDays, ImageUp } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -21,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { BuilderStep } from '@/components/challenge/builder-sidebar'
 
 export interface DayPatch {
+  isPublished?: boolean
   title?: string
   description?: string | null
   estimatedMinutes?: number | null
@@ -72,6 +74,36 @@ export function DaySettings({ step, dayNumber, unlocksAt, onUpdate }: Props) {
       </div>
 
       <div className="space-y-5 p-4">
+        {/* The one setting that decides whether anybody can see this day.
+            `publishChallengeAction` refuses to publish a challenge where no
+            step is published, so leaving this control out of the panel — which
+            is what the first version of this redesign did — left the creator
+            with a blocking error and nothing in the UI that could clear it. */}
+        <div
+          className={cn(
+            'rounded-lg border p-3',
+            step.isPublished ? 'border-green-200 bg-green-50/60' : 'border-amber-200 bg-amber-50/60'
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {step.isPublished ? 'Published' : 'Not published'}
+              </p>
+              <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                {step.isPublished
+                  ? 'Participants see this day once it unlocks.'
+                  : 'Hidden from participants, even after the challenge goes live.'}
+              </p>
+            </div>
+            <Switch
+              checked={step.isPublished}
+              onCheckedChange={(v) => onUpdate({ isPublished: v })}
+              aria-label="Day is published"
+            />
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="day-title">Title</Label>
           <Input
