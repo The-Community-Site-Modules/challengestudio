@@ -1,12 +1,14 @@
 'use client'
 
-import { Target, CheckCircle, Globe, Lock, UserCheck, AlertCircle } from 'lucide-react'
+import {
+  Target, CheckCircle, Globe, Lock, UserCheck, AlertCircle,
+  Sparkles, ImagePlus, Upload,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -22,17 +24,33 @@ interface StepProps { step: number; setStep: (s: number) => void }
 
 // ─── Shared ───────────────────────────────────────────────────────────────
 
-function Section({ title, description, children }: {
-  title: string; description?: string; children: React.ReactNode
+/**
+ * One step's panel. The card border comes from the shell, so this is padding
+ * and a heading — `pb-0` because StepNav sits inside as the last child and
+ * pulls itself out to the card edges for its divider.
+ */
+function Section({ step, title, description, action, children }: {
+  step?: number
+  title: string
+  description?: string
+  action?: React.ReactNode
+  children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">{title}</h2>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+    <div className="p-8 pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          {step !== undefined && (
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+              Step {step} · {title}
+            </p>
+          )}
+          <h2 className="mt-2 text-[22px] font-bold tracking-tight text-foreground">{title}</h2>
+          {description && <p className="mt-1.5 text-muted-foreground">{description}</p>}
+        </div>
+        {action}
       </div>
-      <Separator />
-      {children}
+      <div className="mt-7 space-y-6">{children}</div>
     </div>
   )
 }
@@ -90,59 +108,150 @@ function useStepErrors(step: number) {
 
 // ─── Step 1: Foundation ───────────────────────────────────────────────────
 
+const CATEGORIES = ['Business', 'Wellness', 'Fitness', 'Finance', 'Relationships', 'Faith', 'Writing', 'Other']
+
+const DESCRIPTION_LIMIT = 160
+
+/** Everything "Fill with example" writes. Step 1 only — it is a head start, not a challenge. */
+const EXAMPLE = {
+  title: '5-Day AI Business Launch',
+  slug: '5-day-ai-business-launch',
+  category: 'business',
+  description:
+    'Five focused days that take you from a rough idea to a live offer you can actually sell — one small step each day.',
+  hostName: 'Momentum Co.',
+}
+
 export function Step1Foundation({ step, setStep }: StepProps) {
   const { data, update } = useWizard()
   const { errors, shown, markAttempted } = useStepErrors(step)
 
+  const remaining = DESCRIPTION_LIMIT - data.description.length
+
   return (
-    <Section title="Foundation" description="Name your challenge and set the basics.">
-      <Field name="title" label="Challenge title" required error={shown.title}
-             hint="What participants will see publicly.">
+    <Section
+      step={step}
+      title="Foundation"
+      description="Start with the basic identity of your challenge."
+      action={
+        <button
+          type="button"
+          onClick={() => update(EXAMPLE)}
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+        >
+          <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" /> Fill with example
+        </button>
+      }
+    >
+      <Field name="title" label="Challenge title" required error={shown.title}>
         <Input
-          placeholder="e.g. 5-Day Business Launch Challenge"
+          placeholder="e.g. 5-Day AI Business Launch"
           value={data.title}
-          onChange={(e) => update({
-            title: e.target.value,
-            slug: e.target.value.toLowerCase().replace(/[^a-z0-9\s-]/g, '')
-              .replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 60),
-          })}
+          onChange={(e) =>
+            update({
+              title: e.target.value,
+              slug: e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .slice(0, 60),
+            })
+          }
         />
       </Field>
 
-      <Field name="slug" label="URL slug" required error={shown.slug}
-             hint="Your challenge will be at /c/[slug]">
-        <div className="flex items-center gap-0">
-          <span className="flex h-10 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
-            /c/
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Field name="slug" label="URL slug" required error={shown.slug}>
+          <div className="flex items-stretch">
+            {/* The real public address, not a placeholder domain — a creator
+                deciding on a slug is deciding what to put in an email. */}
+            <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
+              mychallengestudio.com/c/
+            </span>
+            <Input
+              className="rounded-l-none"
+              placeholder="your-challenge"
+              value={data.slug}
+              onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+            />
+          </div>
+        </Field>
+
+        <Field name="category" label="Category">
+          <Select value={data.category} onValueChange={(v) => update({ category: v })}>
+            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+          <Label className="text-sm font-medium text-foreground">Short description</Label>
+          <span className={cn('text-xs tabular-nums', remaining < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+            {data.description.length} / {DESCRIPTION_LIMIT}
           </span>
-          <Input
-            className="rounded-l-none"
-            placeholder="5-day-launch"
-            value={data.slug}
-            onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+        </div>
+        <div data-field="description" tabIndex={-1} className="outline-none">
+          <Textarea
+            rows={3}
+            placeholder="One or two sentences that tell people what they'll do and what they'll walk away with."
+            value={data.description}
+            onChange={(e) => update({ description: e.target.value })}
           />
         </div>
-      </Field>
+        {remaining < 0 && (
+          <p className="mt-1.5 text-xs font-medium text-destructive">
+            {Math.abs(remaining)} characters over — registration pages cut it off here.
+          </p>
+        )}
+      </div>
 
-      <Field name="category" label="Category">
-        <Select value={data.category} onValueChange={(v) => update({ category: v })}>
-          <SelectTrigger className="sm:max-w-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
-          <SelectContent>
-            {['Business', 'Wellness', 'Fitness', 'Finance', 'Relationships', 'Faith', 'Writing', 'Other'].map((c) => (
-              <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+      <div>
+        <Label className="text-sm font-medium text-foreground">Cover image &amp; branding</Label>
+        <div className="mt-2 grid gap-5 sm:grid-cols-2">
+          {/* Both uploads are inert on purpose: `lib/storage` throws because no
+              storage provider has been chosen, so a working-looking dropzone
+              would take a file and lose it. They render, and say so. */}
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-[repeating-linear-gradient(135deg,hsl(var(--muted))_0_8px,transparent_8px_16px)] px-6 py-10 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-background text-muted-foreground">
+              <ImagePlus className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <p className="text-sm font-medium text-foreground">Drop a cover image</p>
+            <p className="font-mono text-[11px] text-muted-foreground">1600 × 900 · JPG or PNG</p>
+            <p className="text-[11px] text-muted-foreground">
+              Available once a storage provider is configured.
+            </p>
+          </div>
 
-      <Field name="description" label="Short description" hint="1–2 sentences shown on registration pages.">
-        <Textarea
-          placeholder="A focused 5-day experience that helps entrepreneurs…"
-          rows={3}
-          value={data.description}
-          onChange={(e) => update({ description: e.target.value })}
-        />
-      </Field>
+          <div className="space-y-5">
+            <Field name="hostName" label="Host / creator name">
+              <Input
+                placeholder="e.g. Momentum Co."
+                value={data.hostName}
+                onChange={(e) => update({ hostName: e.target.value })}
+              />
+            </Field>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">Logo</Label>
+              <div className="flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  Upload SVG or PNG — needs a storage provider
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <StepNav step={step} setStep={setStep} errors={errors} onAttempt={() => markAttempted(step)} />
     </Section>
@@ -156,7 +265,7 @@ export function Step2Outcome({ step, setStep }: StepProps) {
   const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Outcome" description="Define the transformation your challenge delivers.">
+    <Section step={step} title="Transformation" description="Define the change your challenge delivers.">
       <div className="flex gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
         <Target className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <p className="text-sm text-foreground">
@@ -238,7 +347,7 @@ export function Step3Mode({ step, setStep }: StepProps) {
   const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Challenge Mode" description="Choose how your challenge will run.">
+    <Section step={step} title="Challenge Type" description="Choose how your challenge will run.">
       <Field name="mode" label="Mode" required error={shown.mode}>
         <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Challenge mode">
           {MODES.map((m) => {
@@ -293,7 +402,7 @@ export function Step4Schedule({ step, setStep }: StepProps) {
   const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Schedule" description="Configure when your challenge runs and how content unlocks.">
+    <Section step={step} title="Delivery & Schedule" description="Configure when your challenge runs and how content unlocks.">
       <Field name="timezone" label="Timezone" required error={shown.timezone}
              hint="All unlock times are calculated in this timezone.">
         <Select value={data.timezone} onValueChange={(v) => update({ timezone: v })}>
@@ -381,7 +490,7 @@ export function Step5Audience({ step, setStep }: StepProps) {
   ]
 
   return (
-    <Section title="Audience" description="Control who can join your challenge.">
+    <Section step={step} title="Audience & Access" description="Control who can join your challenge.">
       <Field name="visibility" label="Visibility" required error={shown.visibility}>
         <div className="grid gap-3" role="radiogroup" aria-label="Visibility">
           {options.map(({ id, Icon, label, desc }) => {
@@ -462,7 +571,7 @@ export function Step6Experience({ step, setStep }: StepProps) {
   const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Experience" description="Choose which features to enable for this challenge.">
+    <Section step={step} title="Experience" description="Choose which features to enable for this challenge.">
       <Field name="numDays" label="Number of days / steps" required error={shown.numDays}>
         <div className="flex items-center gap-3">
           <Input
@@ -515,7 +624,7 @@ export function Step7Communications({ step, setStep }: StepProps) {
   const { errors, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Communications" description="Control which automated emails participants receive.">
+    <Section step={step} title="Engagement & Communication" description="Control which automated emails participants receive.">
       <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
         Security emails (account setup, password reset) are always sent and cannot be disabled.
       </div>
@@ -559,7 +668,7 @@ export function Step8Conversion({ step, setStep }: StepProps) {
   const { errors, shown, markAttempted } = useStepErrors(step)
 
   return (
-    <Section title="Conversion" description="Configure the post-challenge offer shown to completers.">
+    <Section step={step} title="Completion & Conversion" description="Configure the post-challenge offer shown to completers.">
       <div className="flex items-center justify-between rounded-lg border border-border p-4">
         <div>
           <p className="text-sm font-medium text-foreground">Enable post-challenge offer</p>
@@ -648,7 +757,7 @@ export function Step9Review({ step, setStep }: StepProps) {
   ]
 
   return (
-    <Section title="Review & Publish" description="Check everything before going live.">
+    <Section step={step} title="Review & Create" description="Check everything before going live.">
       <div className="grid gap-3 sm:grid-cols-2">
         {summary.map(({ label, value }) => (
           <div key={label} className="rounded-lg border border-border bg-muted/30 p-3">

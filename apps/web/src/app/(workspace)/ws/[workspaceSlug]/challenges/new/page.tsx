@@ -9,6 +9,7 @@ import {
   Step7Communications, Step8Conversion, Step9Review,
 } from '@/components/challenge/wizard-steps'
 import { WizardProvider, useWizard } from './_context/wizard-context'
+import { BlueprintPanel } from './_components/blueprint-panel'
 import { createChallengeAction } from '../actions'
 
 const STEP_COMPONENTS = [
@@ -19,11 +20,15 @@ const STEP_COMPONENTS = [
 
 function WizardInner() {
   const params = useParams<{ workspaceSlug: string }>()
-  const { data } = useWizard()
+  const { data, draftSavedAt, saveDraft, clearDraft } = useWizard()
   const [isPending, startTransition] = useTransition()
 
   function handlePublish() {
     startTransition(async () => {
+      // The saved draft is only useful while the challenge does not exist.
+      // Once it does, leaving it behind means the next visit to the wizard
+      // reopens a finished challenge as if it were unfinished.
+      clearDraft()
       await createChallengeAction(params.workspaceSlug, {
         title:            data.title,
         slug:             data.slug,
@@ -42,6 +47,10 @@ function WizardInner() {
         maxParticipants:  data.maxParticipants ? parseInt(data.maxParticipants) : null,
         requiresApproval: data.requiresApproval,
         settings: {
+          // No columns for these two, and `settings` is already the JSON bag
+          // the rest of the wizard's non-schema answers land in.
+          category:      data.category,
+          hostName:      data.hostName,
           numDays:       data.numDays,
           features:      data.features,
           emailTriggers: data.emailTriggers,
@@ -60,7 +69,14 @@ function WizardInner() {
   }
 
   return (
-    <WizardShell onPublish={handlePublish} isPublishing={isPending}>
+    <WizardShell
+      exitHref={`/ws/${params.workspaceSlug}/challenges`}
+      sidebar={<BlueprintPanel />}
+      draftSavedAt={draftSavedAt}
+      onSaveDraft={saveDraft}
+      onPublish={handlePublish}
+      isPublishing={isPending}
+    >
       {(step, setStep) => {
         const StepComponent = STEP_COMPONENTS[step - 1]
         return StepComponent
