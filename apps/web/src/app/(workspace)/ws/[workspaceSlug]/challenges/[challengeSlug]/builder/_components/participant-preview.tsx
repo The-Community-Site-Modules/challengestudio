@@ -99,7 +99,10 @@ function DayBody({ day, compact }: { day: DayView; compact: boolean }) {
   )
 
   return (
-    <div className={cn(compact ? 'p-4' : 'p-8')}>
+    // `h-full` + the `mt-auto` on the action below keep the primary button at
+    // the bottom of the phone the way a real app screen does, instead of it
+    // riding up under the content on a day that has two blocks.
+    <div className={cn('flex flex-col', compact ? 'min-h-full p-4' : 'p-8')}>
       <div className="flex items-center justify-between gap-3">
         <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
           Day {day.dayNumber} of {day.totalDays}
@@ -132,7 +135,7 @@ function DayBody({ day, compact }: { day: DayView; compact: boolean }) {
         </span>
       </div>
 
-      <ul className="mt-5 space-y-2.5">
+      <ul className={cn('mt-5 space-y-2.5', compact && 'mb-6')}>
         {day.blocks.map((block, i) => {
           const isDone = i === doneIndex
           const isNext = i === nextIndex
@@ -207,8 +210,8 @@ function DayBody({ day, compact }: { day: DayView; compact: boolean }) {
       {/* Not a button — see the note at the top of this file. */}
       <div
         className={cn(
-          'mt-6 rounded-xl bg-primary text-center font-semibold text-primary-foreground',
-          compact ? 'py-3 text-[14px]' : 'py-4 text-[15px]'
+          'rounded-xl bg-primary text-center font-semibold text-primary-foreground',
+          compact ? 'mt-auto py-3 text-[14px]' : 'mt-6 py-4 text-[15px]'
         )}
       >
         Complete Day {day.dayNumber}
@@ -238,22 +241,31 @@ export function DesktopPreview({ day }: { day: DayView }) {
 // ─── Phone frame ─────────────────────────────────────────────────────────────
 
 export function MobilePreview({ day, onBackToEditing }: { day: DayView; onBackToEditing: () => void }) {
-  // Side by side only at xl. This pane sits between a 255px journey panel and a
-  // 300px settings panel, so an `lg` viewport leaves it around 850px — enough
-  // for the breakpoint to fire and not enough for a 360px phone plus a readable
-  // column beside it.
+  // Side by side only at 2xl. This pane sits between a 255px journey panel and
+  // a 300px settings panel, so it gets the viewport minus 555px: an `xl` window
+  // leaves about 725, which fires the breakpoint and cannot hold a 410px phone
+  // plus a readable column. 2xl leaves ~980, which can.
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col items-center gap-10 px-6 py-8 xl:flex-row xl:items-start xl:gap-14">
-      <div className="w-[360px] shrink-0 overflow-hidden rounded-[2.5rem] border-[10px] border-foreground bg-background shadow-2xl">
-        <div className="flex items-center justify-between bg-background px-6 py-2 text-[11px] font-medium text-foreground">
-          <span>9:41</span>
-          <span className="h-1 w-16 rounded-full bg-foreground/15" aria-hidden="true" />
-          <span>100%</span>
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col items-center gap-10 px-6 py-8 2xl:flex-row 2xl:items-start 2xl:gap-14">
+      {/* A real phone's proportions, not the content's. 390×800 is roughly an
+          iPhone 14's viewport, and it is fixed rather than min-height so a day
+          with twelve blocks scrolls inside the device — which is what the
+          participant will actually do — instead of stretching the mockup into
+          a strip two thousand pixels tall. */}
+      <div className="w-[410px] shrink-0 overflow-hidden rounded-[2.75rem] border-[10px] border-foreground bg-background shadow-2xl">
+        <div className="flex h-[800px] flex-col">
+          <div className="flex shrink-0 items-center justify-between bg-background px-6 py-2.5 text-[11px] font-medium text-foreground">
+            <span>9:41</span>
+            <span className="h-1 w-16 rounded-full bg-foreground/15" aria-hidden="true" />
+            <span>100%</span>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <DayBody day={day} compact />
+          </div>
         </div>
-        <DayBody day={day} compact />
       </div>
 
-      <div className="min-w-0 max-w-sm xl:pt-4">
+      <div className="min-w-0 max-w-sm 2xl:pt-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
           Participant preview
         </p>
