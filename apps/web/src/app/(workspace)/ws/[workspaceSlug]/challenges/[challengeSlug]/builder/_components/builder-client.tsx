@@ -201,6 +201,30 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     startPublishing(async () => {
       const result = await publishChallengeAction(challenge.id, ws)
       if (!result.success) setPublishErrors(result.errors)
+      else setPublishErrors([])
+    })
+  }
+
+  /** Days with content that nobody has made visible yet. */
+  const readyUnpublished = steps.filter((s) => !s.isPublished && s.blocks.length > 0)
+
+  /**
+   * The gate refuses to publish a challenge with no published day, and the
+   * only cure was a switch in a side panel the creator may never have scrolled
+   * to — so the error named a problem and hid its solution. Pressing Publish
+   * says what the intent is; this makes acting on it one click, and still an
+   * explicit one, because staging days deliberately is a real thing to want.
+   */
+  function handlePublishReadyDays() {
+    startPublishing(async () => {
+      await Promise.all(
+        readyUnpublished.map((s) => updateStepAction(s.id, ws, { isPublished: true }))
+      )
+      const published = new Set(readyUnpublished.map((s) => s.id))
+      setSteps((prev) => prev.map((s) => (published.has(s.id) ? { ...s, isPublished: true } : s)))
+
+      const result = await publishChallengeAction(challenge.id, ws)
+      setPublishErrors(result.success ? [] : result.errors)
     })
   }
 
@@ -354,6 +378,22 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
                   </li>
                 ))}
               </ul>
+
+              {publishErrors.some((e) => e.startsWith('No step is published')) &&
+                readyUnpublished.length > 0 && (
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={handlePublishReadyDays}
+                    disabled={isPublishing}
+                  >
+                    {isPublishing
+                      ? 'Publishing…'
+                      : `Publish ${readyUnpublished.length} ready ${
+                          readyUnpublished.length === 1 ? 'day' : 'days'
+                        } and continue`}
+                  </Button>
+                )}
             </div>
             <button
               type="button"

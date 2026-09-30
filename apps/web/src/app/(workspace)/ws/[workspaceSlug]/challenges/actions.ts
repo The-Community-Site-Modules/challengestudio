@@ -417,6 +417,8 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
   dueAt?:            string | null
   isRequired?:       boolean
   isPublished?:      boolean
+  unlockRule?:       string | null
+  tomorrowTeaser?:   string | null
 }) {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
@@ -435,6 +437,12 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
       ...(data.dueAt            !== undefined && { dueAt:       data.dueAt       ? new Date(data.dueAt)       : null }),
       ...(data.isRequired       !== undefined && { isRequired:   data.isRequired }),
       ...(data.isPublished      !== undefined && { isPublished:  data.isPublished }),
+      // Added with the builder redesign and missing from here until
+      // 2026-09-30, so both controls in the settings panel wrote to nothing
+      // and reverted on reload. Same failure as the block `required` flag:
+      // an action that accepts a field and then does not list it.
+      ...(data.unlockRule       !== undefined && { unlockRule:     data.unlockRule }),
+      ...(data.tomorrowTeaser   !== undefined && { tomorrowTeaser: data.tomorrowTeaser }),
     },
   })
 
