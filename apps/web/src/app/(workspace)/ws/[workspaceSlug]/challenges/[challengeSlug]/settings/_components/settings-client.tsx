@@ -169,10 +169,16 @@ export default function ChallengeSettingsClient({
         </p>
       )}
 
-      {/* Two columns on a wide screen rather than one narrow one. The cards
-          spread; the fields inside them do not — a 1600px-wide text input is
-          harder to read than a 400px one, so each control keeps its own cap. */}
-      <div className="mt-8 grid items-start gap-6 xl:grid-cols-2">
+      {/* Two real column stacks, not a two-column grid.
+          The cards spread to use the width; the controls inside them do not —
+          a 1600px-wide text input is harder to read than one at 400px, so each
+          keeps its own cap.
+          Column stacks rather than grid cells because a grid row takes the
+          height of its tallest card, which left Access hanging below a hole
+          while it waited out the full height of Schedule & format beside it.
+          Separate stacks have no row to share. */}
+      <div className="mt-8 flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
         {/* ── Status & address ─────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
@@ -222,7 +228,60 @@ export default function ChallengeSettingsClient({
             </div>
           </CardContent>
         </Card>
+        {/* ── Access ───────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Access</CardTitle>
+            <CardDescription>Who can join, and how.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="visibility">Visibility</Label>
+              <select
+                id="visibility"
+                value={form.isPublic ? 'public' : 'invite'}
+                onChange={(e) => set('isPublic', e.target.value === 'public')}
+                className="flex h-10 w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="public">Public — anyone with the link</option>
+                <option value="invite">Invite only</option>
+              </select>
+            </div>
 
+            <div className="space-y-1.5">
+              <Label htmlFor="capacity">Capacity</Label>
+              <Input
+                id="capacity"
+                type="number"
+                min={0}
+                placeholder="Unlimited"
+                className="max-w-xs"
+                value={form.maxParticipants ?? ''}
+                onChange={(e) =>
+                  set('maxParticipants', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+              <p className="text-xs text-muted-foreground">Leave blank for unlimited.</p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div className="min-w-0 pr-4">
+                <p className="text-sm font-medium text-foreground">Require approval</p>
+                <p className="text-xs text-muted-foreground">
+                  Registrations wait for you before they can open the challenge.
+                </p>
+              </div>
+              <Switch
+                checked={form.requiresApproval}
+                onCheckedChange={(v) => set('requiresApproval', v)}
+                aria-label="Require registration approval"
+              />
+            </div>
+          </CardContent>
+        </Card>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
         {/* ── Schedule & format ────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
@@ -287,65 +346,14 @@ export default function ChallengeSettingsClient({
             </div>
           </CardContent>
         </Card>
-
-        {/* ── Access ───────────────────────────────────────────────── */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Access</CardTitle>
-            <CardDescription>Who can join, and how.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="visibility">Visibility</Label>
-              <select
-                id="visibility"
-                value={form.isPublic ? 'public' : 'invite'}
-                onChange={(e) => set('isPublic', e.target.value === 'public')}
-                className="flex h-10 w-full max-w-sm rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="public">Public — anyone with the link</option>
-                <option value="invite">Invite only</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="capacity">Capacity</Label>
-              <Input
-                id="capacity"
-                type="number"
-                min={0}
-                placeholder="Unlimited"
-                className="max-w-xs"
-                value={form.maxParticipants ?? ''}
-                onChange={(e) =>
-                  set('maxParticipants', e.target.value === '' ? null : Number(e.target.value))
-                }
-              />
-              <p className="text-xs text-muted-foreground">Leave blank for unlimited.</p>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="min-w-0 pr-4">
-                <p className="text-sm font-medium text-foreground">Require approval</p>
-                <p className="text-xs text-muted-foreground">
-                  Registrations wait for you before they can open the challenge.
-                </p>
-              </div>
-              <Switch
-                checked={form.requiresApproval}
-                onCheckedChange={(v) => set('requiresApproval', v)}
-                aria-label="Require registration approval"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <p className="flex items-start gap-2 text-xs text-muted-foreground xl:col-span-2">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          Changing the format or start date moves when days unlock for everyone already
-          registered.
-        </p>
+        </div>
       </div>
+
+      <p className="mt-6 flex items-start gap-2 text-xs text-muted-foreground">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        Changing the format or start date moves when days unlock for everyone already
+        registered.
+      </p>
     </main>
   )
 }
