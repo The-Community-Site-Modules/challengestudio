@@ -200,9 +200,25 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
   await requirePermission(user.id, ws.id, 'challenge.edit')
   await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
+  // Changing the slug changes the public URL, so it goes through the same
+  // reserved-word guard as creation — otherwise a challenge could be renamed
+  // onto a route the app owns and quietly shadow it.
+  let nextSlug: string | undefined
+  if (data.slug !== undefined) {
+    nextSlug = avoidReserved(slugify(data.slug))
+    if (!nextSlug) return { error: 'That slug is not usable. Try something else.' }
+
+    const clash = await db.challenge.findFirst({
+      where: { workspaceId: ws.id, slug: nextSlug, id: { not: challengeId } },
+      select: { id: true },
+    })
+    if (clash) return { error: 'Another challenge in this workspace already uses that slug.' }
+  }
+
   const challenge = await db.challenge.update({
     where: { id: challengeId },
     data: {
+      ...(nextSlug              && { slug: nextSlug }),
       ...(data.title            && { title: data.title }),
       ...(data.description      !== undefined && { description: data.description }),
       ...(data.promise          !== undefined && { promise: data.promise }),
@@ -213,6 +229,8 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
       ...(data.timezone         !== undefined && { timezone: data.timezone }),
       ...(data.startsAt         !== undefined && { startsAt: data.startsAt ? new Date(data.startsAt) : null }),
       ...(data.endsAt           !== undefined && { endsAt:   data.endsAt   ? new Date(data.endsAt)   : null }),
+      ...(data.registrationOpensAt  !== undefined && { registrationOpensAt:  data.registrationOpensAt  ? new Date(data.registrationOpensAt)  : null }),
+      ...(data.registrationClosesAt !== undefined && { registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt) : null }),
       ...(data.isPublic         !== undefined && { isPublic: data.isPublic }),
       ...(data.maxParticipants  !== undefined && { maxParticipants: data.maxParticipants }),
       ...(data.requiresApproval !== undefined && { requiresApproval: data.requiresApproval }),
@@ -222,6 +240,7 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
 
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
   revalidatePath(`/ws/${workspaceSlug}/challenges/${challenge.slug}`)
+  revalidatePath(`/c/${challenge.slug}`)
   return { slug: challenge.slug }
 }
 
