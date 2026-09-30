@@ -18,7 +18,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, PanelLeft, Eye, Send, Loader2, AlertCircle, Undo2, Redo2,
-  Pencil, Monitor, Smartphone, Check,
+  Pencil, Monitor, Smartphone, Check, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -319,6 +319,22 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
               this component's state — navigating away would drop them.
               `rel` is not optional on a `_blank` link; without it the opened
               page gets `window.opener` back. */}
+          {/* Schedule and format are set here, not in the builder, and the
+              builder is where a creator is when they realise the dates are
+              wrong. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0"
+            aria-label="Challenge settings"
+            title="Challenge settings"
+            asChild
+          >
+            <Link href={`/ws/${ws}/challenges/${challenge.slug}/settings`}>
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
+
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
             <Link
               href={`/ws/${ws}/challenges/${challenge.slug}/preview`}

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Users, Calendar, MoreHorizontal, Eye, Edit, Archive, ExternalLink } from 'lucide-react'
+import { Users, Calendar, MoreHorizontal, Eye, Edit, Archive, ExternalLink, Settings } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -91,9 +91,17 @@ export function ChallengeCard({
                 <Edit className="mr-2 h-4 w-4" /> Edit builder
               </Link>
             </DropdownMenuItem>
+            {/* Schedule, format, slug and access live here. Without this item
+                the settings page had no route into it from anywhere in the UI:
+                the page existed and could only be reached by typing its URL. */}
+            <DropdownMenuItem asChild>
+              <Link href={`${baseHref}/settings`}>
+                <Settings className="mr-2 h-4 w-4" /> Settings
+              </Link>
+            </DropdownMenuItem>
             {(status === 'published' || status === 'active') && (
               <DropdownMenuItem asChild>
-                <Link href={`/c/${slug}`} target="_blank">
+                <Link href={`/c/${slug}`} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" /> View public page
                 </Link>
               </DropdownMenuItem>
