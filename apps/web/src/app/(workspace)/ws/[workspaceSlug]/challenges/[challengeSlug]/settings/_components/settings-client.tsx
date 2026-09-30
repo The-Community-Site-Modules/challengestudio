@@ -139,7 +139,7 @@ export default function ChallengeSettingsClient({
   }
 
   return (
-    <main className="max-w-4xl flex-1 overflow-y-auto p-8">
+    <main className="min-w-0 flex-1 overflow-y-auto p-8">
       <PageHeader
         title="Challenge settings"
         description={challenge.title}
@@ -169,7 +169,10 @@ export default function ChallengeSettingsClient({
         </p>
       )}
 
-      <div className="mt-8 max-w-2xl space-y-8">
+      {/* Two columns on a wide screen rather than one narrow one. The cards
+          spread; the fields inside them do not — a 1600px-wide text input is
+          harder to read than a 400px one, so each control keeps its own cap. */}
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-2">
         {/* ── Status & address ─────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
@@ -235,7 +238,7 @@ export default function ChallengeSettingsClient({
                 id="mode"
                 value={form.mode.toLowerCase()}
                 onChange={(e) => set('mode', e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-10 w-full max-w-lg rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {MODES.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -337,7 +340,7 @@ export default function ChallengeSettingsClient({
           </CardContent>
         </Card>
 
-        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+        <p className="flex items-start gap-2 text-xs text-muted-foreground xl:col-span-2">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Changing the format or start date moves when days unlock for everyone already
           registered.
