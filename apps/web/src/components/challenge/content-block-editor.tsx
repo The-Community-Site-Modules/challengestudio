@@ -40,6 +40,23 @@ interface ContentBlockUI {
   expanded: boolean
 }
 
+/**
+ * Says why there is no upload here, instead of a button that cannot work.
+ *
+ * `lib/storage` throws by design: no storage provider has been chosen yet
+ * (OD-02 names Cloudflare R2; the standing recommendation is Supabase Storage,
+ * since Supabase is already in the stack). Until that decision lands, a button
+ * labelled "Upload" would take a file and drop it silently.
+ */
+function UploadUnavailable({ icon, what }: { icon: React.ReactNode; what: string }) {
+  return (
+    <p className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
+      <span aria-hidden="true">{icon}</span>
+      Direct {what} upload needs a storage provider. Paste a link for now.
+    </p>
+  )
+}
+
 // ─── Individual block editors ─────────────────────────────────────────────
 export function BlockPayloadEditor({ block, onChange }: {
   block: ContentBlockUI
@@ -74,26 +91,53 @@ export function BlockPayloadEditor({ block, onChange }: {
           </div>
         </div>
       )
+    // Both of these used to offer an Upload button with no handler on it, over
+    // the caption "or paste URL" — and no field to paste a URL into. So the
+    // block could not be filled in at all, by either route. Uploading needs a
+    // storage provider, which has not been chosen; pasting a link needs
+    // nothing, so that is the path that works today and it leads.
     case 'image':
       return (
         <div className="space-y-3">
-          <div className="rounded-lg border-2 border-dashed border-border p-6 text-center">
-            <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">Click to upload or paste URL</p>
-            <Button variant="outline" size="sm" className="mt-3">Upload image</Button>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Image URL</Label>
+            <Input
+              placeholder="https://…/photo.jpg"
+              value={block.payload.url ?? ''}
+              onChange={e => update('url', e.target.value)}
+            />
           </div>
-          <Input placeholder="Alt text for accessibility" value={block.payload.alt ?? ''} onChange={e => update('alt', e.target.value)} />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Alt text</Label>
+            <Input
+              placeholder="Describe the image for screen readers"
+              value={block.payload.alt ?? ''}
+              onChange={e => update('alt', e.target.value)}
+            />
+          </div>
+          <UploadUnavailable icon={<ImageIcon className="h-4 w-4" />} what="images" />
         </div>
       )
     case 'download':
       return (
         <div className="space-y-3">
-          <div className="rounded-lg border-2 border-dashed border-border p-6 text-center">
-            <Download className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">Upload workbook, PDF, or worksheet</p>
-            <Button variant="outline" size="sm" className="mt-3">Upload file</Button>
+          <div className="space-y-1.5">
+            <Label className="text-xs">File URL</Label>
+            <Input
+              placeholder="https://…/workbook.pdf"
+              value={block.payload.url ?? ''}
+              onChange={e => update('url', e.target.value)}
+            />
           </div>
-          <Input placeholder="Display name e.g. Day 1 Workbook.pdf" value={block.payload.name ?? ''} onChange={e => update('name', e.target.value)} />
+          <div className="space-y-1.5">
+            <Label className="text-xs">Display name</Label>
+            <Input
+              placeholder="e.g. Day 1 Workbook.pdf"
+              value={block.payload.name ?? ''}
+              onChange={e => update('name', e.target.value)}
+            />
+          </div>
+          <UploadUnavailable icon={<Download className="h-4 w-4" />} what="files" />
         </div>
       )
     case 'checklist':

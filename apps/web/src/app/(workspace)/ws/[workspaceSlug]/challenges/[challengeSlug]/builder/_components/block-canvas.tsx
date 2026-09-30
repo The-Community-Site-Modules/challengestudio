@@ -19,7 +19,7 @@
 
 import { useState } from 'react'
 import {
-  GripVertical, Copy, Trash2, MoreHorizontal, Plus, Play, Clock,
+  GripVertical, Copy, Trash2, MoreHorizontal, Plus, Play, Clock, FileText,
   Sparkles, CircleCheck, CalendarDays, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -274,6 +274,46 @@ function BlockPreview({ block }: { block: BlockItem }) {
           </div>
         </>
       )
+
+    case 'image': {
+      const url = str(p, 'url')
+      if (!url) {
+        return (
+          <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            No image yet — paste a URL in the block settings.
+          </p>
+        )
+      }
+      return (
+        <figure>
+          {/* A plain <img>: these are arbitrary creator-supplied URLs, and
+              next/image would need every host allow-listed in next.config. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={str(p, 'alt')}
+            className="max-h-80 w-full rounded-lg border border-border object-contain"
+          />
+          {str(p, 'alt') && (
+            <figcaption className="mt-2 text-xs text-muted-foreground">{str(p, 'alt')}</figcaption>
+          )}
+        </figure>
+      )
+    }
+
+    case 'download': {
+      const name = str(p, 'name') || 'Download'
+      const url = str(p, 'url')
+      return (
+        <div className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{name}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {url ? 'Ready' : 'No file linked yet'}
+          </span>
+        </div>
+      )
+    }
 
     case 'live_session': {
       const when = parseWhen(str(p, 'startsAt'))
