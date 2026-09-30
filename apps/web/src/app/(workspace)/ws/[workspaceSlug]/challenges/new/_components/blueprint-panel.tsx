@@ -35,28 +35,42 @@ const UNLOCK_LABELS: Record<string, string> = {
   scheduled_release: 'Scheduled release',
 }
 
-function blueprintRows(data: WizardState) {
+/**
+ * A row only shows a value once the reader has actually been through the step
+ * that sets it.
+ *
+ * The wizard's initial state is not empty — it starts on `marketing`, 5 days,
+ * public, fixed calendar, so every one of these fields has a value from the
+ * first render. Reading them straight out of state made the panel announce
+ * four decisions to someone who had typed nothing, which is the whole thing
+ * this panel must not do. `attempted[n]` is true once Continue has been pressed
+ * on step n, so it answers the real question: has this person seen that choice?
+ */
+function blueprintRows(data: WizardState, attempted: Record<number, boolean>) {
   const days = Number(data.numDays)
+
   return [
-    { label: 'Type', value: MODE_LABELS[data.mode] ?? null },
+    { label: 'Type', step: 3, value: MODE_LABELS[data.mode] ?? null },
     {
       label: 'Duration',
+      step: 6,
       value: Number.isFinite(days) && days > 0 ? `${days} ${days === 1 ? 'day' : 'days'}` : null,
     },
     {
       label: 'Audience',
+      step: 5,
       value: data.visibility === 'public' ? 'Anyone with the link'
         : data.visibility === 'private' ? 'Invite only'
         : null,
     },
-    { label: 'Delivery', value: UNLOCK_LABELS[data.unlockModel] ?? null },
-  ]
+    { label: 'Delivery', step: 4, value: UNLOCK_LABELS[data.unlockModel] ?? null },
+  ].map((row) => ({ ...row, value: attempted[row.step] ? row.value : null }))
 }
 
 export function BlueprintPanel() {
-  const { data } = useWizard()
+  const { data, attempted } = useWizard()
   const [open, setOpen] = useState(false)
-  const rows = blueprintRows(data)
+  const rows = blueprintRows(data, attempted)
 
   return (
     <aside className="rounded-xl border border-border bg-background">

@@ -59,9 +59,14 @@ export function WizardShell({
   const [step, setStep] = useState(1)
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/30">
+    // The workspace layout is `h-screen overflow-hidden` and hands scrolling to
+    // each page, so this owns its own scroll container. `min-h-screen` here
+    // silently clipped everything below the fold: the page looked complete and
+    // simply would not scroll. `flex-1 w-full min-w-0` because this is also a
+    // flex item in that layout's row.
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-muted/30">
       {/* ── Top bar ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background px-5">
+      <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background px-5">
         <Link href="/dashboard" aria-label="Challenge Studio home" className="shrink-0">
           <Logo className="h-9" />
         </Link>
@@ -109,26 +114,30 @@ export function WizardShell({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-[1400px] px-6 py-10">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[28px] font-bold tracking-tight text-foreground">
-            Create a Challenge
-          </h1>
-          <span className="rounded-md bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
-            Step {step} of {WIZARD_STEPS.length}
-          </span>
-        </div>
-
-        <Stepper current={step} onSelect={setStep} />
-
-        <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-xl border border-border bg-background">
-            <WizardPublishContext.Provider value={{ onPublish, isPublishing }}>
-              {children(step, setStep)}
-            </WizardPublishContext.Provider>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-10">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-[28px] font-bold tracking-tight text-foreground">
+              Create a Challenge
+            </h1>
+            <span className="rounded-md bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
+              Step {step} of {WIZARD_STEPS.length}
+            </span>
           </div>
 
-          {sidebar && <div className="lg:sticky lg:top-24">{sidebar}</div>}
+          <Stepper current={step} onSelect={setStep} />
+
+          <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="rounded-xl border border-border bg-background">
+              <WizardPublishContext.Provider value={{ onPublish, isPublishing }}>
+                {children(step, setStep)}
+              </WizardPublishContext.Provider>
+            </div>
+
+            {/* Sticky against this pane's scroll container, whose top is the
+                top bar — so the offset is the page padding, not the bar height. */}
+            {sidebar && <div className="lg:sticky lg:top-6">{sidebar}</div>}
+          </div>
         </div>
       </div>
     </div>
