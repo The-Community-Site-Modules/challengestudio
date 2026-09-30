@@ -6,7 +6,6 @@
 
 import { redirect, notFound } from 'next/navigation'
 import { Trophy, Flame } from 'lucide-react'
-import { ChallengeNav } from '@/components/participant/challenge-nav'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
@@ -73,11 +72,6 @@ export default async function LeaderboardPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50/70">
-      <ChallengeNav
-        challengeSlug={challengeSlug}
-        challengeTitle={challenge.title}
-        hostName={challenge.workspace.name}
-      />
 
       <main className="mx-auto w-full max-w-2xl px-4 pb-16 pt-6 sm:px-6">
         <header className="mb-5">

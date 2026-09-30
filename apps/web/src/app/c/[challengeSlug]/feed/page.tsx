@@ -5,7 +5,6 @@
 // every challenge. It reads the real feed now.
 
 import { redirect, notFound } from 'next/navigation'
-import { ChallengeNav } from '@/components/participant/challenge-nav'
 import { getCurrentUser } from '@/lib/auth/session'
 import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
@@ -95,11 +94,6 @@ export default async function FeedPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50/70">
-      <ChallengeNav
-        challengeSlug={challengeSlug}
-        challengeTitle={challenge.title}
-        hostName={challenge.workspace.name}
-      />
       <FeedClient
         challengeSlug={challengeSlug}
         posts={view}

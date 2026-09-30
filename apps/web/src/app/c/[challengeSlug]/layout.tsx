@@ -1,5 +1,6 @@
 import { headers }      from 'next/headers'
 import { db }           from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth/session'
 import { ChallengeNav } from '@/components/participant/challenge-nav'
 
 interface Props {
@@ -9,7 +10,10 @@ interface Props {
 
 // Only show ChallengeNav on participant-experience routes.
 // Registration (/), confirm, access pages have their own header.
-const NAV_PREFIXES = ['/hub', '/day/', '/feed', '/leaderboard', '/welcome', '/complete', '/resources', '/sessions']
+const NAV_PREFIXES = [
+  '/hub', '/day/', '/feed', '/journey', '/leaderboard',
+  '/welcome', '/complete', '/resources', '/sessions',
+]
 
 export default async function ChallengeLayout({ children, params }: Props) {
   const { challengeSlug } = await params
@@ -40,12 +44,28 @@ export default async function ChallengeLayout({ children, params }: Props) {
 
   if (!challenge) return <>{children}</>
 
+  const [postCount, user] = await Promise.all([
+    db.feedPost.count({ where: { challengeId: challenge.id, isHidden: false } }),
+    getCurrentUser(),
+  ])
+
+  const displayName = user?.fullName?.split(' ')[0] ?? user?.email.split('@')[0] ?? 'You'
+  const initials = (user?.fullName ?? user?.email ?? '?')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+
   return (
     <>
       <ChallengeNav
         challengeSlug={challengeSlug}
         challengeTitle={challenge.title}
         hostName={challenge.workspace.name}
+        postCount={postCount}
+        initials={initials || '?'}
+        displayName={displayName}
       />
       {children}
     </>
