@@ -71,13 +71,43 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
     ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : 'Coming soon'
 
-  const registrationOpen = (() => {
+  /**
+   * Why registration is unavailable, not merely that it is.
+   *
+   * "Registration is currently closed" was shown for three different
+   * situations, one of which — not open yet — is the opposite of closed, and
+   * it never said when. Someone who arrives a week early deserves the date,
+   * not a dead end.
+   */
+  const registrationState = (() => {
     const now = new Date()
-    if (challenge.registrationOpensAt  && challenge.registrationOpensAt > now)  return false
-    if (challenge.registrationClosesAt && challenge.registrationClosesAt < now) return false
-    if (challenge.maxParticipants && challenge._count.participants >= challenge.maxParticipants) return false
-    return true
+    const inZone = (d: Date) =>
+      new Intl.DateTimeFormat('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+        timeZone: challenge.timezone ?? 'UTC',
+      }).format(d)
+
+    if (challenge.registrationOpensAt && challenge.registrationOpensAt > now) {
+      return {
+        open: false,
+        shortLabel: `Opens ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: challenge.timezone ?? 'UTC' }).format(challenge.registrationOpensAt)}`,
+        message: `Registration opens on ${inZone(challenge.registrationOpensAt)}.`,
+      }
+    }
+    if (challenge.registrationClosesAt && challenge.registrationClosesAt < now) {
+      return {
+        open: false,
+        shortLabel: 'Registration closed',
+        message: `Registration closed on ${inZone(challenge.registrationClosesAt)}.`,
+      }
+    }
+    if (challenge.maxParticipants && challenge._count.participants >= challenge.maxParticipants) {
+      return { open: false, shortLabel: 'Challenge full', message: 'This challenge is full.' }
+    }
+    return { open: true, shortLabel: '', message: '' }
   })()
+
+  const registrationOpen = registrationState.open
 
   const settings = (challenge.settings as Record<string, unknown>) ?? {}
   const numDays  = (settings.numDays as string) ?? challenge.steps.length.toString()
@@ -103,13 +133,21 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
             )}
             <span className="font-bold text-foreground">{challenge.workspace.name}</span>
           </div>
+          {/* The CTA says what is actually available. It used to read
+              "Register now — it's free" whatever the state, so on a challenge
+              whose registration had not opened it scrolled to a panel saying
+              registration was closed — a button that contradicted itself. */}
           {alreadyEnrolled ? (
             <Button size="sm" asChild>
               <Link href={`/c/${challengeSlug}/hub`}>Go to hub →</Link>
             </Button>
-          ) : (
+          ) : registrationOpen ? (
             <Button size="sm" asChild>
               <a href="#register">Register now — it&apos;s free</a>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <a href="#register">{registrationState.shortLabel}</a>
             </Button>
           )}
         </div>
@@ -221,19 +259,19 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
                       </p>
                     )}
 
-                    {/* Social proof */}
-                    <div className="mt-4 flex items-center justify-center gap-2">
-                      <div className="flex -space-x-2">
-                        {['AK', 'MJ', 'PR', 'TL'].map((init) => (
-                          <div key={init} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-[10px] font-bold text-primary-foreground">
-                            {init}
-                          </div>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {challenge._count.participants} people registered
-                      </span>
-                    </div>
+                    {/* The real count, and nothing else.
+                        This used to draw four avatars reading AK, MJ, PR and
+                        TL — hard-coded initials, shown beside "0 people
+                        registered". A fabricated crowd on the one page where a
+                        visitor is deciding whether anyone else has turned up,
+                        and the same thing the invented testimonials were
+                        removed from the homepage for. */}
+                    {challenge._count.participants > 0 && (
+                      <p className="mt-4 text-center text-xs text-muted-foreground">
+                        {challenge._count.participants}{' '}
+                        {challenge._count.participants === 1 ? 'person has' : 'people have'} registered
+                      </p>
+                    )}
                   </>
                 )}
               </div>
@@ -276,9 +314,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
                     </form>
                   ) : (
                     <div className="rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground">
-                      {challenge.maxParticipants && challenge._count.participants >= challenge.maxParticipants
-                        ? 'This challenge is full.'
-                        : 'Registration is currently closed.'}
+                      {registrationState.message}
                     </div>
                   )}
 
