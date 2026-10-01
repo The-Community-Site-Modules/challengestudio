@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Zap, Users, BarChart3, Mail, LayoutTemplate,
   Settings, Trophy, Radio, Gift, Inbox, Briefcase,
-  LucideIcon, ChevronsUpDown, Check, LayoutGrid, FileText,
+  LucideIcon, ChevronsUpDown, Check, LayoutGrid, FileText, Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
@@ -177,9 +177,17 @@ export function WorkspaceSidebarNav({
                 <DropdownMenuSeparator />
               </>
             )}
+            {/* `?all` because /dashboard sends anyone with a single workspace
+                straight back into it — which is right as a default and wrong
+                for someone who just asked to see the list. */}
             <DropdownMenuItem asChild>
-              <Link href="/dashboard">
+              <Link href="/dashboard?all=1">
                 <LayoutGrid className="mr-2 h-4 w-4" /> All workspaces
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard?new=1">
+                <Plus className="mr-2 h-4 w-4" /> New workspace
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

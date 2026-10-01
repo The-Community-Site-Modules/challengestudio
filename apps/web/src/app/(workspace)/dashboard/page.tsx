@@ -17,12 +17,23 @@ function pad(n: number) {
   return n < 10 ? `0${n}` : n.toLocaleString()
 }
 
-export default async function DashboardPage() {
+interface PageProps {
+  searchParams: Promise<{ all?: string; new?: string }>
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
   const user = await requireUser()
+  const { all, new: openCreate } = await searchParams
   const summaries = await getWorkspaceSummaries(user.id)
 
   // One workspace is not a choice — go straight to it.
-  if (summaries.length === 1) {
+  //
+  // Unless the person asked to be here. The only way to create a workspace is
+  // the button on this page, so an unconditional bounce meant anyone with
+  // exactly one workspace could never make a second: "All workspaces" led
+  // here and here led straight back. The links that mean "show me the list"
+  // and "make a new one" carry a parameter, and that parameter wins.
+  if (summaries.length === 1 && all === undefined && openCreate === undefined) {
     redirect(`/ws/${summaries[0]!.slug}`)
   }
 
@@ -76,6 +87,7 @@ export default async function DashboardPage() {
               createAction={createWorkspaceAction}
               existingNames={names}
               variant="button"
+              autoOpen={openCreate !== undefined}
             />
           </header>
 
@@ -92,6 +104,8 @@ export default async function DashboardPage() {
                 Most people only ever need one.
               </p>
               <div className="mt-6 flex justify-center">
+                {/* No autoOpen here: the header button above already carries
+                    it, and two dialogs opening at once is worse than none. */}
                 <CreateWorkspace
                   createAction={createWorkspaceAction}
                   existingNames={names}

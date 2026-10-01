@@ -17,6 +17,8 @@ interface Props {
   existingNames: string[]
   /** Renders as a grid tile alongside workspace cards, or a plain button. */
   variant?: 'tile' | 'button'
+  /** Open the dialog on mount, for arrivals from a "New workspace" link. */
+  autoOpen?: boolean
 }
 
 function slugify(name: string) {
@@ -27,8 +29,10 @@ function slugify(name: string) {
     .slice(0, 50)
 }
 
-export function CreateWorkspace({ createAction, existingNames, variant = 'tile' }: Props) {
-  const [open, setOpen] = useState(false)
+export function CreateWorkspace({
+  createAction, existingNames, variant = 'tile', autoOpen = false,
+}: Props) {
+  const [open, setOpen] = useState(autoOpen)
   const [name, setName] = useState('')
   const [isPending, startTransition] = useTransition()
 
