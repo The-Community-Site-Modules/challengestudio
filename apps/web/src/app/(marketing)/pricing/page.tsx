@@ -105,7 +105,7 @@ export default function PricingPage() {
       </section>
 
       {/* Reassurance strip */}
-      <section className="border-y border-border/60 bg-muted/25 py-12">
+      <section className="reveal border-y border-border/60 bg-muted/25 py-12">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {REASSURANCE.map((r) => (
@@ -124,7 +124,7 @@ export default function PricingPage() {
       </section>
 
       {/* Comparison */}
-      <section className="py-20">
+      <section className="reveal py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -143,7 +143,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-border/60 bg-muted/25 py-20">
+      <section className="reveal border-t border-border/60 bg-muted/25 py-20">
         <div className="mx-auto max-w-3xl px-6">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Questions worth asking
@@ -160,7 +160,7 @@ export default function PricingPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative overflow-hidden bg-primary py-20">
+      <section className="reveal relative overflow-hidden bg-primary py-20">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-40"

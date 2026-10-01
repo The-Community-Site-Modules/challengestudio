@@ -112,7 +112,7 @@ export default function UseCasesPage() {
       </section>
 
       {/* Who */}
-      <section className="pb-8">
+      <section className="reveal pb-8">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {audiences.map((a) => (
@@ -144,7 +144,7 @@ export default function UseCasesPage() {
       </section>
 
       {/* Modes */}
-      <section className="bg-muted/30 py-20">
+      <section className="reveal bg-muted/30 py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -173,7 +173,7 @@ export default function UseCasesPage() {
       </section>
 
       {/* Duration */}
-      <section className="py-20">
+      <section className="reveal py-20">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             However long it needs to be
@@ -198,7 +198,7 @@ export default function UseCasesPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-primary py-20">
+      <section className="reveal bg-primary py-20">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-bold text-primary-foreground sm:text-4xl">
             Yours probably fits

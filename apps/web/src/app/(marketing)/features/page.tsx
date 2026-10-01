@@ -421,7 +421,7 @@ export default function FeaturesPage() {
             )}
           >
             <div className="mx-auto max-w-7xl px-6">
-              <div className="grid gap-6 lg:grid-cols-2 lg:items-end">
+              <div className="reveal grid gap-6 lg:grid-cols-2 lg:items-end">
                 <div>
                   <p
                     className={cn(
@@ -450,7 +450,7 @@ export default function FeaturesPage() {
                 </p>
               </div>
 
-              <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              <div className="reveal-stagger mt-12 grid gap-5 lg:grid-cols-3">
                 {/* The lead category, with its showcase. */}
                 <div
                   className={cn(

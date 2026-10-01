@@ -101,6 +101,56 @@
 }
 
 @layer utilities {
+  /* ── Scroll-driven entrance ────────────────────────────────────────────
+     Everything below the fold used to be static — the animations only ever
+     ran on the hero, which is the one part nobody has to scroll to.
+
+     Done with `animation-timeline: view()` rather than an IntersectionObserver
+     so there is no JavaScript, no hydration cost, and nothing to go wrong on a
+     slow connection. The trade is browser support, which is why the whole
+     block sits behind @supports: where the timeline is unavailable the rule
+     never applies and the content is simply there, fully visible, unanimated.
+     A reveal that depends on JS has the opposite failure — content that never
+     arrives — and that is not a trade worth making on a public page.
+
+     `prefers-reduced-motion` is honoured twice over: by the no-preference
+     query here, and by the global reduction block above. */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .reveal {
+        animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 28%;
+      }
+
+      /* A row of cards arriving one after another. Each child starts a little
+         further into the scroll than the one before, which reads as a stagger
+         without any delay that could leave a card stuck invisible. */
+      .reveal-stagger > * {
+        animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 26%;
+      }
+      .reveal-stagger > *:nth-child(2) { animation-range: entry 0% cover 32%; }
+      .reveal-stagger > *:nth-child(3) { animation-range: entry 0% cover 38%; }
+      .reveal-stagger > *:nth-child(4) { animation-range: entry 0% cover 44%; }
+      .reveal-stagger > *:nth-child(5) { animation-range: entry 0% cover 50%; }
+      .reveal-stagger > *:nth-child(n + 6) { animation-range: entry 0% cover 56%; }
+    }
+  }
+
+  /* Interaction polish. Transitions, not animations, so they are reversible
+     and the reduced-motion block above flattens them along with the rest. */
+  .hover-lift {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px -12px hsl(var(--primary) / 0.25);
+  }
+
   /* Entrance delays, so a row of cards arrives in sequence rather than
      all at once. Paired with animate-fade-up. */
   .delay-1 { animation-delay: 80ms; }

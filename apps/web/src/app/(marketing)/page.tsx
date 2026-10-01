@@ -208,7 +208,7 @@ export default function HomePage() {
       {/* ── How it works ────────────────────────────────────────────────── */}
       <section id="how-it-works" className="scroll-mt-20 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-end">
+          <div className="reveal grid gap-6 lg:grid-cols-2 lg:items-end">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                 How it works
@@ -223,7 +223,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 lg:grid-cols-3">
+          <div className="reveal-stagger mt-14 grid gap-6 lg:grid-cols-3">
             {PILLARS.map((p, i) => (
               <Card key={p.step} className="relative overflow-hidden border-border/60">
                 <span
@@ -251,7 +251,7 @@ export default function HomePage() {
       {/* ── Everything in one place ─────────────────────────────────────── */}
       <section className="border-y border-border/60 bg-muted/25 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
+          <div className="reveal mx-auto max-w-2xl text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               Everything in one place
             </p>
@@ -264,9 +264,9 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          <div className="reveal-stagger mt-14 grid gap-4 lg:grid-cols-3">
             {/* The builder — the one that earns the extra width */}
-            <div className="rounded-2xl border border-border/70 bg-background p-6 lg:col-span-2">
+            <div className="rounded-2xl border border-border/70 bg-background p-6 hover-lift lg:col-span-2">
               <div className="grid gap-6 sm:grid-cols-2 sm:items-center">
                 <div>
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -294,7 +294,7 @@ export default function HomePage() {
             </div>
 
             {/* Unlocking */}
-            <div className="rounded-2xl border border-border/70 bg-background p-6">
+            <div className="rounded-2xl border border-border/70 bg-background p-6 hover-lift">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <CalendarClock className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -311,7 +311,7 @@ export default function HomePage() {
             </div>
 
             {/* Community */}
-            <div className="rounded-2xl border border-border/70 bg-background p-6">
+            <div className="rounded-2xl border border-border/70 bg-background p-6 hover-lift">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <MessagesSquare className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -352,7 +352,7 @@ export default function HomePage() {
             </div>
 
             {/* Email */}
-            <div className="rounded-2xl border border-border/70 bg-background p-6">
+            <div className="rounded-2xl border border-border/70 bg-background p-6 hover-lift">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Mail className="h-5 w-5" aria-hidden="true" />
               </span>
@@ -377,7 +377,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Analytics ───────────────────────────────────────────────────── */}
-      <section className="py-24">
+      <section className="reveal py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
             <div aria-hidden="true" className="order-2 lg:order-1">
@@ -421,7 +421,7 @@ export default function HomePage() {
       <section className="border-y border-border/60 bg-muted/25 py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid gap-14 lg:grid-cols-[0.85fr_1.15fr]">
-            <div>
+            <div className="reveal">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                 One engine
               </p>
@@ -454,7 +454,7 @@ export default function HomePage() {
               </ul>
             </div>
 
-            <ul className="grid gap-4 sm:grid-cols-2">
+            <ul className="reveal-stagger grid gap-4 sm:grid-cols-2">
               {SHAPES.map((s) => (
                 <li
                   key={s.title}
@@ -470,7 +470,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Testimonials, when there are real ones ──────────────────────── */}
-      <section className="py-24">
+      <section className="reveal py-24">
         <div className="mx-auto max-w-7xl px-6">
           {TESTIMONIALS.length > 0 ? (
             <>
@@ -526,7 +526,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Final CTA ───────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-primary py-24">
+      <section className="reveal relative overflow-hidden bg-primary py-24">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-40"
