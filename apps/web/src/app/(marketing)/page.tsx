@@ -29,7 +29,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Logo } from '@/components/shared/logo'
 import {
   HeroShowcase, DayBuilderMockup, RetentionMockup, FeedMockup, UnlockMockup,
 } from './_components/mockups'
@@ -564,73 +563,6 @@ export default function HomePage() {
           </p>
         </div>
       </section>
-
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto max-w-7xl px-6 py-14">
-          <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
-            <div>
-              <Logo className="h-10" />
-              <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                Build a challenge. Guide a transformation. Turn participation into
-                momentum, community, and measurable results.
-              </p>
-            </div>
-
-            {[
-              {
-                heading: 'Product',
-                links: [
-                  { label: 'Features', href: '/features' },
-                  { label: 'Use cases', href: '/use-cases' },
-                  { label: 'Pricing', href: '/pricing' },
-                ],
-              },
-              {
-                heading: 'Get started',
-                links: [
-                  { label: 'Create an account', href: '/auth/signup' },
-                  { label: 'Sign in', href: '/auth/login' },
-                ],
-              },
-              {
-                heading: 'Legal',
-                links: [
-                  { label: 'Privacy', href: '/legal/privacy' },
-                  { label: 'Terms', href: '/legal/terms' },
-                ],
-              },
-            ].map((col) => (
-              <div key={col.heading}>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground">
-                  {col.heading}
-                </p>
-                <ul className="mt-4 space-y-2.5">
-                  {col.links.map((l) => (
-                    <li key={l.label}>
-                      <Link
-                        href={l.href}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {l.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-7 sm:flex-row">
-            <p className="text-xs text-muted-foreground">
-              © 2026 Smartstack Platforms LLC. All rights reserved.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Challenge Studio is in beta.
-            </p>
-          </div>
-        </div>
-      </footer>
     </main>
   )
 }
