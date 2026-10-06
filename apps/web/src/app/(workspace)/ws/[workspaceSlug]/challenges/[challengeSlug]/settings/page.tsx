@@ -38,7 +38,7 @@ export default async function ChallengeSettingsPage({ params }: Props) {
   const challenge = await db.challenge.findUnique({
     where: { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
     select: {
-      id: true, slug: true, title: true, status: true, mode: true,
+      id: true, slug: true, title: true, status: true, mode: true, coverImageUrl: true,
       timezone: true, startsAt: true, endsAt: true,
       registrationOpensAt: true, registrationClosesAt: true,
       isPublic: true, maxParticipants: true, requiresApproval: true,
@@ -70,6 +70,7 @@ export default async function ChallengeSettingsPage({ params }: Props) {
           slug: challenge.slug,
           title: challenge.title,
           status: challenge.status as string,
+          coverImageUrl: challenge.coverImageUrl,
           mode: challenge.mode as string,
           timezone: tz,
           startsAt: toLocalInput(challenge.startsAt, tz),

@@ -14,7 +14,8 @@ export interface WizardData {
   title:            string
   slug:             string
   description:      string
-  coverImageUrl?:   string
+  /** null clears it — removing a cover is a real thing to want. */
+  coverImageUrl?:   string | null
   // Step 2 — Outcome
   promise:          string
   outcome:          string

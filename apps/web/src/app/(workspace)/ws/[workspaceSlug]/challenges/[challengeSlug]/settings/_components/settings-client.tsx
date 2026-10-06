@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
+import { UploadField } from '@/components/challenge/upload-field'
 import {
   updateChallengeAction, closeChallengeAction,
   archiveChallengeAction, deleteChallengeAction,
@@ -37,6 +38,7 @@ interface ChallengeSettings {
   slug: string
   title: string
   status: string
+  coverImageUrl: string | null
   mode: string
   timezone: string
   startsAt: string
@@ -118,6 +120,7 @@ export default function ChallengeSettingsClient({
     startSaving(async () => {
       const result = await updateChallengeAction(challenge.id, workspaceSlug, {
         slug: form.slug,
+        coverImageUrl: form.coverImageUrl,
         mode: form.mode,
         timezone: form.timezone,
         startsAt: zonedToIso(form.startsAt, form.timezone),
@@ -234,6 +237,61 @@ export default function ChallengeSettingsClient({
             </div>
           </CardContent>
         </Card>
+        {/* ── Cover image ──────────────────────────────────────────── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Cover image</CardTitle>
+            <CardDescription>
+              The picture at the top of the registration page.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Here as well as in the wizard. It was set once at creation and
+                could not be changed afterwards — the same gap the start date
+                had, and the one anybody who skipped it the first time walks
+                straight into. */}
+            {form.coverImageUrl ? (
+              <figure>
+                {/* Plain <img>: the host is the storage bucket, or wherever a
+                    pasted link points. next/image would need both allow-listed. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.coverImageUrl}
+                  alt=""
+                  className="max-h-56 w-full rounded-lg border border-border object-cover"
+                />
+                <figcaption className="mt-2 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    Shown on <code className="font-mono">/c/{form.slug}</code>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set('coverImageUrl', null)}
+                    className="text-xs font-medium text-destructive hover:underline"
+                  >
+                    Remove
+                  </button>
+                </figcaption>
+              </figure>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                No cover image yet.
+              </p>
+            )}
+
+            <div className="mt-3 max-w-sm">
+              <UploadField
+                kind="image"
+                label={form.coverImageUrl ? 'Replace image' : 'Upload an image'}
+                onUploaded={(url) => set('coverImageUrl', url)}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Uploading sets it here; press Save changes to keep it.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* ── Access ───────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-2">
