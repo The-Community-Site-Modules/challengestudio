@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { UploadField } from './upload-field'
+import { DateTimeField } from '@/components/ui/date-field'
 
 // ─── Block type catalogue ─────────────────────────────────────────────────
 export const BLOCK_TYPES = [
@@ -235,7 +236,7 @@ export function BlockPayloadEditor({ block, onChange }: {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Starts at</Label>
-            <Input type="datetime-local" value={block.payload.startsAt ?? ''} onChange={e => update('startsAt', e.target.value)} />
+            <DateTimeField value={block.payload.startsAt ?? ''} onChange={v => update('startsAt', v)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

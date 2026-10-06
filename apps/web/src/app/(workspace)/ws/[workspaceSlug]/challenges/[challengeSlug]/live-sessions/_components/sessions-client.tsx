@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, Loader2, Trash2, Video, Radio, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateTimeField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -234,8 +235,13 @@ function Form({ workspaceSlug, challengeSlug, initial, sessionId, onDone }: {
           <Label htmlFor={`d-${sessionId ?? 'new'}`} className="text-[13px] font-medium text-slate-700">
             Date and time
           </Label>
-          <Input id={`d-${sessionId ?? 'new'}`} type="datetime-local" value={form.startsAt}
-            onChange={set('startsAt')} disabled={isBusy} className="mt-1.5 bg-white text-sm" />
+          <div className="mt-1.5">
+            <DateTimeField
+              id={`d-${sessionId ?? 'new'}`}
+              value={form.startsAt}
+              onChange={(v) => setForm((f) => ({ ...f, startsAt: v }))}
+            />
+          </div>
         </div>
         <div>
           <Label htmlFor={`m-${sessionId ?? 'new'}`} className="text-[13px] font-medium text-slate-700">

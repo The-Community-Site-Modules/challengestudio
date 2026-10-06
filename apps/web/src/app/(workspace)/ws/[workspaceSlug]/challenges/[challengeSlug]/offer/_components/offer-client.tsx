@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Loader2, Check, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateTimeField } from '@/components/ui/date-field'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -116,14 +117,13 @@ export function OfferClient({ workspaceSlug, challengeSlug, initial, clicks }: P
             <Label htmlFor="closesAt" className="text-[13px] font-medium text-slate-700">
               Closes (optional)
             </Label>
-            <Input
-              id="closesAt"
-              type="datetime-local"
-              value={form.closesAt}
-              onChange={set('closesAt')}
-              disabled={isBusy}
-              className="mt-1.5 text-sm"
-            />
+            <div className="mt-1.5">
+              <DateTimeField
+                id="closesAt"
+                value={form.closesAt}
+                onChange={(v) => setForm((f) => ({ ...f, closesAt: v }))}
+              />
+            </div>
           </div>
         </div>
 

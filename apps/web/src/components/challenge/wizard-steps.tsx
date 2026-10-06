@@ -7,7 +7,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { DateField, addDaysISO } from '@/components/ui/date-field'
+import { DateField, DateTimeField, addDaysISO } from '@/components/ui/date-field'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -747,10 +747,9 @@ export function Step8Conversion({ step, setStep }: StepProps) {
 
           <Field name="offerDeadline" label="Offer deadline" error={shown.offerDeadline}
                  hint="Creates urgency. Leave blank for no deadline.">
-            <Input
-              type="datetime-local"
+            <DateTimeField
               value={data.offerDeadline}
-              onChange={(e) => update({ offerDeadline: e.target.value })}
+              onChange={(v) => update({ offerDeadline: v })}
             />
           </Field>
 

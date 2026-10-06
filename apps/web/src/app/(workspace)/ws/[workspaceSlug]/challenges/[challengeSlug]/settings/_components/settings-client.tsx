@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
+import { DateTimeField } from '@/components/ui/date-field'
 import { UploadField } from '@/components/challenge/upload-field'
 import {
   updateChallengeAction, closeChallengeAction,
@@ -399,11 +400,10 @@ export default function ChallengeSettingsClient({
               ] as const).map((f) => (
                 <div key={f.key} className="space-y-1.5">
                   <Label htmlFor={f.key}>{f.label}</Label>
-                  <Input
+                  <DateTimeField
                     id={f.key}
-                    type="datetime-local"
                     value={form[f.key]}
-                    onChange={(e) => set(f.key, e.target.value)}
+                    onChange={(v) => set(f.key, v)}
                   />
                 </div>
               ))}
