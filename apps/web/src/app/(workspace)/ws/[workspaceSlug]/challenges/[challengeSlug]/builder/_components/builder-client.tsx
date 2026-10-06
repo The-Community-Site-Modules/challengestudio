@@ -31,7 +31,7 @@ import {
 } from '../../../actions'
 import { JourneySidebar } from './journey-sidebar'
 import { DaySettings, type DayPatch } from './day-settings'
-import { BlockCanvas, DayHeader } from './block-canvas'
+import { BlockCanvas, DayHeader, stripEmptyChecklistItems } from './block-canvas'
 import { DesktopPreview, MobilePreview } from './participant-preview'
 
 export type BuilderDay = BuilderStep & {
@@ -240,7 +240,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
         await saveBlocksAction(
           activeStep.id,
           ws,
-          blocks.map((b, i) => ({
+          blocks.map(stripEmptyChecklistItems).map((b, i) => ({
             id: b.id,
             type: b.type,
             order: i,

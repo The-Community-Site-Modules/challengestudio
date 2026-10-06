@@ -57,6 +57,22 @@ function parseWhen(value: string): { month: string; day: string; full: string } 
   }
 }
 
+/**
+ * Drop blank checklist rows on the way to the database.
+ *
+ * While editing, a blank row is a row someone is about to type in. Once saved
+ * it is an empty task sitting in a participant's list, so it goes here rather
+ * than in the editor — which is where trimming it stopped Add item working.
+ */
+export function stripEmptyChecklistItems(block: BlockItem): BlockItem {
+  if (block.type !== 'checklist') return block
+  const items = (block.payload.items ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  return { ...block, payload: { ...block.payload, items: items.join('\n') } }
+}
+
 function typeLabel(type: string): string {
   return BLOCK_TYPES.find((b) => b.type === type)?.label ?? type
 }
@@ -168,12 +184,11 @@ function ChecklistEditor({
   const rows = items.length > 0 ? items : ['']
 
   function write(next: string[]) {
-    // Trailing blanks are dropped on the way out so an unfinished row does not
-    // become an empty task for a participant.
-    onChange?.({
-      ...block,
-      payload: { ...block.payload, items: next.join('\n').replace(/\n+$/, '') },
-    })
+    // Written exactly as typed, blank rows included. Trimming here is what
+    // broke Add item: it appends an empty row, and a trailing-blank trim
+    // removed it again in the same keystroke, so the button did nothing.
+    // Empty rows are dropped at save instead — see `stripEmptyChecklistItems`.
+    onChange?.({ ...block, payload: { ...block.payload, items: next.join('\n') } })
   }
 
   if (!onChange) {
