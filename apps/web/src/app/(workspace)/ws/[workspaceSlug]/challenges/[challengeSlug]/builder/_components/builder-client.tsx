@@ -83,6 +83,8 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   const [isSaving, startSaving] = useTransition()
   const [isPublishing, startPublishing] = useTransition()
   const [publishErrors, setPublishErrors] = useState<string[]>([])
+  /** A setting that would not save. Shown, not thrown. */
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const ws = challenge.workspaceSlug
   const activeIndex = steps.findIndex((s) => s.id === activeStepId)
@@ -143,8 +145,19 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   }
 
   function handleDeleteStep(id: string) {
+    setSaveError(null)
     startSaving(async () => {
-      await deleteStepAction(id, ws)
+      try {
+        await deleteStepAction(id, ws)
+      } catch (error) {
+        setSaveError(
+          error instanceof Error && error.message
+            ? `The day was not deleted: ${error.message}`
+            : 'The day was not deleted.'
+        )
+        return
+      }
+
       const remaining = steps.filter((s) => s.id !== id)
       setSteps(remaining)
 
@@ -159,11 +172,33 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     })
   }
 
+  /**
+   * Save one setting, and survive it failing.
+   *
+   * Without the catch, any rejection from the action propagates out of the
+   * transition and React replaces the whole builder with the error boundary —
+   * taking unsaved blocks with it. A field that would not save is a message;
+   * it is not a reason to lose the day someone was building.
+   */
   function handleSettingsUpdate(patch: DayPatch) {
     if (!activeStep) return
+    const before = activeStep
     patchActive(patch as Partial<BuilderDay>)
+    setSaveError(null)
+
     startSaving(async () => {
-      await updateStepAction(activeStep.id, ws, patch as Record<string, unknown>)
+      try {
+        await updateStepAction(before.id, ws, patch as Record<string, unknown>)
+      } catch (error) {
+        // Put the old value back, so the panel is not showing something the
+        // database does not have.
+        setSteps((prev) => prev.map((s) => (s.id === before.id ? before : s)))
+        setSaveError(
+          error instanceof Error && error.message
+            ? `That setting did not save: ${error.message}`
+            : 'That setting did not save.'
+        )
+      }
     })
   }
 
@@ -199,20 +234,31 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   function handleSave() {
     if (!activeStep) return
     const blocks = activeStep.blocks
+    setSaveError(null)
     startSaving(async () => {
-      await saveBlocksAction(
-        activeStep.id,
-        ws,
-        blocks.map((b, i) => ({
-          id: b.id,
-          type: b.type,
-          order: i,
-          data: b.payload as Record<string, unknown>,
-          required: b.required,
-          points: b.points ?? 0,
-        }))
-      )
-      setDirty(false)
+      try {
+        await saveBlocksAction(
+          activeStep.id,
+          ws,
+          blocks.map((b, i) => ({
+            id: b.id,
+            type: b.type,
+            order: i,
+            data: b.payload as Record<string, unknown>,
+            required: b.required,
+            points: b.points ?? 0,
+          }))
+        )
+        setDirty(false)
+      } catch (error) {
+        // `dirty` stays true on purpose: the blocks are still unsaved, and the
+        // Save button has to keep offering to try again.
+        setSaveError(
+          error instanceof Error && error.message
+            ? `The blocks did not save: ${error.message}`
+            : 'The blocks did not save.'
+        )
+      }
     })
   }
 
@@ -395,6 +441,20 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
           )}
         </div>
       </header>
+
+      {saveError && (
+        <div role="alert" className="flex shrink-0 items-start gap-2.5 border-b border-destructive/20 bg-destructive/5 px-4 py-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-sm text-destructive">{saveError}</p>
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            className="shrink-0 text-xs font-medium text-destructive/70 hover:text-destructive"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {publishErrors.length > 0 && (
         <div role="alert" className="shrink-0 border-b border-destructive/20 bg-destructive/5 px-4 py-3">
