@@ -7,6 +7,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DateField } from '@/components/ui/date-field'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -434,20 +435,18 @@ export function Step4Schedule({ step, setStep }: StepProps) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field name="registrationOpensAt" label="Registration opens" error={shown.registrationOpensAt}>
-          <Input type="date" value={data.registrationOpensAt}
-                 onChange={(e) => update({ registrationOpensAt: e.target.value })} />
+          <DateField value={data.registrationOpensAt}
+                     onChange={(v) => update({ registrationOpensAt: v })} />
         </Field>
         <Field name="registrationClosesAt" label="Registration closes" error={shown.registrationClosesAt}>
-          <Input type="date" value={data.registrationClosesAt}
-                 onChange={(e) => update({ registrationClosesAt: e.target.value })} />
+          <DateField value={data.registrationClosesAt}
+                     onChange={(v) => update({ registrationClosesAt: v })} />
         </Field>
         <Field name="startsAt" label="Challenge starts" required error={shown.startsAt}>
-          <Input type="date" value={data.startsAt}
-                 onChange={(e) => update({ startsAt: e.target.value })} />
+          <DateField value={data.startsAt} onChange={(v) => update({ startsAt: v })} />
         </Field>
         <Field name="endsAt" label="Challenge ends" error={shown.endsAt}>
-          <Input type="date" value={data.endsAt}
-                 onChange={(e) => update({ endsAt: e.target.value })} />
+          <DateField value={data.endsAt} onChange={(v) => update({ endsAt: v })} />
         </Field>
       </div>
 
