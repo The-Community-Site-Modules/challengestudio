@@ -43,16 +43,29 @@ export function UploadField({ kind = 'image', onUploaded, label }: Props) {
     setDone(false)
 
     startUploading(async () => {
-      const data = new FormData()
-      data.set('file', file)
-      const result = await uploadWorkspaceFileAction(workspaceSlug, data, kind)
+      try {
+        const data = new FormData()
+        data.set('file', file)
+        const result = await uploadWorkspaceFileAction(workspaceSlug, data, kind)
 
-      if (result.error || !result.url) {
-        setError(result.error ?? 'The upload did not complete.')
-        return
+        if (result.error || !result.url) {
+          setError(result.error ?? 'The upload did not complete.')
+          return
+        }
+        onUploaded(result.url, file.name)
+        setDone(true)
+      } catch (error) {
+        // The action returns its own failures, but it can also reject outright
+        // — `requireUser` and `requirePermission` throw, and so does a dropped
+        // connection. An uncaught rejection inside a transition reaches the
+        // error boundary and replaces the whole builder, which is how a failed
+        // upload managed to take the page down with it.
+        setError(
+          error instanceof Error && error.message
+            ? `The upload failed: ${error.message}`
+            : 'The upload failed.'
+        )
       }
-      onUploaded(result.url, file.name)
-      setDone(true)
     })
   }
 
