@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useTransition } from 'react'
+import { useParams } from 'next/navigation'
 import {
   Play, Download, Users, BookOpen, Upload, Zap, MessageCircle, Image as ImageIcon, Radio,
 } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
 import { Badge }    from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { uploadSubmissionFileAction } from '@/app/c/[challengeSlug]/upload-actions'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch }   from '@/components/ui/switch'
@@ -279,7 +281,53 @@ function TextResponseBlock({ data, blockId, onInteract }: {
   )
 }
 
-function FileUploadBlock({ data }: { data: Record<string, string>; readOnly?: boolean }) {
+/**
+ * A participant handing in a file.
+ *
+ * It said "not available yet" for as long as no storage provider had been
+ * chosen, which was the honest thing then. Storage runs now, and this writes
+ * to the private bucket: a submission is somebody's work, so it never gets a
+ * public address and the row keeps a storage key rather than a URL.
+ *
+ * In the preview there is no challenge to upload against and no participant to
+ * be, so the control says that instead of failing when pressed.
+ */
+function FileUploadBlock({ data, blockId, onInteract, readOnly }: {
+  data: Record<string, string>
+  blockId: string
+  onInteract?: Interact
+  readOnly?: boolean
+}) {
+  const params = useParams<{ challengeSlug?: string }>()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploaded, setUploaded] = useState<{ key: string; filename: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isUploading, startUploading] = useTransition()
+
+  const challengeSlug = params?.challengeSlug
+
+  function handleFile(file: File) {
+    if (!challengeSlug) return
+    setError(null)
+
+    startUploading(async () => {
+      try {
+        const form = new FormData()
+        form.set('file', file)
+        const result = await uploadSubmissionFileAction(challengeSlug, form)
+
+        if (result.error || !result.key) {
+          setError(result.error ?? 'The upload did not complete.')
+          return
+        }
+        setUploaded({ key: result.key, filename: result.filename ?? file.name })
+        onInteract?.(blockId, { key: result.key, filename: result.filename ?? file.name })
+      } catch {
+        setError('The upload did not complete. Try again.')
+      }
+    })
+  }
+
   return (
     <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-5 space-y-3">
       <div className="flex items-start gap-3">
@@ -291,18 +339,54 @@ function FileUploadBlock({ data }: { data: Record<string, string>; readOnly?: bo
           {data.prompt && <p className="mt-1 text-sm text-muted-foreground">{data.prompt}</p>}
         </div>
       </div>
-      {/* No drop zone and no "Choose file" button. File storage is not
-          configured (OD-02 is still an open decision), so any control here
-          would be one that cannot do anything — and a participant who clicked
-          it would think their work had been handed in. Say so instead. */}
-      <div className="rounded-lg border border-dashed border-cyan-300 bg-white px-5 py-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          File uploads are not available yet.
-        </p>
-        <p className="mt-1 text-[13px] text-muted-foreground/80">
-          Your host will tell you where to send this in the meantime.
-        </p>
-      </div>
+
+      {readOnly || !challengeSlug ? (
+        <div className="rounded-lg border border-dashed border-cyan-300 bg-white px-5 py-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            Participants upload their file here.
+          </p>
+          <p className="mt-1 text-[13px] text-muted-foreground/80">
+            Not active in the preview — there is nothing to hand in against.
+          </p>
+        </div>
+      ) : (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleFile(file)
+              e.target.value = ''
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isUploading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-cyan-300 bg-white px-5 py-4 text-sm font-medium text-foreground transition-colors hover:border-cyan-400 disabled:opacity-60"
+          >
+            <Upload className="h-4 w-4 text-cyan-600" aria-hidden="true" />
+            {isUploading
+              ? 'Uploading…'
+              : uploaded
+                ? `${uploaded.filename} — choose another`
+                : 'Choose a file'}
+          </button>
+
+          {uploaded && !isUploading && (
+            <p className="text-center text-[13px] text-muted-foreground">
+              Handed in. Only you and your host can see it.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="text-center text-[13px] font-medium text-destructive">
+              {error}
+            </p>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -347,7 +431,7 @@ export function ContentBlock({ block, onInteract, readOnly }: {
     case 'image':             return <ImageBlock        data={data} />
     case 'download':          return <DownloadBlock     data={data} />
     case 'discussion_prompt': return <DiscussionBlock   data={data} readOnly={readOnly} />
-    case 'file_upload':       return <FileUploadBlock   data={data} readOnly={readOnly} />
+    case 'file_upload':       return <FileUploadBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'checklist':         return <ChecklistBlock    data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'assignment':        return <AssignmentBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'text_response':     return <TextResponseBlock data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
