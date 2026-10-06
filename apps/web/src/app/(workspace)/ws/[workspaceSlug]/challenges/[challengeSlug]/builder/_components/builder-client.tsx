@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import type { BuilderStep } from '@/components/challenge/builder-sidebar'
 import type { BlockItem } from '@/components/challenge/content-block-editor'
 import {
-  addStepAction, updateStepAction, reorderStepsAction,
+  addStepAction, updateStepAction, reorderStepsAction, deleteStepAction,
   saveBlocksAction, publishChallengeAction, unpublishChallengeAction,
 } from '../../../actions'
 import { JourneySidebar } from './journey-sidebar'
@@ -41,6 +41,8 @@ export type BuilderDay = BuilderStep & {
   tomorrowTeaser?: string | null
   /** Pre-formatted by the server in the challenge's timezone. */
   unlocksAtLabel?: string | null
+  /** Participant submissions on this day — destroyed if the day is deleted. */
+  submissionCount?: number
 }
 
 interface Props {
@@ -136,6 +138,23 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     })
     startSaving(async () => {
       await reorderStepsAction(challenge.id, ws, orderedIds)
+    })
+  }
+
+  function handleDeleteStep(id: string) {
+    startSaving(async () => {
+      await deleteStepAction(id, ws)
+      const remaining = steps.filter((s) => s.id !== id)
+      setSteps(remaining)
+
+      // Land on a neighbour rather than an empty canvas when the open day is
+      // the one that just went.
+      if (activeStepId === id) {
+        const next = remaining[Math.min(activeIndex, remaining.length - 1)]
+        setActiveStepId(next?.id ?? '')
+        setHistory(next ? [next.blocks] : [])
+        setHistoryIndex(next ? 0 : -1)
+      }
     })
   }
 
@@ -434,6 +453,8 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
             onSelectStep={handleSelectStep}
             onAddStep={handleAddStep}
             onReorder={handleReorder}
+            onDeleteStep={handleDeleteStep}
+            submissionCounts={Object.fromEntries(steps.map((s) => [s.id, s.submissionCount ?? 0]))}
           />
         )}
 

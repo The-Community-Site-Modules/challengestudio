@@ -57,6 +57,18 @@ export default async function BuilderPage({ params }: Props) {
 
   if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
 
+  // Deleting a day cascades to its submissions, so the confirm needs to be
+  // able to say how much of somebody else's work is about to go.
+  const submissionsByStep = new Map(
+    (
+      await db.submission.groupBy({
+        by: ['stepId'],
+        where: { step: { challengeId: challenge.id } },
+        _count: { _all: true },
+      })
+    ).map((row) => [row.stepId, row._count._all])
+  )
+
   const timeZone = challenge.timezone ?? 'UTC'
 
   const initialSteps: BuilderDay[] = challenge.steps.map((s) => ({
@@ -78,6 +90,7 @@ export default async function BuilderPage({ params }: Props) {
     unlockRule:       s.unlockRule,
     tomorrowTeaser:   s.tomorrowTeaser,
     unlocksAtLabel:   formatUnlock(s.availableAt, timeZone),
+    submissionCount:  submissionsByStep.get(s.id) ?? 0,
     blocks: s.contentBlocks.map((b) => {
       const points = Number(readFlag(b.data, 'points'))
       return {

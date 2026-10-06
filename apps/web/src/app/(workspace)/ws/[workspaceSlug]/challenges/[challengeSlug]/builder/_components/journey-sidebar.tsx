@@ -22,7 +22,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, GripVertical, Check, Clock, Pencil, ChevronDown } from 'lucide-react'
+import { Plus, GripVertical, Check, Clock, Pencil, ChevronDown, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BuilderStep } from '@/components/challenge/builder-sidebar'
 
@@ -61,13 +61,25 @@ interface Props {
   onSelectStep: (id: string) => void
   onAddStep: () => void
   onReorder: (orderedIds: string[]) => void
+  onDeleteStep: (id: string) => void
+  /** Submissions per day, so the confirm can say what goes with it. */
+  submissionCounts?: Record<string, number>
 }
 
 export function JourneySidebar({
   steps, activeStepId, challengeTitle, modeLabel, settingsHref,
-  onSelectStep, onAddStep, onReorder,
+  onSelectStep, onAddStep, onReorder, onDeleteStep, submissionCounts = {},
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null)
+  /**
+   * The day whose delete is awaiting a second press.
+   *
+   * Two presses rather than a dialog: the control lives in a narrow list where
+   * a modal would be heavier than the action, and the second press is right
+   * there under the cursor. Deleting a day takes its blocks and any
+   * submissions on it, so the confirm says which and how many.
+   */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   const readyCount = steps.filter((s) => dayState(s) !== 'draft').length
   const pct = steps.length > 0 ? Math.round((readyCount / steps.length) * 100) : 0
@@ -133,6 +145,7 @@ export function JourneySidebar({
                 draggable
                 onDragStart={() => setDragId(step.id)}
                 onDragOver={(e) => handleDragOver(e, step.id)}
+                className="group relative"
                 onDragEnd={() => setDragId(null)}
               >
                 <button
@@ -174,6 +187,70 @@ export function JourneySidebar({
                     <span className="sr-only">{meta.label}</span>
                   </span>
                 </button>
+
+                {/* Shown on hover or focus, so the list stays calm but the
+                    control is reachable by keyboard rather than hover-only. */}
+                <button
+                  type="button"
+                  onClick={() => setConfirmingId(step.id)}
+                  aria-label={`Delete ${step.title}`}
+                  className={cn(
+                    'absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100',
+                    confirmingId === step.id && 'opacity-0'
+                  )}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+
+                {confirmingId === step.id && (
+                  <div
+                    role="alertdialog"
+                    aria-label={`Delete ${step.title}?`}
+                    className="mt-1 rounded-lg border border-destructive/40 bg-destructive/[0.04] p-2.5"
+                  >
+                    <p className="text-[11px] leading-snug text-foreground">
+                      Delete this day?
+                      {(step.blockCount > 0 || (submissionCounts[step.id] ?? 0) > 0) && (
+                        <>
+                          {' '}
+                          It takes{' '}
+                          {step.blockCount > 0 && (
+                            <strong>
+                              {step.blockCount} {step.blockCount === 1 ? 'block' : 'blocks'}
+                            </strong>
+                          )}
+                          {step.blockCount > 0 && (submissionCounts[step.id] ?? 0) > 0 && ' and '}
+                          {(submissionCounts[step.id] ?? 0) > 0 && (
+                            <strong>
+                              {submissionCounts[step.id]}{' '}
+                              {submissionCounts[step.id] === 1 ? 'submission' : 'submissions'}
+                            </strong>
+                          )}
+                          {' '}with it.
+                        </>
+                      )}
+                    </p>
+                    <div className="mt-2 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteStep(step.id)
+                          setConfirmingId(null)
+                        }}
+                        className="rounded-md bg-destructive px-2.5 py-1 text-[11px] font-semibold text-destructive-foreground"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             )
           })}
