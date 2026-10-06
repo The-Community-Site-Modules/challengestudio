@@ -216,6 +216,8 @@ model ChallengeStep {
   unlockRule       String? @map("unlock_rule")
   /// One line shown at the end of this day, naming what comes next.
   tomorrowTeaser   String? @map("tomorrow_teaser")
+  /// Public URL in the public-content bucket. See lib/storage.
+  dayImageUrl      String? @map("day_image_url")
 
   // Schedule (for drip mode)
   availableAt DateTime? @map("available_at")

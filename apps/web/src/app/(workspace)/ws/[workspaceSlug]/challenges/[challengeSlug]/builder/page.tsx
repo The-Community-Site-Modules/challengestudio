@@ -89,6 +89,7 @@ export default async function BuilderPage({ params }: Props) {
     pointsXp:         s.pointsXp,
     unlockRule:       s.unlockRule,
     tomorrowTeaser:   s.tomorrowTeaser,
+    dayImageUrl:      s.dayImageUrl,
     unlocksAtLabel:   formatUnlock(s.availableAt, timeZone),
     submissionCount:  submissionsByStep.get(s.id) ?? 0,
     blocks: s.contentBlocks.map((b) => {

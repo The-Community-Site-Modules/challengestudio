@@ -39,6 +39,7 @@ export type BuilderDay = BuilderStep & {
   description?: string | null
   unlockRule?: string | null
   tomorrowTeaser?: string | null
+  dayImageUrl?: string | null
   /** Pre-formatted by the server in the challenge's timezone. */
   unlocksAtLabel?: string | null
   /** Participant submissions on this day — destroyed if the day is deleted. */
@@ -499,6 +500,8 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
             dayNumber={activeIndex + 1}
             unlocksAt={activeStep.unlocksAtLabel ?? null}
             onUpdate={handleSettingsUpdate}
+            onDelete={() => handleDeleteStep(activeStep.id)}
+            submissionCount={activeStep.submissionCount ?? 0}
           />
         )}
       </div>

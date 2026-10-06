@@ -13,11 +13,14 @@
  * the fastest way to rate-limit themselves.
  */
 
-import { Settings2, CalendarDays, ImageUp } from 'lucide-react'
+import { useState } from 'react'
+import { Settings2, CalendarDays, ImageUp, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { UploadField } from '@/components/challenge/upload-field'
 import { Textarea } from '@/components/ui/textarea'
 import type { BuilderStep } from '@/components/challenge/builder-sidebar'
 
@@ -31,6 +34,7 @@ export interface DayPatch {
   unlockRule?: string | null
   completionMethod?: string | null
   tomorrowTeaser?: string | null
+  dayImageUrl?: string | null
 }
 
 const UNLOCK_RULES = [
@@ -45,14 +49,20 @@ const COMPLETION_RULES = [
 ]
 
 interface Props {
-  step: BuilderStep & { description?: string | null; unlockRule?: string | null; tomorrowTeaser?: string | null }
+  step: BuilderStep & { description?: string | null; unlockRule?: string | null; tomorrowTeaser?: string | null; dayImageUrl?: string | null }
   dayNumber: number
   /** Pre-formatted in the challenge's timezone by the server. */
   unlocksAt: string | null
+  /** Omitted where deleting is not offered. */
+  onDelete?: () => void
+  submissionCount?: number
   onUpdate: (patch: DayPatch) => void
 }
 
-export function DaySettings({ step, dayNumber, unlocksAt, onUpdate }: Props) {
+export function DaySettings({
+  step, dayNumber, unlocksAt, onUpdate, onDelete, submissionCount = 0,
+}: Props) {
+  const [confirming, setConfirming] = useState(false)
   /** Only send a patch when the value actually moved. */
   function commit<K extends keyof DayPatch>(key: K, next: DayPatch[K], current: unknown) {
     if (next === current) return
@@ -231,17 +241,47 @@ export function DaySettings({ step, dayNumber, unlocksAt, onUpdate }: Props) {
           />
         </div>
 
-        {/* Disabled on purpose. `lib/storage` throws because no storage
-            provider has been chosen, so an enabled control here would take a
-            file and lose it. */}
         <div className="space-y-1.5">
           <Label>Day image</Label>
-          <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
-            <ImageUp className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">Upload image</p>
-            <p className="text-[11px] leading-snug text-muted-foreground/80">
-              Available once a storage provider is configured.
-            </p>
+          <div className="rounded-lg border border-dashed border-border p-2.5">
+            {step.dayImageUrl ? (
+              <figure>
+                {/* Plain <img>: the host is the storage bucket, and next/image
+                    would need it allow-listed in next.config for no gain on a
+                    thumbnail this size. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={step.dayImageUrl}
+                  alt=""
+                  className="h-24 w-full rounded-md object-cover"
+                />
+                <figcaption className="mt-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Image set</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ dayImageUrl: null })}
+                    className="text-[11px] font-medium text-destructive hover:underline"
+                  >
+                    Remove
+                  </button>
+                </figcaption>
+              </figure>
+            ) : (
+              <div className="flex flex-col items-center gap-1 py-3 text-center">
+                <ImageUp className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                <p className="text-[11px] text-muted-foreground">
+                  Shown at the top of this day
+                </p>
+              </div>
+            )}
+
+            <div className="mt-2">
+              <UploadField
+                kind="image"
+                label={step.dayImageUrl ? 'Replace image' : 'Upload image'}
+                onUploaded={(url) => onUpdate({ dayImageUrl: url })}
+              />
+            </div>
           </div>
         </div>
 
@@ -254,6 +294,51 @@ export function DaySettings({ step, dayNumber, unlocksAt, onUpdate }: Props) {
             </p>
           </div>
         </div>
+
+        {/* Also here, not only in the journey list. Someone who has been
+            editing this day's settings is already looking at the day they want
+            gone, and going hunting for it in a list to the left is a detour. */}
+        {onDelete && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/[0.03] p-3">
+            {confirming ? (
+              <div role="alertdialog" aria-label={`Delete ${step.title}?`}>
+                <p className="text-[12px] leading-snug text-foreground">
+                  Delete this day?
+                  {step.blockCount > 0 && (
+                    <>
+                      {' '}
+                      Its <strong>{step.blockCount}</strong>{' '}
+                      {step.blockCount === 1 ? 'block goes' : 'blocks go'} with it
+                      {submissionCount > 0 && (
+                        <>
+                          , along with <strong>{submissionCount}</strong>{' '}
+                          {submissionCount === 1 ? 'submission' : 'submissions'}
+                        </>
+                      )}
+                      .
+                    </>
+                  )}
+                </p>
+                <div className="mt-2 flex gap-1.5">
+                  <Button size="sm" variant="destructive" onClick={onDelete}>
+                    Delete day
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirming(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                className="flex w-full items-center justify-center gap-2 text-[13px] font-medium text-destructive transition-colors hover:underline"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete this day
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   )

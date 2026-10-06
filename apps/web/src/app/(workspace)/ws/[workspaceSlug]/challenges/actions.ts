@@ -472,6 +472,7 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
   isPublished?:      boolean
   unlockRule?:       string | null
   tomorrowTeaser?:   string | null
+  dayImageUrl?:      string | null
 }) {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
@@ -496,6 +497,7 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
       // an action that accepts a field and then does not list it.
       ...(data.unlockRule       !== undefined && { unlockRule:     data.unlockRule }),
       ...(data.tomorrowTeaser   !== undefined && { tomorrowTeaser: data.tomorrowTeaser }),
+      ...(data.dayImageUrl      !== undefined && { dayImageUrl:    data.dayImageUrl }),
     },
   })
 
