@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  Play, Download, Users, BookOpen, Upload, Zap, MessageCircle, Image as ImageIcon,
+  Play, Download, Users, BookOpen, Upload, Zap, MessageCircle, Image as ImageIcon, Radio,
 } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
 import { Badge }    from '@/components/ui/badge'
@@ -20,10 +20,15 @@ import { cn }       from '@/lib/utils'
  * let the preview drift from the thing it exists to preview, which is its only
  * job.
  *
- * `readOnly` disables the controls that would submit work — an answer typed
- * into a preview that cannot save it is worse than no field at all. It does
- * not disable controls that only move local state, like ticking a checklist,
- * because those are exactly what the creator opened the preview to watch.
+ * `readOnly` disables the buttons that send something — posting to the feed,
+ * and anything else that reaches the server. It does not disable the fields.
+ *
+ * That line moved once. Disabling the fields as well meant a creator could not
+ * type into their own assignment to see whether the box was big enough or the
+ * word counter ran, which is most of why a preview exists — and it showed them
+ * a greyed-out control no participant will ever meet. Typing is local state
+ * with nowhere to go: `onInteract` is undefined here, so nothing is recorded,
+ * and the header says Preview.
  */
 
 export interface RenderableBlock {
@@ -170,7 +175,7 @@ function ChecklistBlock({ data, blockId, onInteract }: {
   )
 }
 
-function AssignmentBlock({ data, blockId, onInteract, readOnly }: {
+function AssignmentBlock({ data, blockId, onInteract }: {
   data: Record<string, string>
   blockId: string
   onInteract?: Interact
@@ -191,7 +196,7 @@ function AssignmentBlock({ data, blockId, onInteract, readOnly }: {
       </div>
       <Textarea placeholder="Write your response here..." rows={4} value={value}
         onChange={e => { setValue(e.target.value); onInteract?.(blockId, e.target.value) }}
-        disabled={readOnly} className="bg-white" />
+        className="bg-white" />
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{wordCount} words</p>
         <Badge variant="outline" className="text-xs">Required</Badge>
@@ -200,7 +205,7 @@ function AssignmentBlock({ data, blockId, onInteract, readOnly }: {
   )
 }
 
-function ReflectionBlock({ data, blockId, onInteract, readOnly }: {
+function ReflectionBlock({ data, blockId, onInteract }: {
   data: Record<string, string>
   blockId: string
   onInteract?: Interact
@@ -224,14 +229,14 @@ function ReflectionBlock({ data, blockId, onInteract, readOnly }: {
         rows={4}
         className="bg-white"
         value={value}
-        disabled={readOnly}
+
         onChange={e => { setValue(e.target.value); onInteract?.(blockId, { text: e.target.value, isPrivate }) }}
       />
       <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-white/70 px-3 py-2">
         <p className="text-xs font-medium text-foreground">
           {isPrivate ? '🔒 Private' : '👁 Visible to facilitators'}
         </p>
-        <Switch checked={isPrivate} disabled={readOnly} onCheckedChange={v => { setIsPrivate(v); onInteract?.(blockId, { text: value, isPrivate: v }) }} />
+        <Switch checked={isPrivate} onCheckedChange={v => { setIsPrivate(v); onInteract?.(blockId, { text: value, isPrivate: v }) }} />
       </div>
     </div>
   )
@@ -249,7 +254,7 @@ function DiscussionBlock({ data, readOnly }: { data: Record<string, string>; rea
           {data.prompt && <p className="mt-1 text-sm text-muted-foreground">{data.prompt}</p>}
         </div>
       </div>
-      <Textarea placeholder="Share your response..." rows={3} disabled={readOnly} className="bg-white" />
+      <Textarea placeholder="Share your response..." rows={3} className="bg-white" />
       <Button size="sm" className="gap-2" disabled={readOnly}>
         <MessageCircle className="h-3.5 w-3.5" /> Post to feed
       </Button>
@@ -257,7 +262,7 @@ function DiscussionBlock({ data, readOnly }: { data: Record<string, string>; rea
   )
 }
 
-function TextResponseBlock({ data, blockId, onInteract, readOnly }: {
+function TextResponseBlock({ data, blockId, onInteract }: {
   data: Record<string, string>
   blockId: string
   onInteract?: Interact
@@ -269,7 +274,7 @@ function TextResponseBlock({ data, blockId, onInteract, readOnly }: {
       {data.prompt && <p className="text-sm font-medium text-foreground">{data.prompt}</p>}
       <Textarea placeholder="Your answer..." rows={3} value={value}
         onChange={e => { setValue(e.target.value); onInteract?.(blockId, e.target.value) }}
-        disabled={readOnly} className="bg-white" />
+        className="bg-white" />
     </div>
   )
 }
@@ -347,8 +352,12 @@ export function ContentBlock({ block, onInteract, readOnly }: {
     case 'assignment':        return <AssignmentBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'text_response':     return <TextResponseBlock data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'reflection':        return <ReflectionBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
+    case 'live_session':      return <LiveSessionBlock  data={data} />
+    case 'offer_cta':         return <OfferCtaBlock     data={data} />
     // An unknown type means the editor gained a block this renderer has not
-    // learned yet. Say so rather than silently rendering nothing.
+    // learned yet. Say so rather than silently rendering nothing — which is
+    // exactly what happened when live_session and offer_cta were added to the
+    // builder and not here, and is the reason this branch exists.
     default:
       return (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -356,4 +365,76 @@ export function ContentBlock({ block, onInteract, readOnly }: {
         </div>
       )
   }
+}
+
+/**
+ * A live session sitting inside a day.
+ *
+ * The time is shown exactly as the creator typed it, not reformatted through
+ * `new Date()`: the value is a wall clock in the challenge's timezone, and
+ * parsing it here would reinterpret it in whatever zone the browser is in.
+ */
+function LiveSessionBlock({ data }: { data: Record<string, string>; readOnly?: boolean }) {
+  const when = (data.startsAt ?? '').replace('T', ' at ')
+  const minutes = data.durationMinutes
+
+  return (
+    <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
+          <Radio className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">{data.title || 'Live session'}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {[when || null, minutes ? `${minutes} min` : null].filter(Boolean).join(' · ') ||
+              'Time to be announced'}
+          </p>
+        </div>
+      </div>
+
+      {data.joinUrl && (
+        <a
+          href={data.joinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+        >
+          Join the session
+        </a>
+      )}
+    </div>
+  )
+}
+
+/** The next-step offer at the end of a day. */
+function OfferCtaBlock({ data }: { data: Record<string, string>; readOnly?: boolean }) {
+  return (
+    <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-5">
+      {data.eyebrow && (
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+          {data.eyebrow}
+        </p>
+      )}
+      <p className="mt-1.5 text-[17px] font-bold tracking-tight text-foreground">
+        {data.title || 'Your next step'}
+      </p>
+      {data.body && <p className="mt-1.5 text-sm text-muted-foreground">{data.body}</p>}
+
+      {data.ctaUrl ? (
+        <a
+          href={data.ctaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          {data.ctaLabel || 'Get access'}
+        </a>
+      ) : (
+        <span className="mt-4 inline-flex items-center rounded-lg bg-primary/40 px-4 py-2 text-sm font-semibold text-primary-foreground">
+          {data.ctaLabel || 'Get access'}
+        </span>
+      )}
+    </div>
+  )
 }
