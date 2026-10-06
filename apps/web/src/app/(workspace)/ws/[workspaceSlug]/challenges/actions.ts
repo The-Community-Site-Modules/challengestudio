@@ -14,6 +14,7 @@ export interface WizardData {
   title:            string
   slug:             string
   description:      string
+  coverImageUrl?:   string
   // Step 2 — Outcome
   promise:          string
   outcome:          string
@@ -130,6 +131,7 @@ export async function createChallengeAction(workspaceSlug: string, data: WizardD
       workspaceId:         ws.id,
       slug,
       title:               data.title,
+      ...(data.coverImageUrl    && { coverImageUrl: data.coverImageUrl }),
       description:         data.description || null,
       promise:             data.promise     || null,
       outcome:             data.outcome     || null,
@@ -221,6 +223,7 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
       ...(nextSlug              && { slug: nextSlug }),
       ...(data.title            && { title: data.title }),
       ...(data.description      !== undefined && { description: data.description }),
+      ...(data.coverImageUrl    !== undefined && { coverImageUrl: data.coverImageUrl }),
       ...(data.promise          !== undefined && { promise: data.promise }),
       ...(data.outcome          !== undefined && { outcome: data.outcome }),
       ...(data.startingPoint    !== undefined && { startingPoint: data.startingPoint }),

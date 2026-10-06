@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { UploadField } from './upload-field'
 
 // ─── Block type catalogue ─────────────────────────────────────────────────
 export const BLOCK_TYPES = [
@@ -38,23 +39,6 @@ interface ContentBlockUI {
   payload: Record<string, string>
   required: boolean
   expanded: boolean
-}
-
-/**
- * Says why there is no upload here, instead of a button that cannot work.
- *
- * `lib/storage` throws by design: no storage provider has been chosen yet
- * (OD-02 names Cloudflare R2; the standing recommendation is Supabase Storage,
- * since Supabase is already in the stack). Until that decision lands, a button
- * labelled "Upload" would take a file and drop it silently.
- */
-function UploadUnavailable({ icon, what }: { icon: React.ReactNode; what: string }) {
-  return (
-    <p className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-      <span aria-hidden="true">{icon}</span>
-      Direct {what} upload needs a storage provider. Paste a link for now.
-    </p>
-  )
 }
 
 // ─── Individual block editors ─────────────────────────────────────────────
@@ -115,7 +99,11 @@ export function BlockPayloadEditor({ block, onChange }: {
               onChange={e => update('alt', e.target.value)}
             />
           </div>
-          <UploadUnavailable icon={<ImageIcon className="h-4 w-4" />} what="images" />
+          <UploadField
+            kind="image"
+            label="Upload an image"
+            onUploaded={(url) => update('url', url)}
+          />
         </div>
       )
     case 'download':
@@ -137,7 +125,15 @@ export function BlockPayloadEditor({ block, onChange }: {
               onChange={e => update('name', e.target.value)}
             />
           </div>
-          <UploadUnavailable icon={<Download className="h-4 w-4" />} what="files" />
+          <UploadField
+            kind="file"
+            label="Upload a file"
+            onUploaded={(url, filename) => {
+              // The display name follows the file unless one was typed, which
+              // saves retyping "Day 1 Workbook.pdf" for the common case.
+              onChange({ ...block.payload, url, name: block.payload.name || filename })
+            }}
+          />
         </div>
       )
     case 'checklist':

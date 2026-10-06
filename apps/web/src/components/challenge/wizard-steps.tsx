@@ -2,7 +2,7 @@
 
 import {
   Target, CheckCircle, Globe, Lock, UserCheck, AlertCircle,
-  Sparkles, ImagePlus, Upload,
+  Sparkles, ImagePlus,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { StepNav, useWizardPublish } from './wizard-shell'
+import { UploadField } from './upload-field'
 import { useWizard } from '@/app/(workspace)/ws/[workspaceSlug]/challenges/new/_context/wizard-context'
 import {
   validateStep, incompleteSteps, STEP_LABELS,
@@ -215,18 +216,46 @@ export function Step1Foundation({ step, setStep }: StepProps) {
       <div>
         <Label className="text-sm font-medium text-foreground">Cover image &amp; branding</Label>
         <div className="mt-2 grid gap-5 sm:grid-cols-2">
-          {/* Both uploads are inert on purpose: `lib/storage` throws because no
-              storage provider has been chosen, so a working-looking dropzone
-              would take a file and lose it. They render, and say so. */}
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-[repeating-linear-gradient(135deg,hsl(var(--muted))_0_8px,transparent_8px_16px)] px-6 py-10 text-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-background text-muted-foreground">
-              <ImagePlus className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <p className="text-sm font-medium text-foreground">Drop a cover image</p>
-            <p className="font-mono text-[11px] text-muted-foreground">1600 × 900 · JPG or PNG</p>
-            <p className="text-[11px] text-muted-foreground">
-              Available once a storage provider is configured.
-            </p>
+          <div className="rounded-lg border border-dashed border-border p-3">
+            {data.coverImageUrl ? (
+              <figure>
+                {/* A plain <img>: the host is Supabase Storage for an upload,
+                    or wherever the creator's own link points. next/image would
+                    need every one of those allow-listed. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={data.coverImageUrl}
+                  alt=""
+                  className="h-32 w-full rounded-md object-cover"
+                />
+                <figcaption className="mt-2 flex items-center justify-between gap-2">
+                  <span className="truncate text-[11px] text-muted-foreground">Cover image set</span>
+                  <button
+                    type="button"
+                    onClick={() => update({ coverImageUrl: '' })}
+                    className="shrink-0 text-[11px] font-medium text-destructive hover:underline"
+                  >
+                    Remove
+                  </button>
+                </figcaption>
+              </figure>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <ImagePlus className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <p className="text-sm font-medium text-foreground">Cover image</p>
+                <p className="font-mono text-[11px] text-muted-foreground">1600 × 900 · JPG or PNG</p>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <UploadField
+                kind="image"
+                label={data.coverImageUrl ? 'Replace image' : 'Upload an image'}
+                onUploaded={(url) => update({ coverImageUrl: url })}
+              />
+            </div>
           </div>
 
           <div className="space-y-5">
@@ -237,18 +266,6 @@ export function Step1Foundation({ step, setStep }: StepProps) {
                 onChange={(e) => update({ hostName: e.target.value })}
               />
             </Field>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Logo</Label>
-              <div className="flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <Upload className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  Upload SVG or PNG — needs a storage provider
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

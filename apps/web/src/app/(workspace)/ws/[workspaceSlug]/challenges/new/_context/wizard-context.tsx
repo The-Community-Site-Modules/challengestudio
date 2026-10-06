@@ -8,6 +8,8 @@ export interface WizardState {
   slug:             string
   description:      string
   category:         string
+  /** The uploaded cover image's public URL. */
+  coverImageUrl:    string
   /** Shown on the registration page as who is running this. */
   hostName:         string
   // Step 2 — Outcome
@@ -46,7 +48,7 @@ export interface WizardState {
 }
 
 const INITIAL: WizardState = {
-  title: '', slug: '', description: '', category: '', hostName: '',
+  title: '', slug: '', description: '', category: '', hostName: '', coverImageUrl: '',
   promise: '', outcome: '', startingPoint: '', successDefinition: '', timeCommitment: '30 minutes',
   mode: 'marketing',
   timezone: 'America/New_York', startsAt: '', endsAt: '',

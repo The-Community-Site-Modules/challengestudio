@@ -5,7 +5,7 @@ import type { WizardState } from './wizard-context'
 /** A wizard that has been filled in correctly; tests break one field at a time. */
 const COMPLETE: WizardState = {
   title: '5-Day Business Launch', slug: '5-day-business-launch',
-  description: 'A focused sprint.', category: 'business', hostName: 'Momentum Co.',
+  description: 'A focused sprint.', category: 'business', hostName: 'Momentum Co.', coverImageUrl: '',
   promise: 'Land your first client in 5 days.',
   outcome: 'Has a paying client.',
   startingPoint: 'An idea and no clients.',
