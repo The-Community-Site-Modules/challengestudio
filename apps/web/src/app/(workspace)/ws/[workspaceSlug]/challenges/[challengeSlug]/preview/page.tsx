@@ -31,7 +31,7 @@ export default async function PreviewPage({ params }: Props) {
       steps: {
         orderBy: { order: 'asc' },
         select: {
-          id: true, title: true, order: true, isRequired: true, isPublished: true,
+          id: true, title: true, order: true, isRequired: true, isPublished: true, dayImageUrl: true,
           estimatedMinutes: true, pointsXp: true,
           contentBlocks: {
             orderBy: { order: 'asc' },
@@ -50,6 +50,7 @@ export default async function PreviewPage({ params }: Props) {
     order: s.order,
     isRequired: s.isRequired,
     isPublished: s.isPublished,
+    dayImageUrl: s.dayImageUrl,
     estimatedMinutes: s.estimatedMinutes,
     pointsXp: s.pointsXp,
     // The block editor stores lowercase type keys; the column is an uppercase

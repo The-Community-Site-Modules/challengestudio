@@ -15,6 +15,7 @@ export interface PreviewStep {
   order: number
   isRequired: boolean
   isPublished: boolean
+  dayImageUrl: string | null
   estimatedMinutes: number | null
   pointsXp: number | null
   blocks: RenderableBlock[]
@@ -177,6 +178,20 @@ export function PreviewClient({
                   </div>
                   {description && active.order === 1 && (
                     <p className="mt-4 text-sm leading-relaxed text-slate-600">{description}</p>
+                  )}
+
+                  {/* The day image. Stored since the builder gained the field
+                      and rendered nowhere until now, which made it look like
+                      the upload had failed. Plain <img>: the host is the
+                      storage bucket, and next/image would want it
+                      allow-listed for no gain here. */}
+                  {active.dayImageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={active.dayImageUrl}
+                      alt=""
+                      className="mt-5 max-h-72 w-full rounded-xl object-cover"
+                    />
                   )}
                 </header>
 

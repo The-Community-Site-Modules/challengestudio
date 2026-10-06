@@ -25,6 +25,7 @@ interface StepInfo {
   estimatedMinutes: number | null
   pointsXp:        number | null
   isRequired:      boolean
+  dayImageUrl:     string | null
   totalSteps:      number
   blocks:          Block[]
 }
@@ -106,6 +107,19 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
             {completed && <Badge variant="success">Completed ✓</Badge>}
           </div>
           <h1 className="text-3xl font-extrabold text-foreground">{step.title}</h1>
+
+          {/* The day's image. Stored since the builder gained the field and
+              rendered nowhere until now, which made a successful upload look
+              like a failed one. Plain <img>: the host is the storage bucket,
+              which next/image would want allow-listed for no gain here. */}
+          {step.dayImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={step.dayImageUrl}
+              alt=""
+              className="mt-4 max-h-80 w-full rounded-2xl object-cover"
+            />
+          )}
         </div>
 
         {/* Content blocks from DB */}

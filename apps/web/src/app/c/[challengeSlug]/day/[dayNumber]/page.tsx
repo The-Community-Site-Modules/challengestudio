@@ -27,7 +27,7 @@ export default async function DayPage({ params }: Props) {
         orderBy: { order: 'asc' },
         select: {
           id: true, title: true, order: true, stepType: true,
-          isRequired: true, estimatedMinutes: true, pointsXp: true,
+          isRequired: true, estimatedMinutes: true, pointsXp: true, dayImageUrl: true,
           availableAt: true,
           contentBlocks: {
             orderBy: { order: 'asc' },
@@ -94,6 +94,7 @@ export default async function DayPage({ params }: Props) {
         estimatedMinutes: step.estimatedMinutes,
         pointsXp:        step.pointsXp,
         isRequired:      step.isRequired,
+        dayImageUrl:     step.dayImageUrl,
         totalSteps:      challenge.steps.length,
         blocks: step.contentBlocks.map(b => ({
           id:   b.id,
