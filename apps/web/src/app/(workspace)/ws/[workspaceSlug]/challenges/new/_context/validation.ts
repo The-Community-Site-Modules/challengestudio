@@ -48,12 +48,20 @@ export function validateStep(step: number, data: WizardState): FieldErrors {
 
       // Only compare dates that are actually filled in — a missing end date is
       // allowed, an end date before the start is not.
+      //
+      // Start and end on the same day stays legal: a one-day challenge is a
+      // real thing, and a test says so.
       if (data.startsAt && data.endsAt && data.endsAt < data.startsAt) {
         errors.endsAt = 'The end date cannot be before the start date.'
       }
+      // Registration is different, and this one is `<=`. Opening and closing
+      // on the same date is a window with no days in it, which reads like an
+      // open window to everyone who sees it. The picker blocks that date for
+      // the same reason; this catches it when the opening date is moved
+      // afterwards, which the picker cannot.
       if (data.registrationOpensAt && data.registrationClosesAt &&
-          data.registrationClosesAt < data.registrationOpensAt) {
-        errors.registrationClosesAt = 'Registration cannot close before it opens.'
+          data.registrationClosesAt <= data.registrationOpensAt) {
+        errors.registrationClosesAt = 'Registration must close after the day it opens.'
       }
       if (data.startsAt && data.registrationOpensAt && data.registrationOpensAt > data.startsAt) {
         errors.registrationOpensAt = 'Registration must open on or before the start date.'

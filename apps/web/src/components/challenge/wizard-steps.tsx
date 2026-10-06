@@ -7,7 +7,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { DateField } from '@/components/ui/date-field'
+import { DateField, addDaysISO } from '@/components/ui/date-field'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -438,15 +438,33 @@ export function Step4Schedule({ step, setStep }: StepProps) {
           <DateField value={data.registrationOpensAt}
                      onChange={(v) => update({ registrationOpensAt: v })} />
         </Field>
+        {/* Each field's range comes from the one before it.
+            Registration closes is bounded to the day *after* it opens: a
+            window that opens and closes on one date has no days in it.
+            Challenge ends is bounded to the start date itself, because a
+            one-day challenge is a real thing.
+            The validator repeats both, for anyone who sets these in order and
+            then moves the earlier one — which the picker cannot catch. */}
         <Field name="registrationClosesAt" label="Registration closes" error={shown.registrationClosesAt}>
-          <DateField value={data.registrationClosesAt}
-                     onChange={(v) => update({ registrationClosesAt: v })} />
+          <DateField
+            value={data.registrationClosesAt}
+            onChange={(v) => update({ registrationClosesAt: v })}
+            {...(data.registrationOpensAt ? { min: addDaysISO(data.registrationOpensAt, 1) } : {})}
+          />
         </Field>
         <Field name="startsAt" label="Challenge starts" required error={shown.startsAt}>
-          <DateField value={data.startsAt} onChange={(v) => update({ startsAt: v })} />
+          <DateField
+            value={data.startsAt}
+            onChange={(v) => update({ startsAt: v })}
+            {...(data.registrationOpensAt ? { min: data.registrationOpensAt } : {})}
+          />
         </Field>
         <Field name="endsAt" label="Challenge ends" error={shown.endsAt}>
-          <DateField value={data.endsAt} onChange={(v) => update({ endsAt: v })} />
+          <DateField
+            value={data.endsAt}
+            onChange={(v) => update({ endsAt: v })}
+            {...(data.startsAt ? { min: data.startsAt } : {})}
+          />
         </Field>
       </div>
 

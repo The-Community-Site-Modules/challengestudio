@@ -42,6 +42,14 @@ function toISO(date: Date): string {
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
+/** 'YYYY-MM-DD' shifted by whole days, for callers expressing "the day after". */
+export function addDaysISO(value: string, days: number): string {
+  const date = fromISO(value)
+  if (!date) return ''
+  date.setDate(date.getDate() + days)
+  return toISO(date)
+}
+
 interface Props {
   id?: string
   /** 'YYYY-MM-DD', or '' for empty. */
@@ -49,9 +57,15 @@ interface Props {
   onChange: (value: string) => void
   placeholder?: string
   className?: string
+  /** Earliest selectable day, inclusive. Anything before it is not clickable. */
+  min?: string
+  /** Latest selectable day, inclusive. */
+  max?: string
 }
 
-export function DateField({ id, value, onChange, placeholder = 'Pick a date', className }: Props) {
+export function DateField({
+  id, value, onChange, placeholder = 'Pick a date', className, min, max,
+}: Props) {
   const [open, setOpen] = useState(false)
   const selected = fromISO(value)
   const [month, setMonth] = useState<Date>(() => selected ?? new Date())
@@ -91,10 +105,29 @@ export function DateField({ id, value, onChange, placeholder = 'Pick a date', cl
 
   const today = new Date()
 
+  /**
+   * Out of range days stay visible and stop being clickable, rather than being
+   * removed from the grid. A calendar with holes in it is harder to read than
+   * one with greyed days, and the greyed day is the answer to "why can I not
+   * pick the 7th?" — removing it only raises the question.
+   *
+   * Compared as strings: `YYYY-MM-DD` sorts chronologically, so this needs no
+   * date arithmetic and cannot drift by a timezone.
+   */
+  function outOfRange(date: Date): boolean {
+    const iso = toISO(date)
+    if (min && iso < min) return true
+    if (max && iso > max) return true
+    return false
+  }
+
   function pick(date: Date) {
+    if (outOfRange(date)) return
     onChange(toISO(date))
     setOpen(false)
   }
+
+  const todayAllowed = !outOfRange(today)
 
   return (
     <div ref={wrapRef} className={cn('relative', className)}>
@@ -156,22 +189,26 @@ export function DateField({ id, value, onChange, placeholder = 'Pick a date', cl
               const inMonth = isSameMonth(day, month)
               const isSelected = selected ? isSameDay(day, selected) : false
               const isToday = isSameDay(day, today)
+              const blocked = outOfRange(day)
 
               return (
                 <button
                   key={day.toISOString()}
                   type="button"
                   onClick={() => pick(day)}
+                  disabled={blocked}
                   aria-current={isToday ? 'date' : undefined}
                   aria-pressed={isSelected}
                   className={cn(
                     'flex h-8 items-center justify-center rounded-md text-[13px] tabular-nums transition-colors',
-                    isSelected
-                      ? 'bg-primary font-semibold text-primary-foreground'
-                      : inMonth
-                        ? 'text-foreground hover:bg-muted'
-                        : 'text-muted-foreground/50 hover:bg-muted/60',
-                    isToday && !isSelected && 'font-semibold text-primary ring-1 ring-primary/40'
+                    blocked
+                      ? 'cursor-not-allowed text-muted-foreground/30 line-through'
+                      : isSelected
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : inMonth
+                          ? 'text-foreground hover:bg-muted'
+                          : 'text-muted-foreground/50 hover:bg-muted/60',
+                    isToday && !isSelected && !blocked && 'font-semibold text-primary ring-1 ring-primary/40'
                   )}
                 >
                   {format(day, 'd')}
@@ -194,7 +231,8 @@ export function DateField({ id, value, onChange, placeholder = 'Pick a date', cl
             <button
               type="button"
               onClick={() => pick(today)}
-              className="text-xs font-medium text-primary hover:underline"
+              disabled={!todayAllowed}
+              className="text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground/40 disabled:no-underline"
             >
               Today
             </button>
