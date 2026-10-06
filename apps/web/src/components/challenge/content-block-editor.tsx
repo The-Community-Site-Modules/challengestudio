@@ -138,15 +138,21 @@ export function BlockPayloadEditor({ block, onChange }: {
       )
     case 'checklist':
       return (
-        <div className="space-y-2">
-          <Label className="text-xs">Checklist items (one per line)</Label>
-          <Textarea
-            placeholder={"Review your business idea\nWrite out your top 3 ideal clients\nPost your commitment in the community"}
-            rows={4}
-            value={block.payload.items ?? ''}
-            onChange={e => update('items', e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Each line becomes a checkable task for participants.</p>
+        // The items are edited in the card itself — one row per task, with an
+        // add at the end. A textarea here as well meant the same list existed
+        // in two places and neither of them looked like a list.
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Title (optional)</Label>
+            <Input
+              placeholder="e.g. Before you start"
+              value={block.payload.title ?? ''}
+              onChange={e => update('title', e.target.value)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Add and edit the tasks on the block above.
+          </p>
         </div>
       )
     case 'assignment':

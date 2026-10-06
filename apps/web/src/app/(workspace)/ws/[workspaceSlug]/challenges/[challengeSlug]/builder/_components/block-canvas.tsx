@@ -145,7 +145,112 @@ export function DayHeader({
  * renderer: it is here so the creator can recognise the block at a glance
  * without opening it.
  */
-function BlockPreview({ block }: { block: BlockItem }) {
+/**
+ * The checklist, edited where it is shown.
+ *
+ * It used to be a preview of a textarea: the items lived as newline-separated
+ * text in a field below, and the list above only mirrored it. Typing a list in
+ * one box and reading it in another is two places for the same thing, and
+ * neither of them is the list. Each row is now the input, with its own remove
+ * and an add at the end.
+ *
+ * Storage is unchanged — still one newline-separated string in `items` — so
+ * nothing already written needs converting.
+ */
+function ChecklistEditor({
+  block, onChange,
+}: {
+  block: BlockItem
+  onChange?: (next: BlockItem) => void
+}) {
+  const items = (block.payload.items ?? '').split('\n')
+  // An empty payload should offer one empty row rather than nothing to type in.
+  const rows = items.length > 0 ? items : ['']
+
+  function write(next: string[]) {
+    // Trailing blanks are dropped on the way out so an unfinished row does not
+    // become an empty task for a participant.
+    onChange?.({
+      ...block,
+      payload: { ...block.payload, items: next.join('\n').replace(/\n+$/, '') },
+    })
+  }
+
+  if (!onChange) {
+    const visible = rows.filter(Boolean)
+    return (
+      <ul className="space-y-2">
+        {(visible.length > 0 ? visible : ['No items yet']).map((item, i) => (
+          <li key={i} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+            <span className="h-4 w-4 shrink-0 rounded border border-border" aria-hidden="true" />
+            {item}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  return (
+    <div>
+      <ul className="space-y-1.5">
+        {rows.map((item, i) => (
+          <li key={i} className="group/row flex items-center gap-2.5">
+            <span
+              className="h-4 w-4 shrink-0 rounded border border-border"
+              aria-hidden="true"
+            />
+            <input
+              value={item}
+              onChange={(e) => {
+                const next = [...rows]
+                next[i] = e.target.value
+                write(next)
+              }}
+              onKeyDown={(e) => {
+                // Enter adds the next row, the way a list behaves everywhere
+                // else. Backspace on an empty row removes it.
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const next = [...rows]
+                  next.splice(i + 1, 0, '')
+                  write(next)
+                } else if (e.key === 'Backspace' && item === '' && rows.length > 1) {
+                  e.preventDefault()
+                  write(rows.filter((_, idx) => idx !== i))
+                }
+              }}
+              placeholder="A task participants tick off"
+              className="min-w-0 flex-1 border-0 border-b border-transparent bg-transparent py-1 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/40"
+            />
+            <button
+              type="button"
+              onClick={() => write(rows.length > 1 ? rows.filter((_, idx) => idx !== i) : [''])}
+              aria-label={`Remove item ${i + 1}`}
+              className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/row:opacity-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={() => write([...rows, ''])}
+        className="mt-3 flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+      >
+        <Plus className="h-4 w-4" aria-hidden="true" /> Add item
+      </button>
+    </div>
+  )
+}
+
+function BlockPreview({
+  block, onChange,
+}: {
+  block: BlockItem
+  onChange?: (next: BlockItem) => void
+}) {
   const p = block.payload as Record<string, string>
 
   switch (block.type) {
@@ -244,24 +349,8 @@ function BlockPreview({ block }: { block: BlockItem }) {
         </>
       )
 
-    case 'checklist': {
-      const items = str(p, 'items').split('\n').filter(Boolean)
-      return (
-        <>
-          {str(p, 'title') && (
-            <p className="mb-3 text-[15px] font-semibold text-foreground">{str(p, 'title')}</p>
-          )}
-          <ul className="space-y-2">
-            {(items.length > 0 ? items : ['No items yet']).map((item, i) => (
-              <li key={i} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                <span className="h-4 w-4 shrink-0 rounded border border-border" aria-hidden="true" />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </>
-      )
-    }
+    case 'checklist':
+      return <ChecklistEditor block={block} onChange={onChange} />
 
     case 'reflection':
       return (
@@ -437,7 +526,7 @@ function BlockCard({
       </header>
 
       <div className="p-5">
-        <BlockPreview block={block} />
+        <BlockPreview block={block} onChange={onChange} />
       </div>
 
       {open && (
