@@ -107,8 +107,13 @@ export function ChallengeCard({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-muted-foreground">
-              <Archive className="mr-2 h-4 w-4" /> Archive
+            {/* Was a menu item with no handler — it looked like a control and
+                was decoration. Deleting lives on the settings page, where
+                there is room to say what goes with it. */}
+            <DropdownMenuItem asChild className="text-muted-foreground">
+              <Link href={`${baseHref}/settings#danger`}>
+                <Archive className="mr-2 h-4 w-4" /> Archive or delete
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

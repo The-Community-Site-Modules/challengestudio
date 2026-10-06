@@ -380,6 +380,37 @@ export async function closeChallengeAction(challengeId: string, workspaceSlug: s
 
 // ─── Delete Challenge ────────────────────────────────────────────────────────
 
+/**
+ * Take a challenge out of the way without destroying it.
+ *
+ * The menu on the challenge card has offered "Archive" since the card was
+ * written and never had an action behind it. It exists now because it is the
+ * answer to almost every reason someone reaches for Delete: a finished or
+ * abandoned challenge they no longer want in the list. Deleting one takes its
+ * participants' submissions with it.
+ */
+export async function archiveChallengeAction(challengeId: string, workspaceSlug: string) {
+  const user = await requireUser()
+  const ws   = await resolveWorkspace(workspaceSlug)
+  await requirePermission(user.id, ws.id, 'challenge.close')
+  await requireChallengeIn(ws.id, workspaceSlug, challengeId)
+
+  const updated = await db.challenge.update({
+    where: { id: challengeId },
+    data:  { status: 'ARCHIVED' as never },
+  })
+
+  revalidatePath(`/ws/${workspaceSlug}/challenges`)
+  revalidatePath(`/ws/${workspaceSlug}/challenges/${updated.slug}/settings`)
+  return { success: true }
+}
+
+/**
+ * Permanent. Every step, block, submission, feed post and enrolment goes with
+ * it by cascade — including work that participants wrote and cannot get back.
+ * The UI asks for the slug to be typed before calling this, and offers archive
+ * first.
+ */
 export async function deleteChallengeAction(challengeId: string, workspaceSlug: string) {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)

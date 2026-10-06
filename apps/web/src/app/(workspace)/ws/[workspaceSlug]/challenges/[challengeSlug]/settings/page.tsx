@@ -42,11 +42,17 @@ export default async function ChallengeSettingsPage({ params }: Props) {
       timezone: true, startsAt: true, endsAt: true,
       registrationOpensAt: true, registrationClosesAt: true,
       isPublic: true, maxParticipants: true, requiresApproval: true,
-      _count: { select: { participants: true } },
+      // Counted so the delete dialog can say what it is about to destroy in
+      // numbers rather than in the abstract.
+      _count: { select: { participants: true, steps: true, feedPosts: true } },
     },
   })
 
   if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
+
+  const submissionCount = await db.submission.count({
+    where: { step: { challengeId: challenge.id } },
+  })
 
   const tz = challenge.timezone ?? 'UTC'
 
@@ -74,6 +80,9 @@ export default async function ChallengeSettingsPage({ params }: Props) {
           maxParticipants: challenge.maxParticipants,
           requiresApproval: challenge.requiresApproval,
           participantCount: challenge._count.participants,
+          stepCount: challenge._count.steps,
+          postCount: challenge._count.feedPosts,
+          submissionCount,
         }}
       />
     </div>

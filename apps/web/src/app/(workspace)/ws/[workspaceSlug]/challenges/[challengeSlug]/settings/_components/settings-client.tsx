@@ -18,7 +18,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, AlertTriangle, Eye, Loader2 } from 'lucide-react'
+import { Check, AlertTriangle, Eye, Loader2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,10 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
-import { updateChallengeAction, closeChallengeAction } from '../../../actions'
+import {
+  updateChallengeAction, closeChallengeAction,
+  archiveChallengeAction, deleteChallengeAction,
+} from '../../../actions'
 
 interface ChallengeSettings {
   id: string
@@ -44,6 +47,9 @@ interface ChallengeSettings {
   maxParticipants: number | null
   requiresApproval: boolean
   participantCount: number
+  stepCount: number
+  postCount: number
+  submissionCount: number
 }
 
 const MODES = [
@@ -354,6 +360,129 @@ export default function ChallengeSettingsClient({
         Changing the format or start date moves when days unlock for everyone already
         registered.
       </p>
+
+      <DangerZone challenge={challenge} workspaceSlug={workspaceSlug} />
     </main>
+  )
+}
+
+// ─── Danger zone ─────────────────────────────────────────────────────────────
+
+/**
+ * Archive first, delete second, and delete asks for the slug to be typed.
+ *
+ * Deleting a challenge cascades: steps, blocks, enrolments, submissions and
+ * feed posts all go, including work participants wrote and cannot get back.
+ * That is not something a stray click should be able to do, so the button
+ * stays disabled until the person has typed the slug — which also means they
+ * have read which challenge they are on.
+ *
+ * Archive is offered above it because it answers almost every reason someone
+ * reaches for delete: a finished or abandoned challenge they want out of the
+ * list.
+ */
+function DangerZone({
+  challenge, workspaceSlug,
+}: {
+  challenge: ChallengeSettings
+  workspaceSlug: string
+}) {
+  const [confirm, setConfirm] = useState('')
+  const [isArchiving, startArchiving] = useTransition()
+  const [isDeleting, startDeleting] = useTransition()
+  const router = useRouter()
+
+  const losses = [
+    { n: challenge.stepCount, one: 'day', many: 'days' },
+    { n: challenge.participantCount, one: 'enrolment', many: 'enrolments' },
+    { n: challenge.submissionCount, one: 'submission', many: 'submissions' },
+    { n: challenge.postCount, one: 'post', many: 'posts' },
+  ].filter((l) => l.n > 0)
+
+  const archived = challenge.status === 'ARCHIVED'
+  const matches = confirm.trim() === challenge.slug
+
+  return (
+    <section id="danger" className="mt-10 max-w-3xl scroll-mt-8 rounded-xl border border-destructive/30 bg-destructive/[0.03] p-6">
+      <h2 className="text-base font-semibold text-foreground">Danger zone</h2>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-background p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {archived ? 'Archived' : 'Archive this challenge'}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {archived
+              ? 'It is out of the active list. Nothing has been deleted.'
+              : 'Takes it out of the list and closes it to new registrations. Nothing is deleted, and it can be published again.'}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={archived || isArchiving}
+          onClick={() =>
+            startArchiving(async () => {
+              await archiveChallengeAction(challenge.id, workspaceSlug)
+              router.refresh()
+            })
+          }
+        >
+          {isArchiving ? 'Archiving…' : archived ? 'Archived' : 'Archive'}
+        </Button>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-destructive/40 bg-background p-4">
+        <p className="text-sm font-medium text-destructive">Delete this challenge</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Permanent, and it takes everything attached to it.
+          {losses.length > 0 && (
+            <>
+              {' '}
+              This one has{' '}
+              {losses.map((l, i) => (
+                <span key={l.one}>
+                  {i > 0 && (i === losses.length - 1 ? ' and ' : ', ')}
+                  <strong className="text-foreground">
+                    {l.n} {l.n === 1 ? l.one : l.many}
+                  </strong>
+                </span>
+              ))}
+              .
+            </>
+          )}
+        </p>
+
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="delete-confirm" className="text-xs">
+            Type <span className="font-mono font-semibold text-foreground">{challenge.slug}</span>{' '}
+            to confirm
+          </Label>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id="delete-confirm"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder={challenge.slug}
+              className="max-w-xs"
+              autoComplete="off"
+            />
+            <Button
+              variant="destructive"
+              disabled={!matches || isDeleting}
+              onClick={() =>
+                startDeleting(async () => {
+                  await deleteChallengeAction(challenge.id, workspaceSlug)
+                })
+              }
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              {isDeleting ? 'Deleting…' : 'Delete permanently'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
