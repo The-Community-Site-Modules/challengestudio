@@ -16,9 +16,14 @@ import { cn }       from '@/lib/utils'
  * How a content block looks to a participant.
  *
  * One implementation, two callers: the day page passes `onInteract` and gets
- * working controls; the builder's preview passes `readOnly` and gets the same
- * markup with the controls inert. Two copies would let the preview drift from
- * the thing it exists to preview, which is its only job.
+ * working controls; the builder's preview passes `readOnly`. Two copies would
+ * let the preview drift from the thing it exists to preview, which is its only
+ * job.
+ *
+ * `readOnly` disables the controls that would submit work — an answer typed
+ * into a preview that cannot save it is worse than no field at all. It does
+ * not disable controls that only move local state, like ticking a checklist,
+ * because those are exactly what the creator opened the preview to watch.
  */
 
 export interface RenderableBlock {
@@ -109,7 +114,21 @@ function DownloadBlock({ data }: { data: Record<string, string> }) {
   )
 }
 
-function ChecklistBlock({ data, blockId, onInteract, readOnly }: {
+/**
+ * `readOnly` is deliberately ignored here.
+ *
+ * Ticking a box is local state and nothing else — there is no submission and
+ * no server call, so a creator ticking one in the preview loses nothing and
+ * finally gets to see the thing a preview exists to show: the bar moving, the
+ * count changing, the line through a finished task. Disabled, the preview was
+ * showing them something no participant will ever see, which is the one thing
+ * it must not do.
+ *
+ * The blocks below keep `readOnly`, because their controls imply submitting
+ * work — and a creator typing an answer into a preview that will never save it
+ * is a different and worse kind of lie.
+ */
+function ChecklistBlock({ data, blockId, onInteract }: {
   data: Record<string, string>
   blockId: string
   onInteract?: Interact
@@ -139,7 +158,7 @@ function ChecklistBlock({ data, blockId, onInteract, readOnly }: {
         {items.map((item) => (
           <div key={item} className="flex items-start gap-3">
             <Checkbox id={`${blockId}-${item}`} checked={checked.includes(item)}
-              onCheckedChange={() => toggle(item)} disabled={readOnly} className="mt-0.5" />
+              onCheckedChange={() => toggle(item)} className="mt-0.5" />
             <label htmlFor={`${blockId}-${item}`}
               className={cn('text-sm cursor-pointer', checked.includes(item) ? 'line-through text-muted-foreground' : 'text-foreground')}>
               {item}
