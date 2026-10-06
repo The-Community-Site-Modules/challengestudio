@@ -129,6 +129,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
               status={(STATUS_MAP[c.status as string] ?? 'draft') as 'draft' | 'scheduled' | 'published' | 'active' | 'closed' | 'completed' | 'archived'}
               participantCount={c._count.participants}
               startsAt={c.startsAt ? c.startsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
+              coverImageUrl={c.coverImageUrl}
             />
           ))}
 

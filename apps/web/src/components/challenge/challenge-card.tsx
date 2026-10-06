@@ -23,6 +23,7 @@ interface ChallengeCardProps {
   participantCount: number
   completionRate?: number
   startsAt?: string
+  coverImageUrl?: string | null
   workspaceSlug: string
 }
 
@@ -57,13 +58,21 @@ const modeLabels: Record<ChallengeMode, string> = {
 
 export function ChallengeCard({
   slug, title, promise, mode, status,
-  participantCount, completionRate, startsAt, workspaceSlug,
+  participantCount, completionRate, startsAt, workspaceSlug, coverImageUrl,
 }: ChallengeCardProps) {
   const { label, variant } = statusConfig[status] ?? UNKNOWN_STATUS
   const baseHref = `/ws/${workspaceSlug}/challenges/${slug}`
 
   return (
-    <div className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
+    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md">
+      {/* The cover, when there is one. This card showed none at all, so a
+          challenge with a picture looked identical to one without. */}
+      {coverImageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={coverImageUrl} alt="" className="h-28 w-full object-cover" />
+      )}
+
+      <div className="flex flex-1 flex-col p-5">
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -148,6 +157,7 @@ export function ChallengeCard({
             <span>{startsAt}</span>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

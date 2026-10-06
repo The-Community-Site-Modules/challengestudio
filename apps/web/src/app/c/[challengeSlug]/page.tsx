@@ -27,7 +27,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      id: true, slug: true, title: true, description: true,
+      id: true, slug: true, title: true, description: true, coverImageUrl: true,
       promise: true, outcome: true, mode: true, status: true,
       startsAt: true, endsAt: true, timezone: true,
       registrationOpensAt: true, registrationClosesAt: true,
@@ -161,6 +161,18 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
 
             {/* Hero */}
             <section>
+              {/* The cover image. This is the page it was uploaded for — the
+                  one a stranger lands on deciding whether to join — and it was
+                  the last place rendering it. */}
+              {challenge.coverImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={challenge.coverImageUrl}
+                  alt=""
+                  className="mb-6 max-h-80 w-full rounded-2xl object-cover"
+                />
+              )}
+
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {challenge.startsAt && challenge.startsAt > new Date() && (
                   <div className="flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-800">

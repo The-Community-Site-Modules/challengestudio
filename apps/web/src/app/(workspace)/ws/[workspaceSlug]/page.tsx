@@ -91,7 +91,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
         where:   { workspaceId: workspace.id },
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true, slug: true, title: true, description: true,
+          id: true, slug: true, title: true, description: true, coverImageUrl: true,
           status: true, startsAt: true,
           _count: { select: { participants: true, steps: true } },
         },
@@ -246,7 +246,20 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                   const status = STATUS_STYLE[c.status] ?? STATUS_STYLE.DRAFT!
                   return (
                     <article key={c.id} className="overflow-hidden rounded-xl border border-border bg-card">
-                      <div className={`relative h-28 bg-gradient-to-br ${COVERS[i % COVERS.length]}`}>
+                      {/* The challenge's own cover when it has one. The
+                          gradient was always the fallback, not the design —
+                          it just had nothing to fall back from. */}
+                      <div
+                        className={
+                          c.coverImageUrl
+                            ? 'relative h-28 bg-muted'
+                            : `relative h-28 bg-gradient-to-br ${COVERS[i % COVERS.length]}`
+                        }
+                      >
+                        {c.coverImageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={c.coverImageUrl} alt="" className="h-full w-full object-cover" />
+                        )}
                         <span className={`absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-[11px] font-semibold ring-1 ${status.className}`}>
                           {status.dot && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
                           {status.label}
