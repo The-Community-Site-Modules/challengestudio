@@ -7,6 +7,7 @@ import { awardPoints } from '@/lib/gamification'
 import { hasPermission } from '@/lib/permissions'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { ALLOWED_EMOJI } from './reactions'
+import { isParticipating } from '@/lib/enrollment/register'
 
 /**
  * The challenge feed (milestone 7).
@@ -47,7 +48,7 @@ async function actorFor(challengeSlug: string): Promise<Actor | null> {
   })
   // PENDING means not approved yet: they cannot open the challenge, so they
   // cannot post in it either.
-  if (!participant || participant.status === 'PENDING') return null
+  if (!participant || !isParticipating(participant.status)) return null
 
   return {
     participantId: participant.id,
@@ -86,6 +87,16 @@ export async function createPostAction(challengeSlug: string, body: string, step
   const text = body.trim()
   if (!text)                 return { success: false, error: 'Write something first.' }
   if (text.length > MAX_BODY) return { success: false, error: `Keep it under ${MAX_BODY} characters.` }
+
+  // stepId comes from the browser. Without this a post could be tied to a step
+  // in another tenant's challenge, or to one that is still a draft.
+  if (stepId) {
+    const step = await db.challengeStep.findFirst({
+      where:  { id: stepId, challengeId: actor.challengeId, isPublished: true },
+      select: { id: true },
+    })
+    if (!step) return { success: false, error: 'That step is not part of this challenge.' }
+  }
 
   const post = await db.feedPost.create({
     data: {

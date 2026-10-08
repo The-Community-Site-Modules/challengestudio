@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ─── Doubles ─────────────────────────────────────────────────────────────────
 
 const db = {
-  workspace:           { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn() },
+  workspace:           { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   workspaceMember:     { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn(), count: vi.fn(), upsert: vi.fn() },
   workspaceInvitation: { deleteMany: vi.fn(), delete: vi.fn(), upsert: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   profile:             { findUnique: vi.fn() },
@@ -64,6 +64,7 @@ const {
   cancelInvitationAction,
   acceptInvitationAction,
   inviteMemberAction,
+  createWorkspaceAction,
 } = await import('./actions')
 
 /** Run an action and return the path it redirected to, or null if it did not. */
@@ -158,6 +159,29 @@ describe('removeMemberAction', () => {
 
     expect(db.workspaceMember.delete).not.toHaveBeenCalled()
     expect(to).toContain('error=')
+  })
+
+  it('does not let an admin remove an owner, even when another owner remains', async () => {
+    // updateMemberRoleAction already refused an admin demoting an owner;
+    // removal was the way round it.
+    getMembership.mockResolvedValue({ role: 'ADMIN' })
+    db.workspaceMember.findFirst.mockResolvedValue({ profileId: 'other', role: 'OWNER' })
+    db.workspaceMember.count.mockResolvedValue(2)
+
+    const to = await redirectOf(() => removeMemberAction(OUR_WS, 'an-owner'))
+
+    expect(db.workspaceMember.delete).not.toHaveBeenCalled()
+    expect(to).toContain('error=')
+  })
+
+  it('lets an owner remove another owner while one remains', async () => {
+    getMembership.mockResolvedValue({ role: 'OWNER' })
+    db.workspaceMember.findFirst.mockResolvedValue({ profileId: 'other', role: 'OWNER' })
+    db.workspaceMember.count.mockResolvedValue(2)
+
+    await redirectOf(() => removeMemberAction(OUR_WS, 'an-owner'))
+
+    expect(db.workspaceMember.delete).toHaveBeenCalled()
   })
 })
 
@@ -309,6 +333,28 @@ describe('acceptInvitationAction', () => {
     // Reaching the membership write means the email check passed.
     expect(db.workspaceMember.upsert).toHaveBeenCalled()
   })
+
+  it('never demotes someone already in the workspace', async () => {
+    // An owner accepting a MEMBER invitation used to become a member, which
+    // could leave the workspace with no owner at all.
+    db.workspaceInvitation.findUnique.mockResolvedValue(invitation({ email: currentUser.email, role: 'MEMBER' }))
+    db.workspaceInvitation.update.mockResolvedValue({})
+    getMembership.mockResolvedValue({ role: 'OWNER' })
+
+    await redirectOf(() => acceptInvitationAction('good-token'))
+
+    expect(db.workspaceMember.upsert.mock.calls[0]?.[0]?.update).toEqual({ role: 'OWNER' })
+  })
+
+  it('applies the invited role when it is a promotion', async () => {
+    db.workspaceInvitation.findUnique.mockResolvedValue(invitation({ email: currentUser.email, role: 'ADMIN' }))
+    db.workspaceInvitation.update.mockResolvedValue({})
+    getMembership.mockResolvedValue({ role: 'MEMBER' })
+
+    await redirectOf(() => acceptInvitationAction('good-token'))
+
+    expect(db.workspaceMember.upsert.mock.calls[0]?.[0]?.update).toEqual({ role: 'ADMIN' })
+  })
 })
 
 // ─── inviteMemberAction ──────────────────────────────────────────────────────
@@ -351,5 +397,22 @@ describe('inviteMemberAction', () => {
     // The row still exists, but the operator must not be told mail went out.
     expect(db.workspaceInvitation.upsert).toHaveBeenCalled()
     expect(to).toContain('error=')
+  })
+})
+
+// ─── createWorkspaceAction ───────────────────────────────────────────────────
+
+describe('createWorkspaceAction', () => {
+  it('accepts a name with no Latin letters', async () => {
+    // "میری ٹیم" slugified to nothing and was refused as too short.
+    db.workspace.findUnique.mockResolvedValue(null)
+    db.workspace.create.mockResolvedValue({ slug: 'workspace' })
+    const fd = new FormData()
+    fd.set('name', 'میری ٹیم')
+
+    const to = await redirectOf(() => createWorkspaceAction(fd))
+
+    expect(db.workspace.create.mock.calls[0]?.[0]?.data).toMatchObject({ name: 'میری ٹیم', slug: 'workspace' })
+    expect(to).toBe('/ws/workspace')
   })
 })

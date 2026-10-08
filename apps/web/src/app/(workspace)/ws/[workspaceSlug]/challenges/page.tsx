@@ -9,6 +9,7 @@ import { PageHeader }       from '@/components/shared/page-header'
 import { EmptyState }       from '@/components/shared/empty-state'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { formatInZone } from '@/lib/time/zoned'
 
 interface Props {
   params:       Promise<{ workspaceSlug: string }>
@@ -128,7 +129,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
               mode={(MODE_MAP[c.mode as string] ?? 'evergreen') as 'marketing' | 'evergreen' | 'cohort' | 'internal' | 'paid' | 'team' | 'habit' | 'milestone'}
               status={(STATUS_MAP[c.status as string] ?? 'draft') as 'draft' | 'scheduled' | 'published' | 'active' | 'closed' | 'completed' | 'archived'}
               participantCount={c._count.participants}
-              startsAt={c.startsAt ? c.startsAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
+              startsAt={c.startsAt ? formatInZone(c.startsAt, c.timezone, { month: 'short', day: 'numeric' }) : undefined}
               coverImageUrl={c.coverImageUrl}
             />
           ))}

@@ -14,8 +14,9 @@
  * a dirty marker so it is obvious when there is something to press it for.
  */
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, PanelLeft, Eye, Send, Loader2, AlertCircle, Undo2, Redo2,
   Pencil, Monitor, Smartphone, Check, Settings,
@@ -70,7 +71,24 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   const [activeStepId, setActiveStepId] = useState(initialSteps[0]?.id ?? '')
   const [viewport, setViewport] = useState<Viewport>('edit')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [dirty, setDirty] = useState(false)
+  /** Days whose blocks have unsaved changes — tracked per day, see handleSave. */
+  const [dirtyIds, setDirtyIds] = useState<ReadonlySet<string>>(() => new Set())
+  const dirty = dirtyIds.size > 0
+  // The latest steps, for the save loop to compare against after an await.
+  const stepsRef = useRef(steps)
+  stepsRef.current = steps
+
+  // Leaving with unsaved blocks asks first, rather than discarding them.
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  function markDirty(id: string) {
+    setDirtyIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
+  }
   /**
    * Undo history for the open day's blocks. Per-day and in memory only:
    * switching days starts a fresh stack, because undoing across a day boundary
@@ -87,6 +105,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const ws = challenge.workspaceSlug
+  const router = useRouter()
   const activeIndex = steps.findIndex((s) => s.id === activeStepId)
   const activeStep = activeIndex >= 0 ? steps[activeIndex] : undefined
 
@@ -158,8 +177,18 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
         return
       }
 
-      const remaining = steps.filter((s) => s.id !== id)
+      // The server closes the gap in `order`; mirror it so a later reorder or
+      // the participant preview does not work from stale numbers.
+      const remaining = steps
+        .filter((s) => s.id !== id)
+        .map((s, i) => ({ ...s, order: i, position: i }))
       setSteps(remaining)
+      setDirtyIds((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
 
       // Land on a neighbour rather than an empty canvas when the open day is
       // the one that just went.
@@ -188,7 +217,10 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
 
     startSaving(async () => {
       try {
-        await updateStepAction(before.id, ws, patch as Record<string, unknown>)
+        const result = await updateStepAction(before.id, ws, patch as Record<string, unknown>)
+        // A refusal comes back as a value — thrown messages are hidden in
+        // production — so route it through the same revert-and-explain path.
+        if ('error' in result) throw new Error(result.error)
       } catch (error) {
         // Put the old value back, so the panel is not showing something the
         // database does not have.
@@ -212,7 +244,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
   // ── Blocks ─────────────────────────────────────────────────────────────
   function handleBlocksChange(blocks: BlockItem[]) {
     patchActive({ blocks, blockCount: blocks.length })
-    setDirty(true)
+    markDirty(activeStepId)
     // Anything after the current point is a branch the creator undid past and
     // has now replaced, so it is dropped rather than kept as a redo.
     setHistory((h) => [...h.slice(0, historyIndex + 1), blocks])
@@ -228,46 +260,79 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
     if (!blocks) return
     patchActive({ blocks, blockCount: blocks.length })
     setHistoryIndex(target)
-    setDirty(true)
+    markDirty(activeStepId)
   }
 
+  /**
+   * Save every day with unsaved blocks, not just the open one.
+   *
+   * Dirtiness used to be one flag for the whole builder: edit day 2, open
+   * day 3, press Save, and day 3 was saved, the flag cleared, and day 2's
+   * edits were dropped without a word.
+   */
   function handleSave() {
-    if (!activeStep) return
-    const blocks = activeStep.blocks
+    const toSave = steps.filter((s) => dirtyIds.has(s.id))
+    if (toSave.length === 0) return
     setSaveError(null)
     startSaving(async () => {
-      try {
-        await saveBlocksAction(
-          activeStep.id,
-          ws,
-          blocks.map(stripEmptyChecklistItems).map((b, i) => ({
-            id: b.id,
-            type: b.type,
-            order: i,
-            data: b.payload as Record<string, unknown>,
-            required: b.required,
-            points: b.points ?? 0,
-          }))
-        )
-        setDirty(false)
-      } catch (error) {
-        // `dirty` stays true on purpose: the blocks are still unsaved, and the
-        // Save button has to keep offering to try again.
-        setSaveError(
-          error instanceof Error && error.message
-            ? `The blocks did not save: ${error.message}`
-            : 'The blocks did not save.'
-        )
+      for (const step of toSave) {
+        try {
+          const result = await saveBlocksAction(
+            step.id,
+            ws,
+            step.blocks.map(stripEmptyChecklistItems).map((b, i) => ({
+              id: b.id,
+              type: b.type,
+              order: i,
+              data: b.payload as Record<string, unknown>,
+              required: b.required,
+              points: b.points ?? 0,
+            }))
+          )
+          if (!result.success) {
+            setSaveError(`"${step.title}" did not save: ${result.error}`)
+            return
+          }
+        } catch (error) {
+          // The day stays dirty on purpose: its blocks are still unsaved, and
+          // the Save button has to keep offering to try again.
+          setSaveError(
+            error instanceof Error && error.message
+              ? `"${step.title}" did not save: ${error.message}`
+              : `"${step.title}" did not save.`
+          )
+          return
+        }
+        // Clear it only if nothing changed while the save was in flight;
+        // otherwise those newer edits are still unsaved.
+        const savedBlocks = step.blocks
+        setDirtyIds((prev) => {
+          const current = stepsRef.current.find((s) => s.id === step.id)
+          if (current && current.blocks !== savedBlocks) return prev
+          const next = new Set(prev)
+          next.delete(step.id)
+          return next
+        })
       }
     })
   }
 
   // ── Publish ────────────────────────────────────────────────────────────
+  /**
+   * The publish gate reads the database, not this screen. With unsaved blocks
+   * it reported "no content blocks" for a day that visibly had them, and
+   * "publish ready days" could make a day live whose content was never saved.
+   */
+  const UNSAVED = 'Save your changes before publishing — the blocks on screen are not saved yet.'
+
   function handlePublish() {
+    if (dirty) { setPublishErrors([UNSAVED]); return }
     startPublishing(async () => {
       const result = await publishChallengeAction(challenge.id, ws)
-      if (!result.success) setPublishErrors(result.errors)
-      else setPublishErrors([])
+      if (!result.success) { setPublishErrors(result.errors); return }
+      setPublishErrors([])
+      // The status badge and live/draft controls come from the server props.
+      router.refresh()
     })
   }
 
@@ -282,6 +347,7 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
    * explicit one, because staging days deliberately is a real thing to want.
    */
   function handlePublishReadyDays() {
+    if (dirty) { setPublishErrors([UNSAVED]); return }
     startPublishing(async () => {
       await Promise.all(
         readyUnpublished.map((s) => updateStepAction(s.id, ws, { isPublished: true }))
@@ -291,13 +357,15 @@ export function BuilderClient({ challenge, initialSteps }: Props) {
 
       const result = await publishChallengeAction(challenge.id, ws)
       setPublishErrors(result.success ? [] : result.errors)
+      if (result.success) router.refresh()
     })
   }
 
   function handleUnpublish() {
     startPublishing(async () => {
       const result = await unpublishChallengeAction(challenge.id, ws)
-      if (!result.success && result.error) setPublishErrors([result.error])
+      if (!result.success && result.error) { setPublishErrors([result.error]); return }
+      router.refresh()
     })
   }
 

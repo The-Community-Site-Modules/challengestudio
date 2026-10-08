@@ -3,6 +3,7 @@ import { getCurrentUser }      from '@/lib/auth/session'
 import { db }                  from '@/lib/db'
 import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
 import { DayClient }           from './_components/day-client'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props {
   params: Promise<{ challengeSlug: string; dayNumber: string }>
@@ -23,7 +24,9 @@ export default async function DayPage({ params }: Props) {
     where: { slug: challengeSlug },
     select: {
       id: true, title: true, startsAt: true, mode: true, timezone: true,
+      // A draft step is not the participant's to open, even by typing its URL.
       steps: {
+        where:   { isPublished: true },
         orderBy: { order: 'asc' },
         select: {
           id: true, title: true, order: true, stepType: true,
@@ -54,7 +57,7 @@ export default async function DayPage({ params }: Props) {
   }
 
   // Registered but not yet approved: the welcome page explains the wait.
-  if (participant.status === 'PENDING') {
+  if (!isParticipating(participant.status)) {
     redirect(`/c/${challengeSlug}/welcome`)
   }
 
@@ -84,6 +87,12 @@ export default async function DayPage({ params }: Props) {
   const submittedStepIds = new Set(participant.submissions.map(s => s.stepId))
   const isCompleted = submittedStepIds.has(step.id)
 
+  // Neighbours by position, not by order ± 1. Orders have gaps once a step is
+  // deleted or left unpublished, and "Next" used to link to a day that 404s.
+  const index = challenge.steps.findIndex(s => s.id === step.id)
+  const prev  = challenge.steps[index - 1]
+  const next  = challenge.steps[index + 1]
+
   return (
     <DayClient
       challengeSlug={challengeSlug}
@@ -96,6 +105,9 @@ export default async function DayPage({ params }: Props) {
         isRequired:      step.isRequired,
         dayImageUrl:     step.dayImageUrl,
         totalSteps:      challenge.steps.length,
+        position:        index + 1,
+        prevDay:         prev ? prev.order + 1 : null,
+        nextDay:         next ? next.order + 1 : null,
         blocks: step.contentBlocks.map(b => ({
           id:   b.id,
           type: (b.type as string).toLowerCase(),

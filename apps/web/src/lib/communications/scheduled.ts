@@ -16,6 +16,8 @@
 
 import { db } from '@/lib/db'
 import { dispatch, type DispatchStatus } from './send'
+import { RETRY_WINDOW_MS } from './retry'
+import { formatInZone } from '@/lib/time/zoned'
 import { calculateUnlocks, type ChallengeMode } from '@/lib/enrollment/unlock'
 
 export interface SweepResult {
@@ -73,15 +75,28 @@ const PER_SWEEP = 200
 async function deliveredKeys(trigger: string, keys: string[]): Promise<Set<string>> {
   if (keys.length === 0) return new Set()
   const rows = await db.messageDelivery.findMany({
-    where:  { trigger, idempotencyKey: { in: keys } },
+    // A failed attempt is not "delivered": leaving it out lets the next sweep
+    // try again (dispatch reclaims the failed row rather than inserting).
+    // A failure older than the retry window has been given up on, so it counts
+    // as settled — otherwise it would take a slot in every sweep's budget.
+    where:  {
+      trigger,
+      idempotencyKey: { in: keys },
+      OR: [
+        { status: { not: 'failed' } },
+        { createdAt: { lt: new Date(Date.now() - RETRY_WINDOW_MS) } },
+      ],
+    },
     select: { idempotencyKey: true },
   })
   return new Set(rows.map(r => r.idempotencyKey))
 }
 
 const APP_URL = () => process.env.NEXT_PUBLIC_APP_URL ?? ''
-const day = (d: Date) =>
-  d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+// On the challenge's calendar, not the server's (UTC): midnight in Karachi is
+// the previous evening in UTC, and the email named the wrong day.
+const day = (d: Date, timeZone: string | null) =>
+  formatInZone(d, timeZone, { day: 'numeric', month: 'long', year: 'numeric' })
 
 /** Everyone taking part who could still receive something. */
 const ACTIVE = ['REGISTERED', 'ACTIVE'] as const
@@ -104,7 +119,7 @@ export async function sweepChallengeStarting(now = new Date(), hours = 24): Prom
       startsAt: { gte: now, lte: until },
     },
     select: {
-      id: true, title: true, startsAt: true, workspaceId: true,
+      id: true, title: true, startsAt: true, timezone: true, workspaceId: true,
       workspace: { select: { name: true } },
       participants: {
         where:  { status: { in: ACTIVE as unknown as string[] } as never },
@@ -128,7 +143,7 @@ export async function sweepChallengeStarting(now = new Date(), hours = 24): Prom
           participantName: p.profile.fullName?.split(' ')[0] ?? p.profile.email,
           challengeTitle:  challenge.title,
           workspaceName:   challenge.workspace.name,
-          startDate:       challenge.startsAt ? day(challenge.startsAt) : '',
+          startDate:       challenge.startsAt ? day(challenge.startsAt, challenge.timezone) : '',
         },
       })
       tally(result, status)
@@ -286,31 +301,49 @@ export async function sweepInactivityNudge(now = new Date(), days = 3): Promise<
   const cutoff = new Date(now.getTime() - days * 86_400_000)
   const week = `${now.getUTCFullYear()}-${Math.floor(now.getTime() / 604_800_000)}`
 
-  const participants = await db.participant.findMany({
-    where: {
-      status:       { in: ACTIVE as unknown as string[] } as never,
-      registeredAt: { lte: cutoff },
-      challenge:    { status: { in: ['PUBLISHED', 'ACTIVE'] as never } },
-      submissions:  { none: { submittedAt: { gte: cutoff } } },
-    },
-    select: {
-      id: true, profileId: true,
-      profile:   { select: { email: true, fullName: true } },
-      challenge: {
-        select: {
-          id: true, slug: true, title: true, workspaceId: true,
-          workspace: { select: { name: true } },
-        },
+  const where = {
+    status:       { in: ACTIVE as unknown as string[] } as never,
+    registeredAt: { lte: cutoff },
+    challenge:    { status: { in: ['PUBLISHED', 'ACTIVE'] as never } },
+    submissions:  { none: { submittedAt: { gte: cutoff } } },
+  }
+  const select = {
+    id: true, profileId: true,
+    profile:   { select: { email: true, fullName: true } },
+    challenge: {
+      select: {
+        id: true, slug: true, title: true, workspaceId: true,
+        workspace: { select: { name: true } },
       },
     },
-    take: PER_SWEEP,
-  })
+  } as const
 
-  const already = await deliveredKeys(
-    'inactivity_nudge',
-    participants.map(p => `${p.id}:inactivity_nudge:${week}`)
-  )
-  const due = participants.filter(p => !already.has(`${p.id}:inactivity_nudge:${week}`))
+  // Page through until PER_SWEEP people are actually due. Taking the first
+  // 200 and *then* dropping the already-nudged ones meant that, once those 200
+  // had been nudged this week, every sweep fetched the same 200, found nobody
+  // due, and inactive participant 201 onwards were never reached.
+  type Row = Awaited<ReturnType<typeof db.participant.findMany<{ where: typeof where; select: typeof select }>>>[number]
+  const due: Row[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page: Row[] = await db.participant.findMany({
+      where, select,
+      orderBy: { id: 'asc' },
+      take: PER_SWEEP,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    })
+    if (page.length === 0) break
+
+    const already = await deliveredKeys(
+      'inactivity_nudge',
+      page.map(p => `${p.id}:inactivity_nudge:${week}`)
+    )
+    due.push(...page.filter(p => !already.has(`${p.id}:inactivity_nudge:${week}`)))
+
+    if (due.length >= PER_SWEEP || page.length < PER_SWEEP) break
+    cursor = page[page.length - 1]!.id
+  }
+  due.splice(PER_SWEEP)
 
   await inBatches(due, async (p) => {
     result.considered++

@@ -27,6 +27,11 @@ interface StepInfo {
   isRequired:      boolean
   dayImageUrl:     string | null
   totalSteps:      number
+  /** 1-based place among the published steps — what "Step N" means. */
+  position:        number
+  /** URL day numbers of the neighbours, or null at either end. */
+  prevDay:         number | null
+  nextDay:         number | null
   blocks:          Block[]
 }
 
@@ -43,7 +48,8 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
   const [blockData,    setBlockData]    = useState<Record<string, unknown>>({})
   const [completed,    setCompleted]    = useState(initialCompleted)
   const [isCompleting, startCompleting] = useTransition()
-  const dayNumber  = step.order + 1
+  const [error,        setError]        = useState<string | null>(null)
+  const dayNumber  = step.position
   const xpValue    = step.pointsXp ?? 100
 
   function handleBlockInteract(blockId: string, value: unknown) {
@@ -51,9 +57,19 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
   }
 
   function handleComplete() {
+    setError(null)
     startCompleting(async () => {
-      await completeStepAction(challengeSlug, step.id, { ...blockData, participantId })
-      setCompleted(true)
+      // Only a confirmed save counts. Celebrating a refusal (step locked, not
+      // approved yet) told people they had earned XP for work never stored.
+      try {
+        const result = await completeStepAction(challengeSlug, step.id, { ...blockData, participantId })
+        // Signed out: the action redirected to the sign-in page instead.
+        if (!result) return
+        if (result.success) setCompleted(true)
+        else setError(result.error)
+      } catch {
+        setError('Your work could not be saved. Check your connection and try again.')
+      }
     })
   }
 
@@ -147,6 +163,9 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
               onClick={handleComplete} disabled={isCompleting}>
               {isCompleting ? 'Saving…' : `Complete Step ${dayNumber} — Earn ${xpValue} XP`}
             </Button>
+            {error && (
+              <p role="alert" className="text-sm font-medium text-destructive">{error}</p>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-8 text-center space-y-4">
@@ -159,14 +178,14 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
                   <ArrowLeft className="h-4 w-4" /> Back to hub
                 </Link>
               </Button>
-              {dayNumber < step.totalSteps && (
+              {step.nextDay !== null && (
                 <Button asChild className="gap-2">
-                  <Link href={`/c/${challengeSlug}/day/${dayNumber + 1}`}>
+                  <Link href={`/c/${challengeSlug}/day/${step.nextDay}`}>
                     Next step <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               )}
-              {dayNumber === step.totalSteps && (
+              {step.nextDay === null && (
                 <Button asChild className="gap-2">
                   <Link href={`/c/${challengeSlug}/complete`}>
                     See your results <ArrowRight className="h-4 w-4" />
@@ -179,17 +198,17 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
 
         {/* Step navigation */}
         <div className="flex items-center justify-between pt-4">
-          {dayNumber > 1 ? (
+          {step.prevDay !== null ? (
             <Button variant="outline" asChild className="gap-2">
-              <Link href={`/c/${challengeSlug}/day/${dayNumber - 1}`}>
+              <Link href={`/c/${challengeSlug}/day/${step.prevDay}`}>
                 <ArrowLeft className="h-4 w-4" /> Step {dayNumber - 1}
               </Link>
             </Button>
           ) : <div />}
 
-          {dayNumber < step.totalSteps ? (
+          {step.nextDay !== null ? (
             <Button variant="outline" asChild className="gap-2">
-              <Link href={`/c/${challengeSlug}/day/${dayNumber + 1}`}>
+              <Link href={`/c/${challengeSlug}/day/${step.nextDay}`}>
                 Step {dayNumber + 1} <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

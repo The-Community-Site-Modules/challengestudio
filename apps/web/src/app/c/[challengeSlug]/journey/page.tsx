@@ -11,7 +11,9 @@ import Link from 'next/link'
 import { Check, Lock, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getCurrentUser } from '@/lib/auth/session'
-import { getParticipantProgress } from '../actions'
+import { getParticipantProgress } from '@/lib/enrollment/progress'
+import { safeZone } from '@/lib/time/zoned'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -24,11 +26,11 @@ export default async function JourneyPage({ params }: Props) {
 
   const progress = await getParticipantProgress(challengeSlug, user.id)
   if (!progress) redirect(`/c/${challengeSlug}`)
-  if (progress.participant.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+  if (!isParticipating(progress.participant.status)) redirect(`/c/${challengeSlug}/welcome`)
 
-  const { challenge, steps, completedCount, totalRequired, progressPct } = progress
+  const { challenge, steps, completedRequired, totalRequired, progressPct } = progress
   const base = `/c/${challengeSlug}`
-  const timeZone = challenge.timezone ?? 'UTC'
+  const timeZone = safeZone(challenge.timezone)
 
   const fmt = (d: Date) =>
     new Intl.DateTimeFormat('en-US', {
@@ -41,7 +43,7 @@ export default async function JourneyPage({ params }: Props) {
       <main className="mx-auto max-w-3xl px-4 py-6">
         <h1 className="text-[26px] font-bold tracking-tight text-foreground">Your journey</h1>
         <p className="mt-1 text-muted-foreground">
-          {completedCount} of {totalRequired} required {totalRequired === 1 ? 'day' : 'days'} done
+          {completedRequired} of {totalRequired} required {totalRequired === 1 ? 'day' : 'days'} done
           {' · '}
           {progressPct}% through
         </p>
@@ -68,7 +70,7 @@ export default async function JourneyPage({ params }: Props) {
                   {s.isCompleted ? (
                     <Check className="h-5 w-5" aria-hidden="true" />
                   ) : open ? (
-                    s.order + 1
+                    s.position
                   ) : (
                     <Lock className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -76,7 +78,7 @@ export default async function JourneyPage({ params }: Props) {
 
                 <span className="min-w-0 flex-1">
                   <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                    Day {s.order + 1}
+                    Day {s.position}
                     {!s.isRequired && ' · optional'}
                   </span>
                   <span className="mt-0.5 block truncate font-semibold text-foreground">{s.title}</span>

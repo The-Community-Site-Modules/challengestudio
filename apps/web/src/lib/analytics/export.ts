@@ -30,9 +30,17 @@ export interface ParticipantExportRow {
   comments: number
 }
 
-/** RFC 4180: quote anything containing a comma, quote or newline. */
-function csvCell(value: string | number): string {
-  const text = String(value)
+/**
+ * RFC 4180: quote anything containing a comma, quote or newline.
+ *
+ * Also defuses spreadsheet formulas. Names come from the public registration
+ * form, so a participant called `=HYPERLINK("https://evil.example","Click")`
+ * became a live formula in the creator's Excel. A leading apostrophe makes
+ * Excel, Sheets and LibreOffice treat the cell as text (OWASP CSV injection).
+ */
+export function csvCell(value: string | number): string {
+  let text = String(value)
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
@@ -65,11 +73,14 @@ export async function participantExportRows(challengeId: string): Promise<Partic
       select: {
         id: true, status: true, registeredAt: true,
         profile: { select: { fullName: true, email: true } },
-        submissions: { select: { submittedAt: true, isPrivate: true } },
+        submissions: {
+          select: { submittedAt: true, isPrivate: true, step: { select: { isRequired: true, isPublished: true } } },
+        },
         _count: { select: { posts: true, comments: true, badgeAwards: true } },
       },
     }),
-    db.challengeStep.count({ where: { challengeId, isRequired: true } }),
+    // The same measure the participant sees: published required steps.
+    db.challengeStep.count({ where: { challengeId, isRequired: true, isPublished: true } }),
   ])
 
   const points = await db.pointsEvent.groupBy({
@@ -89,7 +100,9 @@ export async function participantExportRows(challengeId: string): Promise<Partic
       status: String(p.status).toLowerCase(),
       registeredAt: p.registeredAt.toISOString(),
       lastActivityAt: last?.toISOString() ?? '',
-      stepsCompleted: p.submissions.length,
+      // Counted against the same steps as stepsTotal; optional and draft steps
+      // used to push this past the total.
+      stepsCompleted: p.submissions.filter(s => s.step.isRequired && s.step.isPublished).length,
       stepsTotal: stepCount,
       privateSubmissions: p.submissions.filter(s => s.isPrivate).length,
       points: pointsBy.get(p.id) ?? 0,

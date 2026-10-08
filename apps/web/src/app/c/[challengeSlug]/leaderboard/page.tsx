@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { leaderboard } from '@/lib/gamification'
 import { cn } from '@/lib/utils'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props { params: Promise<{ challengeSlug: string }> }
 
@@ -42,7 +43,7 @@ export default async function LeaderboardPage({ params }: Props) {
     select: { id: true, status: true },
   })
   if (!me) redirect(`/c/${challengeSlug}`)
-  if (me.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+  if (!isParticipating(me.status)) redirect(`/c/${challengeSlug}/welcome`)
 
   const standings = await leaderboard(challenge.id, 50)
 
@@ -51,7 +52,7 @@ export default async function LeaderboardPage({ params }: Props) {
     where:  { id: { in: standings.map(s => s.participantId) } },
     select: {
       id: true,
-      profile: { select: { fullName: true, email: true, avatarUrl: true } },
+      profile: { select: { fullName: true, avatarUrl: true } },
     },
   })
   const byId = new Map(people.map(p => [p.id, p.profile]))
@@ -62,7 +63,9 @@ export default async function LeaderboardPage({ params }: Props) {
       rank: i + 1,
       participantId: s.participantId,
       points: s.points,
-      name: profile?.fullName?.trim() || profile?.email || 'Someone',
+      // Never the email: every participant can read the leaderboard, and a
+      // profile with no name used to put its owner's address on it.
+      name: profile?.fullName?.trim() || 'Participant',
       avatar: profile?.avatarUrl ?? null,
       isMe: s.participantId === me.id,
     }

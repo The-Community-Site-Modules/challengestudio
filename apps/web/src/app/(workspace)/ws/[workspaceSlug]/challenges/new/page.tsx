@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useTransition } from 'react'
+import { toast } from 'sonner'
 import { WizardShell } from '@/components/challenge/wizard-shell'
 import {
   Step1Foundation, Step2Outcome,   Step3Mode,
@@ -28,8 +29,12 @@ function WizardInner() {
       // The saved draft is only useful while the challenge does not exist.
       // Once it does, leaving it behind means the next visit to the wizard
       // reopens a finished challenge as if it were unfinished.
+      //
+      // But only once it does. If the create is refused or fails, the draft
+      // goes straight back — it used to be gone for good, with no message,
+      // because the result was never read.
       clearDraft()
-      await createChallengeAction(params.workspaceSlug, {
+      const result = await createChallengeAction(params.workspaceSlug, {
         title:            data.title,
         slug:             data.slug,
         description:      data.description,
@@ -44,7 +49,7 @@ function WizardInner() {
         registrationOpensAt:  data.registrationOpensAt,
         registrationClosesAt: data.registrationClosesAt,
         isPublic:         data.visibility === 'public',
-        maxParticipants:  data.maxParticipants ? parseInt(data.maxParticipants) : null,
+        maxParticipants:  data.maxParticipants ? (parseInt(data.maxParticipants, 10) || null) : null,
         requiresApproval: data.requiresApproval,
         settings: {
           // No columns for these two, and `settings` is already the JSON bag
@@ -64,7 +69,15 @@ function WizardInner() {
             bonuses:  data.offerBonuses,
           },
         },
+      }).catch((error: unknown) => {
+        saveDraft()
+        throw error
       })
+      // Success redirects to the builder; a result means it was refused.
+      if (result && 'error' in result) {
+        saveDraft()
+        toast.error(result.error)
+      }
     })
   }
 

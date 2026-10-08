@@ -42,6 +42,9 @@ by hand.
 | `auth_trigger.sql` | Auto-create profile on signup + backfill | ✅ Applied 2026-08-25 |
 | `auth_delete_trigger.sql` | Delete profile when account is deleted | ✅ Applied 2026-08-25 |
 | `fix_invitation_rls.sql` | **Drops a world-readable policy** | ✅ Applied 2026-08-26 — run *after* add_workspace_invitations |
+| `add_challenge_slug_unique.sql` | Challenge slugs unique platform-wide (renames existing duplicates, see NOTICE output) | ⏳ **Not yet applied** — required by the Prisma schema's `slug @unique` |
+| `fix_submission_privacy.sql` | Backfills `submissions.is_private` from the reflection block's nested flag | ⏳ **Not yet applied** — run *after* add_submission_review |
+| `lock_down_postgrest.sql` | **Revokes all `anon`/`authenticated` access to the public schema** — the app never uses PostgREST, and the old policies let users approve themselves and rewrite `profiles.email` | ⏳ **Not yet applied** — run *last* |
 
 ## What RLS does and does not cover
 

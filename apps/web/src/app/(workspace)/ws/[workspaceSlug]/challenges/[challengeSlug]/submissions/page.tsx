@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
+import { readableAnswer, submissionFiles, submissionIsPrivate } from '@/lib/submissions/payload'
 import { ReviewClient, type SubmissionRow } from './_components/review-client'
 
 interface Props {
@@ -23,26 +24,6 @@ interface Props {
 }
 
 export const metadata = { title: 'Submissions — Challenge Studio' }
-
-/**
- * Pull something readable out of a submission payload.
- *
- * Blocks store their own shapes, so this looks for the ones that carry writing
- * and leaves the rest alone rather than dumping raw JSON at a reviewer.
- */
-function readableAnswer(data: unknown): string {
-  if (typeof data !== 'object' || data === null) return ''
-  const d = data as Record<string, unknown>
-
-  if (typeof d.text === 'string') return d.text
-  if (typeof d.answer === 'string') return d.answer
-
-  // Whatever else is a plain string, in the order the block stored it.
-  return Object.entries(d)
-    .filter(([key, v]) => typeof v === 'string' && key !== 'isPrivate')
-    .map(([, v]) => v as string)
-    .join('\n\n')
-}
 
 export default async function SubmissionsPage({ params }: Props) {
   const { workspaceSlug, challengeSlug } = await params
@@ -87,20 +68,31 @@ export default async function SubmissionsPage({ params }: Props) {
     : []
   const reviewerName = new Map(reviewers.map(r => [r.id, r.fullName?.trim() || r.email]))
 
-  const submissions: SubmissionRow[] = rows.map((r) => ({
+  const submissions: SubmissionRow[] = rows.map((r) => {
+    // The column, or the payload for rows written before the column was set
+    // correctly — either one saying private is enough.
+    const isPrivate = r.isPrivate || submissionIsPrivate(r.data)
+    return {
     id: r.id,
     stepTitle: r.step.title,
     submittedAt: r.submittedAt.toISOString(),
     authorName: r.participant.profile.fullName?.trim() || r.participant.profile.email,
     authorAvatar: r.participant.profile.avatarUrl,
-    isPrivate: r.isPrivate,
+    isPrivate,
     // Withheld rather than rendered and hidden in CSS — a private answer that
     // reaches the browser has already left the server.
-    answer: r.isPrivate && !canViewPrivate ? null : readableAnswer(r.data),
+    answer: isPrivate && !canViewPrivate ? null : readableAnswer(r.data),
+    // Links to a permission-checked route, never a storage URL: the bucket is
+    // private, and the route signs a short-lived link only when asked.
+    files: isPrivate && !canViewPrivate ? [] : submissionFiles(r.data).map((file, n) => ({
+      filename: file.filename,
+      href: `/ws/${workspaceSlug}/challenges/${challengeSlug}/submissions/${r.id}/file?n=${n}`,
+    })),
     feedback: r.feedback ?? '',
     reviewedAt: r.reviewedAt?.toISOString() ?? null,
     reviewerName: r.reviewedById ? reviewerName.get(r.reviewedById) ?? null : null,
-  }))
+    }
+  })
 
   const awaiting = submissions.filter(s => !s.reviewedAt).length
 

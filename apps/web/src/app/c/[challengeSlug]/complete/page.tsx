@@ -13,7 +13,8 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Star, CheckCircle, Flame, ArrowLeft } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
-import { getParticipantProgress } from '../actions'
+import { getParticipantProgress } from '@/lib/enrollment/progress'
+import { formatInZone } from '@/lib/time/zoned'
 
 interface Props { params: Promise<{ challengeSlug: string }> }
 
@@ -30,15 +31,15 @@ export default async function CompletePage({ params }: Props) {
   const progress = await getParticipantProgress(challengeSlug, user.id)
   if (!progress) notFound()
 
-  const { challenge, participant, steps, streak, xp, completedCount, totalRequired } = progress
+  const { challenge, participant, steps, streak, xp, completedCount, completedRequired, totalRequired } = progress
 
   // Reaching here without having finished would congratulate someone mid-way.
-  if (completedCount < totalRequired || totalRequired === 0) {
+  if (completedRequired < totalRequired || totalRequired === 0) {
     redirect(`/c/${challengeSlug}/hub`)
   }
 
   const firstName = (user.fullName ?? user.email).split(/[\s@]/)[0]
-  const finishedOn = (participant.completedAt ?? new Date()).toLocaleDateString('en-US', {
+  const finishedOn = formatInZone(participant.completedAt ?? new Date(), challenge.timezone, {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 

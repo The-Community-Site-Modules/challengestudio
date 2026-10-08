@@ -29,8 +29,8 @@ export default function LoginPage() {
     const key = `${error ?? ''}|${message ?? ''}`
     if (key === '|' || shownToast.current === key) return
     shownToast.current = key
-    if (error)   toast.error(decodeURIComponent(error))
-    if (message) toast.success(decodeURIComponent(message))
+    if (error)   toast.error(error)
+    if (message) toast.success(message)
   }, [error, message])
 
   // Where to land after signing in. An invitation link sends people here when

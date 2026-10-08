@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   const [isPending,     startTransition]  = useTransition()
 
   useEffect(() => {
-    if (error) toast.error(decodeURIComponent(error))
+    if (error) toast.error(error)
   }, [error])
 
   // Live password match indicator

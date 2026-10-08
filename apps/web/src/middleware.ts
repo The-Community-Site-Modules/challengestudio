@@ -93,8 +93,18 @@ export async function middleware(request: NextRequest) {
 
   const policy = contentSecurityPolicy()
 
+  // The challenge layout decides whether to draw its nav from the path, and a
+  // layout cannot read the URL any other way. Nothing used to set this, so the
+  // layout fell back to `referer` — an absolute URL of the *previous* page —
+  // and the participant nav never rendered.
+  const forwardHeaders = () => {
+    const h = new Headers(request.headers)
+    h.set('x-pathname', pathname)
+    return h
+  }
+
   // Build the response object that Supabase SSR can attach cookies to
-  let response = NextResponse.next({ request: { headers: request.headers } })
+  let response = NextResponse.next({ request: { headers: forwardHeaders() } })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,7 +114,9 @@ export async function middleware(request: NextRequest) {
         getAll: () => request.cookies.getAll(),
         setAll: (cookiesToSet) => {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+          // Re-read after the cookie writes, so the refreshed session reaches
+          // the page along with the path.
+          response = NextResponse.next({ request: { headers: forwardHeaders() } })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )

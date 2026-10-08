@@ -4,9 +4,9 @@
 // uses — see components/challenge/content-blocks. A preview built from its own
 // renderers would drift from the thing it previews, which is its only job.
 
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { requireWorkspaceMember } from '@/lib/auth/session'
-import { requirePermission } from '@/lib/permissions'
+import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
 import { PreviewClient, type PreviewStep } from './_components/preview-client'
 
@@ -22,7 +22,10 @@ export default async function PreviewPage({ params }: Props) {
 
   // Draft content is not public, so seeing it requires the same capability as
   // editing it — membership alone is not enough.
-  await requirePermission(user.id, workspace.id, 'challenge.preview')
+  // Redirect rather than throw: a thrown error is the error page, not an answer.
+  if (!(await hasPermission(user.id, workspace.id, 'challenge.preview'))) {
+    redirect(`/ws/${workspaceSlug}/challenges/${challengeSlug}/overview`)
+  }
 
   const challenge = await db.challenge.findUnique({
     where: { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },

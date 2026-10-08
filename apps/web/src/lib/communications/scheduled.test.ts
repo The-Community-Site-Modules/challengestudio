@@ -176,6 +176,40 @@ describe('inactivity nudge', () => {
     await sweepInactivityNudge(new Date('2026-03-10T18:00:00Z'))
     expect(keys()[0]).toBe(key)
   })
+
+  it('reaches people past the first 200 once those have all been nudged', async () => {
+    // The sweep used to take 200 rows and only then drop the already-nudged
+    // ones. With the first 200 done, it found nobody and stopped — every week.
+    const row = (id: string) => ({
+      ...person(id),
+      challenge: {
+        id: 'ch1', slug: 'design-sprint', title: 'Design Sprint',
+        workspaceId: 'ws1', workspace: { name: 'Designify' },
+      },
+    })
+    const firstPage = Array.from({ length: 200 }, (_, i) => row(`a${String(i).padStart(3, '0')}`))
+    db.participant.findMany
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([row('b001')])
+    db.messageDelivery.findMany.mockImplementation(async ({ where }: { where: { idempotencyKey: { in: string[] } } }) =>
+      where.idempotencyKey.in.filter(k => k.startsWith('a')).map(idempotencyKey => ({ idempotencyKey }))
+    )
+
+    await sweepInactivityNudge(NOW)
+
+    expect(keys()).toHaveLength(1)
+    expect(keys()[0]!.startsWith('b001:')).toBe(true)
+    // The second page continues after the last id of the first.
+    expect(db.participant.findMany.mock.calls[1]?.[0]?.cursor).toEqual({ id: 'a199' })
+  })
+
+  it('does not count a recent failed attempt as delivered, but gives up on an old one', async () => {
+    await sweepInactivityNudge(NOW)
+    const where = db.messageDelivery.findMany.mock.calls[0]?.[0]?.where
+    expect(where.OR[0]).toEqual({ status: { not: 'failed' } })
+    // Older than the retry window: settled, so it stops taking sweep budget.
+    expect(where.OR[1].createdAt.lt).toBeInstanceOf(Date)
+  })
 })
 
 describe('offer closing', () => {

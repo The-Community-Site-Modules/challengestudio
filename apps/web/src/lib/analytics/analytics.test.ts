@@ -171,6 +171,27 @@ describe('the at-risk list', () => {
     ])
     expect((await challengeMetrics('ch1', NOW)).atRisk).toHaveLength(0)
   })
+
+  it('leaves out people still waiting for approval', async () => {
+    // They cannot open a step, so their silence is not risk and their
+    // schedule is not reach.
+    db.participant.findMany.mockResolvedValue([participant({ id: 'p1', status: 'PENDING' })])
+    const m = await challengeMetrics('ch1', NOW)
+    expect(m.atRisk).toHaveLength(0)
+    expect(m.dayByDay.every(d => d.reached === 0)).toBe(true)
+  })
+
+  it('never reports a submission rate above 100%', async () => {
+    // A submission on a step that is no longer published used to count in the
+    // numerator but not the denominator.
+    db.participant.findMany.mockResolvedValue([participant({
+      submissions: [
+        { stepId: 's1', submittedAt: NOW }, { stepId: 's2', submittedAt: NOW },
+        { stepId: 's3', submittedAt: NOW }, { stepId: 'unpublished', submittedAt: NOW },
+      ],
+    })])
+    expect((await challengeMetrics('ch1', NOW)).submissionRate).toBe(100)
+  })
 })
 
 describe('export', () => {
@@ -179,8 +200,10 @@ describe('export', () => {
       participant({
         id: 'p1',
         submissions: [
-          { stepId: 's1', submittedAt: new Date('2026-03-10T12:00:00Z'), isPrivate: false },
-          { stepId: 's2', submittedAt: new Date('2026-03-11T12:00:00Z'), isPrivate: true },
+          { stepId: 's1', submittedAt: new Date('2026-03-10T12:00:00Z'), isPrivate: false, step: { isRequired: true, isPublished: true } },
+          { stepId: 's2', submittedAt: new Date('2026-03-11T12:00:00Z'), isPrivate: true,  step: { isRequired: true, isPublished: true } },
+          // Optional: counts as activity, not towards the required total.
+          { stepId: 's9', submittedAt: new Date('2026-03-09T12:00:00Z'), isPrivate: false, step: { isRequired: false, isPublished: true } },
         ],
         _count: { posts: 2, comments: 4, badgeAwards: 1 },
       }),
@@ -192,7 +215,9 @@ describe('export', () => {
     // §17.3: the safest way not to leak private content is not to select it.
     await participantExportRows('ch1')
     const select = db.participant.findMany.mock.calls[0]?.[0]?.select
-    expect(select.submissions.select).toEqual({ submittedAt: true, isPrivate: true })
+    expect(select.submissions.select).toEqual({
+      submittedAt: true, isPrivate: true, step: { select: { isRequired: true, isPublished: true } },
+    })
     expect(select.submissions.select.data).toBeUndefined()
   })
 
@@ -235,6 +260,20 @@ describe('csv', () => {
 
   it('quotes a value containing a newline rather than breaking the row', () => {
     expect(toCsv([{ ...row, name: 'Ada\nLovelace' }])).toContain('"Ada\nLovelace"')
+  })
+
+  it.each(['=1+1', '+1', '-1', '@SUM(A1)', '\t=1', '=HYPERLINK("https://evil.example","x")'])(
+    'defuses a spreadsheet formula in %j',
+    (name) => {
+      // Names come from the public registration form.
+      const cell = toCsv([{ ...row, name }]).split('\r\n')[1]!.replace(/^"/, '')
+      expect(cell.startsWith("'")).toBe(true)
+    }
+  )
+
+  it('leaves ordinary text and numbers alone, negative numbers included', () => {
+    expect(toCsv([{ ...row, name: 'Ada', points: -5 }])).toContain('Ada,ada@example.com')
+    expect(toCsv([{ ...row, points: -5 }])).toContain(',-5,')
   })
 })
 

@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [],
   },
+  // Uploads go through server actions, whose body limit defaults to 1 MB —
+  // so every file over 1 MB failed, while the UI promised 5 MB images and
+  // 25 MB files (lib/storage). Sized to the larger limit plus form overhead.
+  // NB: on Vercel the platform caps a function request at 4.5 MB regardless.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '26mb',
+    },
+  },
   // Prevent server-only packages from being bundled into client
   serverExternalPackages: [
     '@prisma/client',

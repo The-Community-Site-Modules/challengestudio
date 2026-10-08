@@ -13,6 +13,7 @@
 
 import { db } from '@/lib/db'
 import { calculateUnlocks, type ChallengeMode } from '@/lib/enrollment/unlock'
+import { isParticipating } from '@/lib/enrollment/register'
 
 export interface DayReach {
   stepId: string
@@ -117,6 +118,12 @@ export async function challengeMetrics(challengeId: string, now = new Date()): P
     if (submittedStepIds.size > 0) activated++
     totalCompletedSteps += submittedStepIds.size
 
+    // Someone waiting for approval (PENDING) or turned away (DROPPED) cannot
+    // open a step, so their schedule is not "reach" and their silence is not
+    // risk. Counting them made the at-risk list open with people the creator
+    // had not yet let in.
+    if (!isParticipating(p.status)) continue
+
     const unlocks = calculateUnlocks({
       mode:              challenge.mode as ChallengeMode,
       timezone:          challenge.timezone ?? 'UTC',
@@ -156,7 +163,10 @@ export async function challengeMetrics(challengeId: string, now = new Date()): P
     }
   }
 
-  const totalSubmissions = participants.reduce((n, p) => n + p.submissions.length, 0)
+  // Submissions on steps that had opened — the same population as the
+  // denominator. Counting every submission (drafts, steps since unpublished)
+  // could push the rate past 100%.
+  const totalSubmissions = [...completedPerStep.values()].reduce((n, v) => n + v, 0)
   const completed = participants.filter(p => p.status === 'COMPLETED').length
   const communityParticipants = participants.filter(p => p._count.posts + p._count.comments > 0).length
 

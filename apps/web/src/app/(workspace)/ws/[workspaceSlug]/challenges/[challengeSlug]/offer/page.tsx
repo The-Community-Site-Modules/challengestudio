@@ -9,6 +9,7 @@ import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { dateToZonedLocal } from '@/lib/time/zoned'
 import { OfferClient } from './_components/offer-client'
 import type { OfferInput } from './actions'
 
@@ -18,12 +19,9 @@ interface Props {
 
 export const metadata = { title: 'Offer — Challenge Studio' }
 
-/** datetime-local wants "YYYY-MM-DDTHH:mm" in local time, not an ISO string. */
-function forInput(d: Date | null): string {
-  if (!d) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-         `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+/** The picker's "YYYY-MM-DDTHH:mm", on the challenge's wall clock. */
+function forInput(d: Date | null, timeZone: string | null): string {
+  return d ? dateToZonedLocal(d, timeZone) : ''
 }
 
 export default async function OfferPage({ params }: Props) {
@@ -33,7 +31,7 @@ export default async function OfferPage({ params }: Props) {
   const challenge = await db.challenge.findUnique({
     where:  { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
     select: {
-      id: true, title: true,
+      id: true, title: true, timezone: true,
       offer: {
         select: {
           id: true, enabled: true, headline: true, body: true, ctaLabel: true,
@@ -55,7 +53,7 @@ export default async function OfferPage({ params }: Props) {
     ctaLabel: offer?.ctaLabel ?? '',
     ctaUrl:   offer?.ctaUrl ?? '',
     bonuses:  bonuses.join('\n'),
-    closesAt: forInput(offer?.closesAt ?? null),
+    closesAt: forInput(offer?.closesAt ?? null, challenge.timezone),
   }
 
   return (

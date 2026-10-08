@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const db = {
   challenge:   { findFirst: vi.fn(), findUnique: vi.fn() },
-  participant: { upsert: vi.fn() },
+  participant: { upsert: vi.fn(), findUnique: vi.fn() },
   profile:     { upsert: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
@@ -52,7 +52,8 @@ vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.7' }),
 }))
 
-const { registerAction, enrollAfterAuthAction } = await import('./actions')
+const { registerAction } = await import('./actions')
+const { enrollAfterAuth: enrollAfterAuthAction } = await import('@/lib/enrollment/register')
 const { __resetRateLimits } = await import('@/lib/rate-limit')
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -107,6 +108,8 @@ beforeEach(() => {
   auth.user = null
   auth.otpError = null
   withChallenge()
+  // clearAllMocks keeps implementations; nobody is enrolled unless a test says so.
+  db.participant.findUnique.mockResolvedValue(null)
 })
 
 // ─── Who may register ────────────────────────────────────────────────────────
@@ -178,16 +181,20 @@ describe('approval', () => {
     expect(createdStatus()).toBe('PENDING')
   })
 
+  /** What the callback reads: the open challenge, enriched with a count. */
+  const forCallback = (patch: Record<string, unknown> = {}) =>
+    db.challenge.findUnique.mockResolvedValue({ ...OPEN_CHALLENGE, ...patch })
+
   it('reaches the same decision on the magic-link path', async () => {
     // This path enrols later, in the auth callback, so it re-reads the setting
     // rather than inheriting the one registerAction saw.
-    db.challenge.findUnique.mockResolvedValue({ requiresApproval: true })
+    forCallback({ requiresApproval: true })
     await enrollAfterAuthAction('u2', 'ada@example.com', 'Ada Lovelace', 'ch1')
     expect(createdStatus()).toBe('PENDING')
   })
 
   it('does not gate the magic-link path when approval is off', async () => {
-    db.challenge.findUnique.mockResolvedValue({ requiresApproval: false })
+    forCallback()
     await enrollAfterAuthAction('u2', 'ada@example.com', 'Ada Lovelace', 'ch1')
     expect(createdStatus()).toBe('REGISTERED')
   })
@@ -197,6 +204,42 @@ describe('approval', () => {
     db.challenge.findUnique.mockResolvedValue(null)
     await expect(enrollAfterAuthAction('u2', 'a@b.com', 'Ada', 'gone')).rejects.toThrow(/not found/)
     expect(db.participant.upsert).not.toHaveBeenCalled()
+  })
+})
+
+// ─── The magic-link path applies every gate the form does ─────────────────────
+//
+// The challenge id rides on the callback URL, which the person controls. The
+// callback used to read only requiresApproval, so editing the id enrolled
+// anyone into a private, draft or full challenge.
+
+describe('magic-link gates', () => {
+  const forCallback = (patch: Record<string, unknown> = {}) =>
+    db.challenge.findUnique.mockResolvedValue({ ...OPEN_CHALLENGE, ...patch })
+
+  it.each([
+    ['a private challenge', { isPublic: false }, /private/],
+    ['a draft challenge',   { status: 'DRAFT' }, /not open/],
+    ['a full challenge',    { maxParticipants: 4, _count: { participants: 4 } }, /full/],
+    ['a closed window',     { registrationClosesAt: new Date(Date.now() - 86_400_000) }, /closed/],
+  ])('refuses %s', async (_label, patch, message) => {
+    forCallback(patch)
+    await expect(enrollAfterAuthAction('u2', 'a@b.com', 'Ada', 'ch1')).rejects.toThrow(message)
+    expect(db.participant.upsert).not.toHaveBeenCalled()
+    expect(db.profile.upsert).not.toHaveBeenCalled()
+  })
+
+  it('leaves an existing participant alone even once the challenge is full', async () => {
+    forCallback({ maxParticipants: 4, _count: { participants: 4 } })
+    db.participant.findUnique.mockResolvedValue({ id: 'p1' })
+    await enrollAfterAuthAction('u2', 'a@b.com', 'Ada', 'ch1')
+    expect(db.participant.upsert).not.toHaveBeenCalled()
+  })
+
+  it('is not a server action any more', async () => {
+    // Exported from a use-server module it was a public endpoint taking a user id.
+    const actions = await import('./actions')
+    expect('enrollAfterAuthAction' in actions).toBe(false)
   })
 })
 

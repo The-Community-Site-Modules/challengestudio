@@ -20,10 +20,12 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { getCurrentUser } from '@/lib/auth/session'
-import { getParticipantProgress } from '../actions'
+import { getParticipantProgress } from '@/lib/enrollment/progress'
 import { db } from '@/lib/db'
+import { safeZone } from '@/lib/time/zoned'
 import { BADGES } from '@/lib/gamification'
 import { HubComposer } from './_components/hub-composer'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -62,15 +64,15 @@ export default async function ChallengeHubPage({ params }: Props) {
 
   const progress = await getParticipantProgress(challengeSlug, user.id)
   if (!progress) redirect(`/c/${challengeSlug}`)
-  if (progress.participant.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+  if (!isParticipating(progress.participant.status)) redirect(`/c/${challengeSlug}/welcome`)
 
-  const { challenge, participant, steps, streak, xp, progressPct, completedCount, totalRequired } = progress
+  const { challenge, participant, steps, streak, xp, progressPct, completedCount, completedRequired, totalRequired } = progress
   const base = `/c/${challengeSlug}`
 
   const todayStep = steps.find((s) => s.status === 'active') ?? steps.find((s) => s.unlocked && !s.isCompleted)
 
   const now = new Date()
-  const timeZone = challenge.timezone ?? 'UTC'
+  const timeZone = safeZone(challenge.timezone)
 
   const [todayBlocks, awards, sessions, posts, postCount] = await Promise.all([
     todayStep
@@ -100,7 +102,7 @@ export default async function ChallengeHubPage({ params }: Props) {
         id: true, body: true, createdAt: true,
         // A post belongs to a participant, not directly to a profile — the
         // name has to come through the enrolment.
-        participant: { select: { profile: { select: { fullName: true, email: true } } } },
+        participant: { select: { profile: { select: { fullName: true } } } },
         _count: { select: { comments: true, reactions: true } },
       },
     }),
@@ -117,7 +119,7 @@ export default async function ChallengeHubPage({ params }: Props) {
     (b) =>
       !earned.has(b.key) &&
       b.earned({
-        completedSteps: completedCount + 1,
+        completedSteps: completedRequired + 1,
         totalSteps: totalRequired,
         streak: streak + 1,
         posts: 0,
@@ -153,7 +155,7 @@ export default async function ChallengeHubPage({ params }: Props) {
                 <div className="grid gap-6 lg:grid-cols-[1fr_minmax(0,280px)]">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary-foreground/75">
-                      Today · Day {todayStep.order + 1} of {steps.length}
+                      Today · Day {todayStep.position} of {steps.length}
                     </p>
                     <h1 className="mt-2 text-[30px] font-bold leading-tight tracking-tight">
                       {todayStep.title}
@@ -254,12 +256,12 @@ export default async function ChallengeHubPage({ params }: Props) {
                           {s.isCompleted ? (
                             <Check className="h-4 w-4" aria-hidden="true" />
                           ) : s.unlocked ? (
-                            s.order + 1
+                            s.position
                           ) : (
                             <Lock className="h-3.5 w-3.5" aria-hidden="true" />
                           )}
                         </span>
-                        <span className="text-[12px] font-semibold text-foreground">Day {s.order + 1}</span>
+                        <span className="text-[12px] font-semibold text-foreground">Day {s.position}</span>
                         <span className="text-[11px] leading-tight text-muted-foreground">
                           {s.isCompleted
                             ? 'Done'
@@ -306,7 +308,8 @@ export default async function ChallengeHubPage({ params }: Props) {
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {posts.map((p) => {
                     const profile = p.participant.profile
-                    const name = profile?.fullName ?? profile?.email?.split('@')[0] ?? 'A participant'
+                    // Not even the start of the email — other participants see this.
+                    const name = profile?.fullName?.trim() || 'A participant'
                     const initials = name.slice(0, 2).toUpperCase()
                     return (
                       <li key={p.id} className="rounded-xl border border-border p-3.5">

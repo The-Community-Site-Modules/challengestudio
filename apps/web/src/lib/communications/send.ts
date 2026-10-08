@@ -20,6 +20,7 @@ import { db } from '@/lib/db'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { sendEmail, type EmailTrigger } from '@/lib/email'
 import { messageFor, isEssential, render, type Trigger } from './catalogue'
+import { RETRY_WINDOW_MS } from './retry'
 
 export interface DispatchInput {
   trigger: Trigger
@@ -71,8 +72,33 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
     })
     deliveryId = row.id
   } catch (e) {
-    if (isUniqueViolation(e)) return { status: 'duplicate' }
-    throw e
+    if (!isUniqueViolation(e)) throw e
+
+    // The key exists. If that earlier attempt *failed*, the message never
+    // reached anyone — treating it as a duplicate lost it for good, since the
+    // key can never be inserted again. Take the failed row back for one more
+    // try. updateMany on status is the claim: of two racing sweeps, only one
+    // flips failed → pending and goes on to send.
+    //
+    // Only for RETRY_WINDOW_MS after the first attempt. A permanent failure (a
+    // bad address, no provider configured) would otherwise be retried by every
+    // hourly sweep, forever.
+    const claimed = await db.messageDelivery.updateMany({
+      where: {
+        idempotencyKey: input.idempotencyKey,
+        status: 'failed',
+        createdAt: { gte: new Date(Date.now() - RETRY_WINDOW_MS) },
+      },
+      data:  { status: 'pending', error: null },
+    })
+    if (claimed.count === 0) return { status: 'duplicate' }
+
+    const row = await db.messageDelivery.findUnique({
+      where:  { idempotencyKey: input.idempotencyKey },
+      select: { id: true },
+    })
+    if (!row) return { status: 'duplicate' }
+    deliveryId = row.id
   }
 
   const settle = async (status: DispatchStatus, extra: Record<string, string> = {}) => {
@@ -97,6 +123,25 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
   }
 
   return actuallySend(input, definition.defaultSubject, definition.defaultBody, null, settle)
+}
+
+/**
+ * A plain-text message as HTML paragraphs, escaped first.
+ *
+ * The body carries participant names, challenge titles, workspace names and
+ * creator-written template text — all typed by someone other than the reader.
+ * Inserted raw, a name like `<a href="https://evil.example">Reset password</a>`
+ * became a working link in an email sent from this platform's domain. The
+ * invitation template already escaped; this path did not.
+ */
+export function textToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  return `<p>${escaped.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
 }
 
 async function actuallySend(
@@ -126,7 +171,7 @@ async function actuallySend(
     to:      input.to,
     subject,
     text:    body,
-    html:    `<p>${body.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`,
+    html:    textToHtml(body),
     trigger: input.trigger as EmailTrigger,
   })
 

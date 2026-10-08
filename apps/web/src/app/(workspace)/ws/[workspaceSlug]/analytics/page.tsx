@@ -10,6 +10,8 @@ import { PageHeader } from '@/components/shared/page-header'
 import { TimeSeriesChart, type TimePoint } from '@/components/shared/time-series-chart'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
+import { redirect } from 'next/navigation'
 
 interface Props {
   params: Promise<{ workspaceSlug: string }>
@@ -21,7 +23,12 @@ const DAYS = 30
 
 export default async function AnalyticsPage({ params }: Props) {
   const { workspaceSlug } = await params
-  const { workspace } = await requireWorkspaceMember(workspaceSlug)
+  const { user, workspace } = await requireWorkspaceMember(workspaceSlug)
+
+  // The same capability the per-challenge analytics page requires.
+  if (!(await hasPermission(user.id, workspace.id, 'analytics.view'))) {
+    redirect(`/ws/${workspaceSlug}`)
+  }
 
   const since = new Date()
   since.setDate(since.getDate() - (DAYS - 1))

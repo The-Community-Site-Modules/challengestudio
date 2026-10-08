@@ -6,12 +6,13 @@
 // §27 asks for failures to be observable and a silently skipped message is the
 // same problem wearing a different hat.
 
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Mail, AlertCircle } from 'lucide-react'
 import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 import { MESSAGES } from '@/lib/communications'
 import { cn } from '@/lib/utils'
 import { TemplateEditor, type TemplateRow } from './_components/template-editor'
@@ -33,7 +34,14 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 
 export default async function CommunicationsPage({ params }: Props) {
   const { workspaceSlug, challengeSlug } = await params
-  const { workspace } = await requireWorkspaceMember(workspaceSlug)
+  const { user, workspace } = await requireWorkspaceMember(workspaceSlug)
+
+  // The delivery log lists every recipient's email address. It asked for no
+  // capability, so any MEMBER could read them; editing templates already
+  // needs challenge.edit, so viewing this page does too.
+  if (!(await hasPermission(user.id, workspace.id, 'challenge.edit'))) {
+    redirect(`/ws/${workspaceSlug}/challenges/${challengeSlug}/overview`)
+  }
 
   const challenge = await db.challenge.findUnique({
     where:  { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },

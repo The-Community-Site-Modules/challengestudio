@@ -16,6 +16,7 @@ const db = {
   feedPost:    { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   feedComment: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   reaction:    { findUnique: vi.fn(), create: vi.fn(), delete: vi.fn() },
+  challengeStep: { findFirst: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -238,5 +239,34 @@ describe('rate limits (PRD §22.2)', () => {
     // A different person in the same challenge starts fresh.
     db.participant.findUnique.mockResolvedValue({ id: 'p2', status: 'REGISTERED' })
     expect((await createPostAction(SLUG, 'their first')).success).toBe(true)
+  })
+})
+
+describe('who has been turned away', () => {
+  it('refuses a participant the organiser rejected', async () => {
+    // Rejection sets DROPPED, and the gate checked only for PENDING.
+    db.participant.findUnique.mockResolvedValue({ id: 'p1', status: 'DROPPED' })
+    expect((await createPostAction(SLUG, 'hello')).success).toBe(false)
+    expect((await createCommentAction(SLUG, 'post1', 'hi')).success).toBe(false)
+    expect((await toggleReactionAction(SLUG, 'post1', '🔥')).success).toBe(false)
+    expect(db.feedPost.create).not.toHaveBeenCalled()
+    expect(db.feedComment.create).not.toHaveBeenCalled()
+    expect(db.reaction.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('posting about a step', () => {
+  it('refuses a step that is not in this challenge', async () => {
+    db.challengeStep.findFirst.mockResolvedValue(null)
+    expect((await createPostAction(SLUG, 'hello', 'st-elsewhere')).success).toBe(false)
+    expect(db.challengeStep.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'st-elsewhere', challengeId: 'ch1', isPublished: true },
+    }))
+    expect(db.feedPost.create).not.toHaveBeenCalled()
+  })
+
+  it('accepts a published step of this challenge', async () => {
+    db.challengeStep.findFirst.mockResolvedValue({ id: 'st1' })
+    expect((await createPostAction(SLUG, 'hello', 'st1')).success).toBe(true)
   })
 })

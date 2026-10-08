@@ -22,8 +22,8 @@ export function UrlToast() {
     if (key === '|' || shown.current === key) return
     shown.current = key
 
-    if (message) toast.success(decodeURIComponent(message))
-    if (error)   toast.error(decodeURIComponent(error))
+    if (message) toast.success(message)
+    if (error)   toast.error(error)
   }, [message, error])
 
   return null

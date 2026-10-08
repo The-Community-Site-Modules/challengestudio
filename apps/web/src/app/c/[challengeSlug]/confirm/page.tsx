@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { CheckCircle, Mail, Calendar, Share2 } from 'lucide-react'
 import { Button }  from '@/components/ui/button'
 import { Badge }   from '@/components/ui/badge'
+import { formatInZone } from '@/lib/time/zoned'
 import { db }      from '@/lib/db'
 
 interface Props {
@@ -16,21 +17,21 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      title: true, startsAt: true, requiresApproval: true,
+      title: true, startsAt: true, timezone: true, requiresApproval: true,
       workspace: { select: { name: true } },
     },
   })
 
   const startDate = challenge?.startsAt
-    ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatInZone(challenge.startsAt, challenge.timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : null
 
   // An approval-gated challenge has not accepted anyone yet; saying
   // "you're registered" would promise a place that is not theirs.
   const needsApproval = challenge?.requiresApproval ?? false
 
-  const displayName = name ? decodeURIComponent(name) : 'there'
-  const displayEmail = email ? decodeURIComponent(email) : null
+  const displayName = name ? name : 'there'
+  const displayEmail = email ? email : null
 
   return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center px-4 py-16">

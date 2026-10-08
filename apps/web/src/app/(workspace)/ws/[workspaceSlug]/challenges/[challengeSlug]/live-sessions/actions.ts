@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { requirePermission } from '@/lib/permissions'
+import { zonedLocalToDate } from '@/lib/time/zoned'
 
 /**
  * Live sessions (PRD §16).
@@ -25,11 +26,11 @@ async function authorize(workspaceSlug: string, challengeSlug: string) {
 
   const challenge = await db.challenge.findUnique({
     where:  { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
-    select: { id: true },
+    select: { id: true, timezone: true },
   })
   if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
 
-  return challenge.id
+  return challenge
 }
 
 export interface SessionInput {
@@ -48,20 +49,22 @@ function badUrl(value: string): boolean {
   return !/^https?:\/\/\S+$/i.test(value)
 }
 
-function validate(input: SessionInput): string | null {
+function validate(input: SessionInput, timeZone: string | null): string | null {
   if (!input.title.trim())    return 'Give the session a title.'
   if (!input.startsAt)        return 'A date and time is required.'
-  if (Number.isNaN(Date.parse(input.startsAt))) return 'That date could not be read.'
+  if (!zonedLocalToDate(input.startsAt, timeZone)) return 'That date could not be read.'
   if (badUrl(input.joinUrl))   return 'The join link must start with http:// or https://'
   if (badUrl(input.replayUrl)) return 'The replay link must start with http:// or https://'
   return null
 }
 
-function fields(input: SessionInput) {
+function fields(input: SessionInput, timeZone: string | null) {
   const minutes = parseInt(input.durationMinutes, 10)
   return {
     title:       input.title.trim(),
-    startsAt:    new Date(input.startsAt),
+    // The picker's wall-clock time, in the challenge's timezone — not the
+    // server's, which is UTC in production.
+    startsAt:    zonedLocalToDate(input.startsAt, timeZone)!,
     description: input.description.trim() || null,
     hostName:    input.hostName.trim() || null,
     joinUrl:     input.joinUrl.trim() || null,
@@ -78,11 +81,11 @@ function refresh(workspaceSlug: string, challengeSlug: string) {
 export async function createSessionAction(
   workspaceSlug: string, challengeSlug: string, input: SessionInput
 ) {
-  const challengeId = await authorize(workspaceSlug, challengeSlug)
-  const problem = validate(input)
+  const challenge = await authorize(workspaceSlug, challengeSlug)
+  const problem = validate(input, challenge.timezone)
   if (problem) return { success: false, error: problem }
 
-  await db.liveSession.create({ data: { challengeId, ...fields(input) } })
+  await db.liveSession.create({ data: { challengeId: challenge.id, ...fields(input, challenge.timezone) } })
   refresh(workspaceSlug, challengeSlug)
   return { success: true }
 }
@@ -90,8 +93,9 @@ export async function createSessionAction(
 export async function updateSessionAction(
   workspaceSlug: string, challengeSlug: string, sessionId: string, input: SessionInput
 ) {
-  const challengeId = await authorize(workspaceSlug, challengeSlug)
-  const problem = validate(input)
+  const challenge = await authorize(workspaceSlug, challengeSlug)
+  const challengeId = challenge.id
+  const problem = validate(input, challenge.timezone)
   if (problem) return { success: false, error: problem }
 
   // The id came from the browser; it must belong to this challenge.
@@ -103,7 +107,7 @@ export async function updateSessionAction(
     return { success: false, error: 'That session is not in this challenge.' }
   }
 
-  await db.liveSession.update({ where: { id: sessionId }, data: fields(input) })
+  await db.liveSession.update({ where: { id: sessionId }, data: fields(input, challenge.timezone) })
   refresh(workspaceSlug, challengeSlug)
   return { success: true }
 }
@@ -111,7 +115,7 @@ export async function updateSessionAction(
 export async function deleteSessionAction(
   workspaceSlug: string, challengeSlug: string, sessionId: string
 ) {
-  const challengeId = await authorize(workspaceSlug, challengeSlug)
+  const { id: challengeId } = await authorize(workspaceSlug, challengeSlug)
 
   const existing = await db.liveSession.findUnique({
     where:  { id: sessionId },

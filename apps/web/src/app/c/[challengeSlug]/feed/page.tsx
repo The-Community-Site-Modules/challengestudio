@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
 import { FeedClient, type FeedPostView } from './_components/feed-client'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props { params: Promise<{ challengeSlug: string }> }
 
@@ -36,7 +37,7 @@ export default async function FeedPage({ params }: Props) {
     select: { id: true, status: true },
   })
   if (!me) redirect(`/c/${challengeSlug}`)
-  if (me.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+  if (!isParticipating(me.status)) redirect(`/c/${challengeSlug}/welcome`)
 
   const canModerate = await hasPermission(user.id, challenge.workspaceId, 'community.moderate')
 
@@ -48,14 +49,14 @@ export default async function FeedPage({ params }: Props) {
     take: 100,
     select: {
       id: true, body: true, createdAt: true, participantId: true,
-      participant: { select: { profile: { select: { fullName: true, email: true, avatarUrl: true } } } },
+      participant: { select: { profile: { select: { fullName: true, avatarUrl: true } } } },
       step: { select: { title: true, order: true } },
       comments: {
         where:   { isHidden: false },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, body: true, createdAt: true, participantId: true,
-          participant: { select: { profile: { select: { fullName: true, email: true, avatarUrl: true } } } },
+          participant: { select: { profile: { select: { fullName: true, avatarUrl: true } } } },
         },
       },
       reactions: { select: { emoji: true, participantId: true } },
@@ -76,7 +77,8 @@ export default async function FeedPage({ params }: Props) {
       id: p.id,
       body: p.body,
       createdAt: p.createdAt.toISOString(),
-      authorName: p.participant.profile.fullName?.trim() || p.participant.profile.email,
+      // Never the email: every participant reads this feed.
+      authorName: p.participant.profile.fullName?.trim() || 'Participant',
       authorAvatar: p.participant.profile.avatarUrl,
       isMine: p.participantId === me.id,
       stepLabel: p.step ? `Day ${p.step.order + 1}` : null,
@@ -85,7 +87,7 @@ export default async function FeedPage({ params }: Props) {
         id: c.id,
         body: c.body,
         createdAt: c.createdAt.toISOString(),
-        authorName: c.participant.profile.fullName?.trim() || c.participant.profile.email,
+        authorName: c.participant.profile.fullName?.trim() || 'Participant',
         authorAvatar: c.participant.profile.avatarUrl,
         isMine: c.participantId === me.id,
       })),

@@ -24,6 +24,7 @@ import { StatCard } from '@/components/shared/stat-card'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
+import { formatInZone } from '@/lib/time/zoned'
 import { challengeMetrics } from '@/lib/analytics/challenge-metrics'
 import { recentActivity, type ActivityKind } from '@/lib/analytics/activity'
 
@@ -60,11 +61,13 @@ function ago(then: Date, now: Date): string {
 
 function dateRange(startsAt: Date | null, endsAt: Date | null, timezone: string | null): string {
   const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
+  // In the zone printed beside it — not the server's.
+  const fmt = (d: Date) => formatInZone(d, timezone, opts)
   const parts: string[] = []
   if (startsAt && endsAt) {
-    parts.push(`${startsAt.toLocaleDateString(undefined, opts)} – ${endsAt.toLocaleDateString(undefined, opts)}`)
+    parts.push(`${fmt(startsAt)} – ${fmt(endsAt)}`)
   } else if (startsAt) {
-    parts.push(`starts ${startsAt.toLocaleDateString(undefined, opts)}`)
+    parts.push(`starts ${fmt(startsAt)}`)
   } else {
     parts.push('no dates set')
   }
@@ -249,9 +252,9 @@ export default async function ChallengeOverviewPage({ params }: Props) {
                       <p className="text-sm font-semibold text-foreground">{nextSession.title}</p>
                       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3.5 w-3.5" />
-                        {nextSession.startsAt.toLocaleString(undefined, {
+                        {formatInZone(nextSession.startsAt, challenge.timezone, {
                           day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
+                          hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
                         })}
                       </p>
                       {nextSession.joinUrl && (

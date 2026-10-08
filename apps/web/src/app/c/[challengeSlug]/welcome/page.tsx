@@ -6,6 +6,8 @@ import { Badge }     from '@/components/ui/badge'
 import { Progress }  from '@/components/ui/progress'
 import { getCurrentUser } from '@/lib/auth/session'
 import { db }            from '@/lib/db'
+import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
+import { formatInZone } from '@/lib/time/zoned'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -22,11 +24,12 @@ export default async function WelcomePage({ params }: Props) {
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      id: true, title: true, startsAt: true, timezone: true,
+      id: true, title: true, startsAt: true, timezone: true, mode: true,
       workspace: { select: { name: true } },
       steps: {
+        where:   { isPublished: true },
         orderBy: { order: 'asc' },
-        select: { id: true, title: true, stepType: true, availableAt: true },
+        select: { id: true, title: true, stepType: true, availableAt: true, order: true },
       },
     },
   })
@@ -45,13 +48,47 @@ export default async function WelcomePage({ params }: Props) {
 
   const firstName = user.fullName?.split(' ')[0] ?? user.email.split('@')[0]
 
+  // Turned away by the organiser (or left). Every participant page sends them
+  // here, so this is where they are told — not "you're in" and a schedule.
+  if (participant.status === 'DROPPED') {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <main className="mx-auto max-w-2xl px-4 py-12">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center space-y-3">
+            <h1 className="text-2xl font-extrabold text-foreground">
+              You&apos;re not taking part in this challenge
+            </h1>
+            <p className="text-muted-foreground">
+              Your place in <strong className="text-foreground">{challenge.title}</strong> was not
+              confirmed by its organiser. If you think this is a mistake, contact{' '}
+              {challenge.workspace.name}.
+            </p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   // Approval-gated challenges park people on PENDING. Telling them "you're in"
   // and handing them the schedule would be a lie — they have not been let in yet.
   const awaitingApproval = participant.status === 'PENDING'
 
   const startDate = challenge.startsAt
-    ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    ? formatInZone(challenge.startsAt, challenge.timezone, { weekday: 'long', month: 'long', day: 'numeric' })
     : null
+
+  // The same engine the hub and day pages use. This list used to add i days
+  // to the challenge start, which was wrong for self-paced challenges (Day 1
+  // is the day you join), ignored a step's own availableAt, and printed the
+  // date in the server's timezone rather than the challenge's.
+  const unlocks = unlockMap({
+    mode:              challenge.mode as ChallengeMode,
+    timezone:          challenge.timezone ?? 'UTC',
+    challengeStartsAt: challenge.startsAt,
+    enrolledAt:        participant.registeredAt,
+    now:               new Date(),
+    steps: challenge.steps.map(s => ({ id: s.id, order: s.order, availableAt: s.availableAt })),
+  })
 
   const setupItems = [
     { label: 'Account created',        done: true },
@@ -119,9 +156,7 @@ export default async function WelcomePage({ params }: Props) {
             <h2 className="font-bold text-foreground">Your schedule</h2>
             <div className="space-y-2">
               {challenge.steps.map((step, i) => {
-                const unlockDate = challenge.startsAt
-                  ? new Date(new Date(challenge.startsAt).getTime() + i * 86400000)
-                  : null
+                const unlockDate = unlocks.get(step.id)?.unlocksAt ?? null
                 return (
                   <div key={step.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
@@ -132,7 +167,7 @@ export default async function WelcomePage({ params }: Props) {
                     </div>
                     {unlockDate && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {unlockDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {formatInZone(unlockDate, challenge.timezone, { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                   </div>

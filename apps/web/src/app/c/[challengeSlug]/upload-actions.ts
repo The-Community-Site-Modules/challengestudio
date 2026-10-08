@@ -20,6 +20,7 @@ import {
   uploadPrivateFile, storageKey, storageConfigured,
   FILE_TYPES, MAX_FILE_BYTES,
 } from '@/lib/storage'
+import { isParticipating } from '@/lib/enrollment/register'
 
 export interface SubmissionUploadResult {
   key?: string
@@ -57,7 +58,7 @@ export async function uploadSubmissionFileAction(
   })
   // PENDING means not approved yet — they cannot open the day, so they cannot
   // upload against it either.
-  if (!participant || participant.status === 'PENDING') {
+  if (!participant || !isParticipating(participant.status)) {
     return { error: 'You need to be taking part to upload here.' }
   }
 

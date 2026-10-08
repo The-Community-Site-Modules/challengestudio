@@ -34,7 +34,11 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     where: { id: user.id },
     select: { id: true, email: true, fullName: true, avatarUrl: true },
   })
-  if (profile) return profile
+  // The email is the one Supabase Auth verified, not the profiles column.
+  // Invitation binding and the platform-admin allow-list both compare against
+  // it, and profiles.email is a row a user could once rewrite for themselves
+  // through PostgREST (see lock_down_postgrest.sql).
+  if (profile) return user.email ? { ...profile, email: user.email } : profile
 
   // No profiles row for this authenticated user.
   //

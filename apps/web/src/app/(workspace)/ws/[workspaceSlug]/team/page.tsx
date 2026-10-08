@@ -67,12 +67,12 @@ export default async function TeamPage({ params, searchParams }: Props) {
         {/* Error / success banners */}
         {error && (
           <div className="mt-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {decodeURIComponent(error)}
+            {error}
           </div>
         )}
         {message && (
           <div className="mt-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
-            {decodeURIComponent(message)}
+            {message}
           </div>
         )}
 

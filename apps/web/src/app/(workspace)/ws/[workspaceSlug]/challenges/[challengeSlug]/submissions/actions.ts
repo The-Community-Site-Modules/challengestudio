@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { requirePermission, hasPermission } from '@/lib/permissions'
 import { dispatch } from '@/lib/communications'
+import { submissionIsPrivate } from '@/lib/submissions/payload'
 
 /**
  * Reviewing a participant's work (PRD §15's submission_feedback trigger).
@@ -57,7 +58,7 @@ export async function reviewSubmissionAction(
   const submission = await db.submission.findUnique({
     where:  { id: submissionId },
     select: {
-      id: true, isPrivate: true, feedback: true,
+      id: true, isPrivate: true, data: true, feedback: true,
       step: { select: { challengeId: true, title: true } },
       participant: {
         select: {
@@ -73,7 +74,7 @@ export async function reviewSubmissionAction(
 
   // Reviewing private work needs the stronger capability, not just the
   // reviewing one.
-  if (submission.isPrivate) {
+  if (submission.isPrivate || submissionIsPrivate(submission.data)) {
     const maySee = await hasPermission(user.id, workspaceId, 'submission.view_private')
     if (!maySee) {
       return { success: false, error: 'You cannot open private submissions.' }

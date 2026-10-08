@@ -8,7 +8,7 @@
 //   badges.ts   definitions in code, awards in a row
 //
 // Streaks are derived from submission timestamps rather than stored, so they
-// cannot drift — see getParticipantProgress.
+// cannot drift — see getParticipantProgress in lib/enrollment/progress.
 
 export {
   awardPoints, totalPoints, leaderboard, POINT_VALUES,

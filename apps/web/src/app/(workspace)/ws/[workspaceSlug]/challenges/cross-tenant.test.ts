@@ -25,10 +25,12 @@ const db = {
   workspace:     { findUnique: vi.fn() },
   challenge:     { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn(), create: vi.fn() },
   challengeStep: {
-    findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(),
+    findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(),
     create: vi.fn(), aggregate: vi.fn(), count: vi.fn(),
   },
   contentBlock:  { deleteMany: vi.fn(), createMany: vi.fn() },
+  // saveBlocksAction runs its delete-and-recreate in one transaction.
+  $transaction:  vi.fn(async (fn: (tx: unknown) => unknown) => fn(db)),
 }
 vi.mock('@/lib/db', () => ({ db }))
 
@@ -88,6 +90,7 @@ beforeEach(() => {
   db.challengeStep.update.mockResolvedValue({ id: MY_STEP })
   db.challengeStep.aggregate.mockResolvedValue({ _max: { order: 2 } })
   db.challengeStep.count.mockResolvedValue(2)
+  db.challengeStep.findMany.mockResolvedValue([])
   db.challengeStep.create.mockResolvedValue({ id: 'new', order: 3, title: 'Day 4 — Untitled' })
 })
 
@@ -238,5 +241,107 @@ describe('a workspace that does not exist', () => {
     const to = await refused(() => updateChallengeAction(MY_CHALLENGE, 'no-such-workspace', {}))
     expect(to).toBe('/dashboard')
     expect(db.challenge.findFirst).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Saving blocks is all-or-nothing ─────────────────────────────────────────
+
+describe('saveBlocksAction', () => {
+  it('refuses an unknown block type before deleting anything', async () => {
+    // It used to delete every block first and then fail on the insert,
+    // leaving the step empty.
+    const result = await saveBlocksAction(MY_STEP, MINE.slug, [
+      { type: 'heading', order: 0, data: {}, required: false },
+      { type: 'not_a_block', order: 1, data: {}, required: false },
+    ])
+    expect(result.success).toBe(false)
+    expect(db.contentBlock.deleteMany).not.toHaveBeenCalled()
+    expect(db.contentBlock.createMany).not.toHaveBeenCalled()
+  })
+
+  it('deletes and recreates inside one transaction', async () => {
+    await saveBlocksAction(MY_STEP, MINE.slug, [{ type: 'heading', order: 0, data: {}, required: false }])
+    expect(db.$transaction).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ─── Slugs are unique across workspaces ──────────────────────────────────────
+
+describe('challenge slugs', () => {
+  it('refuses a slug another workspace already uses', async () => {
+    // /c/<slug> has no workspace in it; a per-workspace check let two tenants
+    // share one public URL.
+    db.challenge.findFirst.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      if (where.workspaceId === MINE.id && where.id === MY_CHALLENGE) return { id: MY_CHALLENGE, slug: 'my-challenge' }
+      if (where.slug === 'taken' && !('workspaceId' in where)) return { id: 'ch_elsewhere' }
+      return null
+    })
+    const result = await updateChallengeAction(MY_CHALLENGE, MINE.slug, { slug: 'taken' })
+    expect(result).toEqual({ error: expect.stringMatching(/taken/) })
+    expect(db.challenge.update).not.toHaveBeenCalled()
+  })
+
+  it('refuses a slug that cleans down to nothing', async () => {
+    const result = await updateChallengeAction(MY_CHALLENGE, MINE.slug, { slug: '!!!' })
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(db.challenge.update).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Deleting a step closes the gap ──────────────────────────────────────────
+
+describe('deleteStepAction', () => {
+  it('renumbers the steps after the deleted one', async () => {
+    // order is the day number in the URL and the unlock offset; a hole made
+    // later steps open a day late and broke "next day" links.
+    db.challengeStep.findMany.mockResolvedValue([
+      { id: 'a', order: 0 }, { id: 'c', order: 2 }, { id: 'd', order: 3 },
+    ])
+    await deleteStepAction(MY_STEP, MINE.slug)
+    expect(db.challengeStep.delete).toHaveBeenCalledWith({ where: { id: MY_STEP } })
+    expect(db.challengeStep.update).toHaveBeenCalledTimes(2)
+    expect(db.challengeStep.update).toHaveBeenCalledWith({ where: { id: 'c' }, data: { order: 1 } })
+    expect(db.challengeStep.update).toHaveBeenCalledWith({ where: { id: 'd' }, data: { order: 2 } })
+  })
+})
+
+// ─── Mode from the settings page ─────────────────────────────────────────────
+
+describe('challenge mode', () => {
+  it.each([
+    ['drip', 'DRIP'], ['sprint', 'SPRINT'], ['live_event', 'LIVE_EVENT'],
+    ['certification', 'CERTIFICATION'], ['self_paced', 'SELF_PACED'],
+    ['DRIP', 'DRIP'], ['habit', 'SPRINT'], ['nonsense', 'SELF_PACED'],
+  ])('saves %s as %s', async (sent, stored) => {
+    // The settings page sends lower-case enum names; all but two used to
+    // fall through to SELF_PACED.
+    await updateChallengeAction(MY_CHALLENGE, MINE.slug, { mode: sent })
+    expect(db.challenge.update.mock.calls[0]?.[0]?.data?.mode).toBe(stored)
+  })
+
+  it('stores an empty timezone as none rather than as ""', async () => {
+    await updateChallengeAction(MY_CHALLENGE, MINE.slug, { timezone: '' })
+    expect(db.challenge.update.mock.calls[0]?.[0]?.data?.timezone).toBeNull()
+  })
+})
+
+// ─── Day settings are validated on the server ────────────────────────────────
+
+describe('updateStepAction values', () => {
+  it.each([
+    [{ pointsXp: -1000 }], [{ pointsXp: 1.5 }], [{ estimatedMinutes: -5 }], [{ title: '   ' }],
+  ])('refuses %j without writing', async (patch) => {
+    // Negative XP was awarded as-is on completion; a decimal failed on the
+    // Int column; a blank title left the day nameless.
+    const result = await updateStepAction(MY_STEP, MINE.slug, patch)
+    expect(result).toEqual({ error: expect.any(String) })
+    expect(db.challengeStep.update).not.toHaveBeenCalled()
+  })
+
+  it('accepts zero, null and whole numbers, and trims the title', async () => {
+    await updateStepAction(MY_STEP, MINE.slug, { pointsXp: 0, estimatedMinutes: null, title: ' Day 1 ' })
+    expect(db.challengeStep.update.mock.calls[0]?.[0]?.data).toMatchObject({
+      pointsXp: 0, estimatedMinutes: null, title: 'Day 1',
+    })
   })
 })

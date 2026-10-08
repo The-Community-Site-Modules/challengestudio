@@ -110,7 +110,7 @@ export function SignupForm() {
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive-strong" aria-hidden="true" />
           <p className="text-[13px] leading-relaxed text-foreground">
-            {decodeURIComponent(serverError)}
+            {serverError}
           </p>
         </div>
       )}

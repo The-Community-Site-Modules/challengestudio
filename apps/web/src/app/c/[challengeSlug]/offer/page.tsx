@@ -5,8 +5,8 @@
 
 import { notFound } from 'next/navigation'
 import { Check, Clock } from 'lucide-react'
-import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { formatInZone } from '@/lib/time/zoned'
 import { recordOfferClickAction } from '@/app/(workspace)/ws/[workspaceSlug]/challenges/[challengeSlug]/offer/actions'
 import { OfferCta } from './_components/offer-cta'
 
@@ -20,7 +20,7 @@ export default async function ParticipantOfferPage({ params }: Props) {
   const challenge = await db.challenge.findFirst({
     where:  { slug: challengeSlug },
     select: {
-      id: true, title: true,
+      id: true, title: true, timezone: true,
       workspace: { select: { name: true } },
       offer: {
         select: {
@@ -40,16 +40,8 @@ export default async function ParticipantOfferPage({ params }: Props) {
   const closed = offer.closesAt !== null && offer.closesAt < new Date()
 
   // Clicks are attributed to a participant when there is one, but the page is
-  // readable without a session — it is reachable after a challenge ends.
-  const user = await getCurrentUser()
-  let participantId: string | undefined
-  if (user) {
-    const p = await db.participant.findUnique({
-      where:  { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
-      select: { id: true },
-    })
-    participantId = p?.id
-  }
+  // readable without a session — it is reachable after a challenge ends. The
+  // attribution happens server-side in recordOfferClickAction.
 
   const bonuses = Array.isArray(offer.bonuses) ? (offer.bonuses as string[]) : []
 
@@ -85,7 +77,7 @@ export default async function ParticipantOfferPage({ params }: Props) {
             <p className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
               <Clock className="h-4 w-4 text-slate-500" />
               This closed on{' '}
-              {offer.closesAt!.toLocaleDateString(undefined, {
+              {formatInZone(offer.closesAt!, challenge.timezone, {
                 day: 'numeric', month: 'long', year: 'numeric',
               })}.
             </p>
@@ -96,13 +88,12 @@ export default async function ParticipantOfferPage({ params }: Props) {
                 label={offer.ctaLabel}
                 url={offer.ctaUrl}
                 recordClick={recordOfferClickAction}
-                {...(participantId ? { participantId } : {})}
               />
               {offer.closesAt && (
                 <p className="mt-3 text-[13px] text-slate-500">
                   Closes{' '}
-                  {offer.closesAt.toLocaleDateString(undefined, {
-                    day: 'numeric', month: 'long',
+                  {formatInZone(offer.closesAt, challenge.timezone, {
+                    day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
                   })}.
                 </p>
               )}

@@ -12,6 +12,7 @@
 import { redirect } from 'next/navigation'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { safeZone } from '@/lib/time/zoned'
 import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import ChallengeSettingsClient from './_components/settings-client'
 
@@ -54,7 +55,7 @@ export default async function ChallengeSettingsPage({ params }: Props) {
     where: { step: { challengeId: challenge.id } },
   })
 
-  const tz = challenge.timezone ?? 'UTC'
+  const tz = safeZone(challenge.timezone)
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">

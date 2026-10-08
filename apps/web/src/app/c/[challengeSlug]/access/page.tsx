@@ -10,6 +10,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { safeNext as safeSitePath } from '@/lib/auth/redirect'
 import { AccessClient } from './_components/access-client'
 
 interface Props {
@@ -21,10 +22,10 @@ export const metadata = { title: 'Sign in — Challenge Studio' }
 
 /** Only ever bounce to a path inside this app, and inside this challenge. */
 function safeNext(value: string | undefined, challengeSlug: string): string {
-  const fallback = `/c/${challengeSlug}/hub`
-  if (!value) return fallback
-  if (!value.startsWith('/') || value.startsWith('//')) return fallback
-  return value
+  // The shared check also refuses `/\evil.example`, which browsers read as
+  // `//evil.example`. This page's own copy did not, and redirects a signed-in
+  // visitor straight to `next`.
+  return safeSitePath(value) ?? `/c/${challengeSlug}/hub`
 }
 
 export default async function AccessPage({ params, searchParams }: Props) {
@@ -70,8 +71,8 @@ export default async function AccessPage({ params, searchParams }: Props) {
           challengeTitle={challenge.title}
           hostName={challenge.workspace.name}
           next={next}
-          {...(error ? { error: decodeURIComponent(error) } : {})}
-          {...(sent  ? { sentTo: decodeURIComponent(sent) } : {})}
+          {...(error ? { error: error } : {})}
+          {...(sent  ? { sentTo: sent } : {})}
         />
 
         <p className="mt-6 text-center text-[13px] text-slate-500">

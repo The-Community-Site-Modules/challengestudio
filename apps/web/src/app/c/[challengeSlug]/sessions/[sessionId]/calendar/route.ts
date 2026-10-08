@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Params {
   params: Promise<{ challengeSlug: string; sessionId: string }>
@@ -50,7 +51,7 @@ export async function GET(_request: Request, { params }: Params) {
     },
     select: { status: true },
   })
-  if (!participant || participant.status === 'PENDING') {
+  if (!participant || !isParticipating(participant.status)) {
     return new NextResponse('Not found', { status: 404 })
   }
 

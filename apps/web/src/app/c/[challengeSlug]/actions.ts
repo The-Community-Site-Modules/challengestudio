@@ -4,21 +4,14 @@ import { redirect }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { db }           from '@/lib/db'
 import { unlockMap, type ChallengeMode } from '@/lib/enrollment/unlock'
-import { awardPoints, earnedBadgeKeys, totalPoints, badgeByKey } from '@/lib/gamification'
+import { awardPoints, earnedBadgeKeys, badgeByKey } from '@/lib/gamification'
 import { dispatch } from '@/lib/communications'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
-
-/**
- * Where a new participant starts.
- *
- * Challenge.requiresApproval was stored but never read: every registration
- * landed on REGISTERED, so a creator who asked to vet people got none of it.
- * PENDING is the waiting room; a creator moves them on from there.
- */
-function initialParticipantStatus(requiresApproval: boolean) {
-  return requiresApproval ? 'PENDING' : 'REGISTERED'
-}
+import { initialParticipantStatus, isParticipating, registrationBlocker } from '@/lib/enrollment/register'
+import { submissionIsPrivate } from '@/lib/submissions/payload'
+import { streakDays } from '@/lib/gamification/streak'
+import { formatInZone } from '@/lib/time/zoned'
 
 // ─── Register (public — no auth required) ────────────────────────────────────
 
@@ -30,9 +23,9 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
     redirect(`/c/${challengeSlug}?error=` + encodeURIComponent(rateLimitMessage(limit)))
   }
 
-  const firstName = (formData.get('firstName') as string).trim()
-  const lastName  = (formData.get('lastName')  as string).trim()
-  const email     = (formData.get('email')     as string).trim().toLowerCase()
+  const firstName = String(formData.get('firstName') ?? '').trim()
+  const lastName  = String(formData.get('lastName') ?? '').trim()
+  const email     = String(formData.get('email') ?? '').trim().toLowerCase()
 
   if (!email || !firstName) {
     redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Please fill in all required fields.'))
@@ -44,7 +37,7 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      id: true, slug: true, title: true, status: true, workspaceId: true, startsAt: true,
+      id: true, slug: true, title: true, status: true, workspaceId: true, startsAt: true, timezone: true,
       maxParticipants: true, requiresApproval: true, isPublic: true,
       workspace: { select: { name: true } },
       registrationOpensAt: true, registrationClosesAt: true,
@@ -53,26 +46,16 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   })
 
   if (!challenge) redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Challenge not found.'))
-  if (!['PUBLISHED', 'ACTIVE'].includes(challenge.status as string)) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Registration is not open.'))
-  }
-
-  // A private challenge is invite-only. The setting was collected by the wizard
-  // and stored but never read, so anyone with the URL could register.
-  if (!challenge.isPublic) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('This challenge is private.'))
-  }
-
-  const now = new Date()
-  if (challenge.registrationOpensAt && challenge.registrationOpensAt > now) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Registration is not open yet.'))
-  }
-  if (challenge.registrationClosesAt && challenge.registrationClosesAt < now) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('Registration has closed.'))
-  }
-  if (challenge.maxParticipants && challenge._count.participants >= challenge.maxParticipants) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent('This challenge is full.'))
-  }
+  // The same gate the magic-link callback applies — see lib/enrollment/register.
+  const blocked = registrationBlocker({
+    status:               challenge.status as string,
+    isPublic:             challenge.isPublic,
+    registrationOpensAt:  challenge.registrationOpensAt,
+    registrationClosesAt: challenge.registrationClosesAt,
+    maxParticipants:      challenge.maxParticipants,
+    participantCount:     challenge._count.participants,
+  })
+  if (blocked) redirect(`/c/${challengeSlug}?error=` + encodeURIComponent(blocked))
 
   const supabase = await createClient()
   const { data: { user: existingUser } } = await supabase.auth.getUser()
@@ -110,7 +93,7 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
         challengeTitle:  challenge.title,
         workspaceName:   challenge.workspace.name,
         ...(challenge.startsAt
-          ? { startDate: challenge.startsAt.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) }
+          ? { startDate: formatInZone(challenge.startsAt, challenge.timezone, { day: 'numeric', month: 'long', year: 'numeric' }) }
           : {}),
       },
     })
@@ -153,68 +136,25 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   )
 }
 
-// ─── Post-OTP enrollment (called from auth callback) ─────────────────────────
-// Creates Profile + Participant after user authenticates via magic link
+// Post-OTP enrolment lives in lib/enrollment/register (enrollAfterAuth). It is
+// not a server action: exported from here it would be callable by anyone with
+// an arbitrary user id.
 
-export async function enrollAfterAuthAction(
-  userId:      string,
-  email:       string,
-  fullName:    string,
-  challengeId: string
-) {
-  // Upsert profile (auth trigger should have created it, but we guard against race conditions)
-  await db.profile.upsert({
-    where:  { id: userId },
-    update: { fullName: fullName || undefined },
-    create: { id: userId, email, fullName: fullName || null },
-  })
-
-  // The magic-link path enrolls here rather than at form submit, so it has to
-  // re-read the approval setting to reach the same decision.
-  const challenge = await db.challenge.findUnique({
-    where:  { id: challengeId },
-    select: { requiresApproval: true },
-  })
-  if (!challenge) throw new Error(`enrollAfterAuth: challenge ${challengeId} not found`)
-
-  await db.participant.upsert({
-    where:  { challengeId_profileId: { challengeId, profileId: userId } },
-    update: {},
-    create: {
-      challengeId,
-      profileId: userId,
-      status:    initialParticipantStatus(challenge.requiresApproval) as never,
-    },
-  })
-}
-
-
-/**
- * Consecutive days with at least one submission, counting back from today.
- *
- * Derived from the timestamps rather than stored, so it cannot drift out of
- * step with the submissions it describes (Build Plan data rule 2).
- */
-function streakFrom(submittedAt: Date[]): number {
-  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-  const days = new Set(submittedAt.map(d => key(new Date(d))))
-
-  let streak = 0
-  const cursor = new Date()
-  while (days.has(key(cursor))) {
-    streak++
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  return streak
-}
 
 // ─── Complete Step ────────────────────────────────────────────────────────────
+
+/**
+ * What the day page is told. Every refusal used to be a bare `return`, which
+ * the page could not tell apart from success — so it showed "Step complete!
+ * You earned 100 XP" for work that was never saved.
+ */
+type CompleteStepResult = { success: true } | { success: false; error: string }
 
 export async function completeStepAction(
   challengeSlug:  string,
   stepId:         string,
   submissionData: Record<string, unknown>
-) {
+): Promise<CompleteStepResult> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -227,24 +167,30 @@ export async function completeStepAction(
     select: {
       id: true, mode: true, timezone: true, startsAt: true,
       workspaceId: true,
-      steps: { select: { id: true, order: true, availableAt: true, pointsXp: true } },
+      // Unpublished steps are the creator's drafts: not openable, not
+      // submittable, and not counted towards finishing.
+      steps: {
+        where:  { isPublished: true },
+        select: { id: true, order: true, availableAt: true, pointsXp: true },
+      },
     },
   })
-  if (!challenge) return
+  if (!challenge) return { success: false, error: 'That challenge no longer exists.' }
 
   const participant = await db.participant.findUnique({
     where: { challengeId_profileId: { challengeId: challenge.id, profileId: user.id } },
     select: { id: true, status: true, registeredAt: true },
   })
-  if (!participant) return
-  // Not approved yet means not taking part yet — otherwise approval would only
-  // hide the pages, not stop the work being submitted.
-  if (participant.status === 'PENDING') return
+  // Not approved yet (PENDING) or turned away (DROPPED) means not taking part —
+  // otherwise those decisions would only hide the pages, not stop the work.
+  if (!participant || !isParticipating(participant.status)) {
+    return { success: false, error: 'You are not taking part in this challenge.' }
+  }
 
   // stepId arrives from the client. Without this, a submission could be filed
   // against a step in someone else's challenge entirely.
   const step = challenge.steps.find(s => s.id === stepId)
-  if (!step) return
+  if (!step) return { success: false, error: 'That step is not available.' }
 
   // The day page redirects away from a locked step, but that only guards the
   // page. Work can be posted directly, so the gate has to be here too.
@@ -258,15 +204,15 @@ export async function completeStepAction(
       id: s.id, order: s.order, availableAt: s.availableAt,
     })),
   })
-  if (!unlocks.get(step.id)?.unlocked) return
+  if (!unlocks.get(step.id)?.unlocked) return { success: false, error: 'That step has not opened yet.' }
 
   // Upsert submission (removes participantId helper field before storing)
   const { participantId: _removed, ...cleanData } = submissionData as Record<string, unknown> & { participantId?: string }
 
-  // The reflection block's privacy toggle rides in with the payload. It now
-  // lives in a column as well, because a flag buried in JSON is one no query
-  // can filter on — and the review page has to.
-  const isPrivate = cleanData.isPrivate === true
+  // The reflection block's privacy toggle rides in with the payload, nested
+  // under the block's id. It lives in a column as well, because a flag buried
+  // in JSON is one no query can filter on — and the review page has to.
+  const isPrivate = submissionIsPrivate(cleanData)
 
   await db.submission.upsert({
     where:  { participantId_stepId: { participantId: participant.id, stepId } },
@@ -276,12 +222,12 @@ export async function completeStepAction(
 
   // Auto-complete participant when all required steps are done
   const allRequired = await db.challengeStep.count({
-    where: { challengeId: challenge.id, isRequired: true },
+    where: { challengeId: challenge.id, isRequired: true, isPublished: true },
   })
   const completedRequired = await db.submission.count({
     where: {
       participantId: participant.id,
-      step: { challengeId: challenge.id, isRequired: true },
+      step: { challengeId: challenge.id, isRequired: true, isPublished: true },
     },
   })
 
@@ -298,7 +244,9 @@ export async function completeStepAction(
 
   const finished = completedRequired >= allRequired && allRequired > 0
 
-  if (finished) {
+  // Only the first time: re-submitting a step afterwards used to move
+  // completedAt to that moment, rewriting when they actually finished.
+  if (finished && participant.status !== 'COMPLETED') {
     await db.participant.update({
       where: { id: participant.id },
       data:  { status: 'COMPLETED' as never, completedAt: new Date() },
@@ -317,6 +265,7 @@ export async function completeStepAction(
     participantId: participant.id,
     completedSteps: completedRequired,
     totalSteps:     allRequired,
+    timeZone:       challenge.timezone ?? 'UTC',
   })
 
   // Both of these are non-essential, so an unsubscribed participant is skipped
@@ -370,6 +319,8 @@ export async function completeStepAction(
       }
     }
   }
+
+  return { success: true }
 }
 
 /**
@@ -384,6 +335,7 @@ async function evaluateBadges(input: {
   participantId: string
   completedSteps: number
   totalSteps: number
+  timeZone: string
 }): Promise<string[]> {
   const [posts, comments, submissions] = await Promise.all([
     db.feedPost.count({ where: { participantId: input.participantId } }),
@@ -397,7 +349,7 @@ async function evaluateBadges(input: {
   const keys = earnedBadgeKeys({
     completedSteps: input.completedSteps,
     totalSteps:     input.totalSteps,
-    streak:         streakFrom(submissions.map(s => s.submittedAt)),
+    streak:         streakDays(submissions.map(s => s.submittedAt), input.timeZone),
     posts,
     comments,
   })
@@ -422,75 +374,4 @@ async function evaluateBadges(input: {
     skipDuplicates: true,
   })
   return fresh
-}
-
-// ─── Get participant + step unlock status ─────────────────────────────────────
-
-export async function getParticipantProgress(challengeSlug: string, userId: string) {
-  const challenge = await db.challenge.findFirst({
-    where: { slug: challengeSlug },
-    select: {
-      id: true, title: true, startsAt: true, endsAt: true, timezone: true, mode: true,
-      workspace: { select: { name: true, logoUrl: true } },
-      steps: {
-        orderBy: { order: 'asc' },
-        select: {
-          id: true, title: true, order: true, stepType: true,
-          isRequired: true, availableAt: true, pointsXp: true, estimatedMinutes: true,
-        },
-      },
-    },
-  })
-  if (!challenge) return null
-
-  const participant = await db.participant.findUnique({
-    where: { challengeId_profileId: { challengeId: challenge.id, profileId: userId } },
-    select: {
-      id: true, status: true, registeredAt: true, completedAt: true,
-      submissions: { select: { stepId: true, submittedAt: true } },
-    },
-  })
-  if (!participant) return null
-
-  const submittedStepIds = new Set(participant.submissions.map(s => s.stepId))
-  const now = new Date()
-
-  // The schedule maths lives in lib/enrollment/unlock, where it is tested.
-  // It used to be inline here and ignored challenge.timezone entirely, so day
-  // boundaries followed whichever machine happened to be serving the request.
-  const unlocks = unlockMap({
-    mode:              challenge.mode as ChallengeMode,
-    timezone:          challenge.timezone ?? 'UTC',
-    challengeStartsAt: challenge.startsAt,
-    enrolledAt:        participant.registeredAt,
-    now,
-    steps: challenge.steps.map(s => ({
-      id: s.id, order: s.order, availableAt: s.availableAt,
-    })),
-  })
-
-  const steps = challenge.steps.map((step) => {
-    const isCompleted = submittedStepIds.has(step.id)
-    const unlock      = unlocks.get(step.id)
-    const unlocked    = unlock?.unlocked ?? true
-
-    return {
-      ...step,
-      isCompleted,
-      unlocked,
-      unlocksAt: unlock?.unlocksAt ?? null,
-      status: isCompleted ? 'completed' as const :
-              unlocked    ? 'active'    as const :
-              'locked'    as const,
-    }
-  })
-
-  const streak = streakFrom(participant.submissions.map(s => s.submittedAt))
-
-  const completedCount = steps.filter(s => s.isCompleted).length
-  const totalRequired  = steps.filter(s => s.isRequired).length
-  const xp             = await totalPoints(participant.id)
-  const progressPct    = totalRequired > 0 ? Math.round((completedCount / totalRequired) * 100) : 0
-
-  return { challenge, participant, steps, streak, xp, progressPct, completedCount, totalRequired }
 }

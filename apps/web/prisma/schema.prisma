@@ -154,7 +154,9 @@ model WorkspaceInvitation {
 model Challenge {
   id          String          @id @default(cuid())
   workspaceId String          @map("workspace_id")
-  slug        String
+  // Unique across the platform: the public page is /c/<slug>, with no
+  // workspace in the URL to tell two equal slugs apart.
+  slug        String          @unique
   title       String
   description String?
 

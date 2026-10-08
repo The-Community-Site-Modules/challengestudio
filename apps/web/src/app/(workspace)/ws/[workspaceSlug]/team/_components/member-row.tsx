@@ -53,7 +53,7 @@ export function MemberRow({
   }
 
   return (
-    <div className="flex items-center gap-4 px-5 py-4">
+    <div className="relative flex items-center gap-4 px-5 py-4">
       {isPending && (
         <Loader2 className="absolute right-4 top-4 h-3 w-3 animate-spin text-muted-foreground" />
       )}

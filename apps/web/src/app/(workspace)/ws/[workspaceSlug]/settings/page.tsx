@@ -52,7 +52,7 @@ export default async function WorkspaceSettingsPage({ params, searchParams }: Pr
           )}
           {error && (
             <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {decodeURIComponent(error)}
+              {error}
             </div>
           )}
 

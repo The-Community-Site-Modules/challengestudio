@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useParams } from 'next/navigation'
 
 export interface WizardState {
   // Step 1 — Foundation
@@ -81,11 +82,14 @@ const INITIAL: WizardState = {
  * Every access is wrapped: in a private window or with site data blocked, the
  * accessor throws rather than returning null, and the wizard must still open.
  */
-const DRAFT_KEY = 'challenge-wizard-draft'
+// One draft per workspace. A single shared key let a draft started in one
+// workspace reopen in another's wizard, ready to be published there.
+const draftKey = (workspaceSlug: string | undefined) =>
+  `challenge-wizard-draft:${workspaceSlug ?? ''}`
 
-function readDraft(): WizardState | null {
+function readDraft(key: string): WizardState | null {
   try {
-    const raw = window.localStorage.getItem(DRAFT_KEY)
+    const raw = window.localStorage.getItem(key)
     if (!raw) return null
     // Spread over INITIAL so a draft written before a field existed still
     // loads, with the new field at its default rather than undefined.
@@ -111,6 +115,8 @@ interface WizardContextValue {
 const WizardContext = createContext<WizardContextValue | null>(null)
 
 export function WizardProvider({ children }: { children: ReactNode }) {
+  const { workspaceSlug } = useParams<{ workspaceSlug: string }>()
+  const DRAFT_KEY = draftKey(workspaceSlug)
   const [data, setData] = useState<WizardState>(INITIAL)
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null)
 
@@ -118,12 +124,12 @@ export function WizardProvider({ children }: { children: ReactNode }) {
   // rendering on the server is impossible and doing it in a lazy initialiser
   // makes the first client render disagree with the server's HTML.
   useEffect(() => {
-    const restored = readDraft()
+    const restored = readDraft(DRAFT_KEY)
     if (restored) {
       setData(restored)
       setDraftSavedAt(new Date())
     }
-  }, [])
+  }, [DRAFT_KEY])
 
   const saveDraft = useCallback(() => {
     try {
@@ -133,7 +139,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       // Storage unavailable or full. The wizard still works in memory, so
       // failing loudly here would be worse than the draft not persisting.
     }
-  }, [data])
+  }, [data, DRAFT_KEY])
 
   const clearDraft = useCallback(() => {
     try {
@@ -142,7 +148,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
       /* nothing to clean up if it was never written */
     }
     setDraftSavedAt(null)
-  }, [])
+  }, [DRAFT_KEY])
 
   // Errors stay hidden until the reader tries to leave a step. Marking every
   // empty required field red the moment the form opens tells someone they got

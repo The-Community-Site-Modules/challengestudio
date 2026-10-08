@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
+import { safeZone } from '@/lib/time/zoned'
 import { BuilderClient, type BuilderDay } from './_components/builder-client'
 
 interface Props {
@@ -43,7 +45,13 @@ function readFlag(data: unknown, key: string): unknown {
 
 export default async function BuilderPage({ params }: Props) {
   const { workspaceSlug, challengeSlug } = await params
-  const { workspace } = await requireWorkspaceMember(workspaceSlug)
+  const { user, workspace } = await requireWorkspaceMember(workspaceSlug)
+
+  // Every draft block, for a role that can neither edit nor preview them. The
+  // preview page already refused members; the builder showed them the same.
+  if (!(await hasPermission(user.id, workspace.id, 'challenge.edit'))) {
+    redirect(`/ws/${workspaceSlug}/challenges/${challengeSlug}/overview`)
+  }
 
   const challenge = await db.challenge.findUnique({
     where: { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
@@ -69,7 +77,7 @@ export default async function BuilderPage({ params }: Props) {
     ).map((row) => [row.stepId, row._count._all])
   )
 
-  const timeZone = challenge.timezone ?? 'UTC'
+  const timeZone = safeZone(challenge.timezone)
 
   const initialSteps: BuilderDay[] = challenge.steps.map((s) => ({
     id:               s.id,

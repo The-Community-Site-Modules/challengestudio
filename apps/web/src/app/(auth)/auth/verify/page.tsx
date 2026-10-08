@@ -23,7 +23,7 @@ export default async function VerifyPage({ searchParams }: Props) {
           <CardDescription>
             We sent a verification link to{' '}
             {email ? (
-              <span className="font-medium text-foreground">{decodeURIComponent(email)}</span>
+              <span className="font-medium text-foreground">{email}</span>
             ) : (
               'your email address'
             )}
@@ -35,13 +35,13 @@ export default async function VerifyPage({ searchParams }: Props) {
 
           {error && (
             <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {decodeURIComponent(error)}
+              {error}
             </div>
           )}
 
           {message && (
             <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
-              {decodeURIComponent(message)}
+              {message}
             </div>
           )}
 

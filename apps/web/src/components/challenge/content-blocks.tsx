@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch }   from '@/components/ui/switch'
 import { cn }       from '@/lib/utils'
+import { safeHref } from '@/lib/safe-url'
 
 /**
  * How a content block looks to a participant.
@@ -100,6 +101,7 @@ function HeadingBlock({ data }: { data: Record<string, string> }) {
 }
 
 function DownloadBlock({ data }: { data: Record<string, string> }) {
+  const url = safeHref(data.url)
   return (
     <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/30 p-4">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
@@ -108,9 +110,9 @@ function DownloadBlock({ data }: { data: Record<string, string> }) {
       <div className="flex-1">
         <p className="text-sm font-semibold text-foreground">{data.name ?? 'Download'}</p>
       </div>
-      {data.url ? (
+      {url ? (
         <Button size="sm" variant="outline" className="gap-1.5" asChild>
-          <a href={data.url} download><Download className="h-3.5 w-3.5" /> Download</a>
+          <a href={url} download><Download className="h-3.5 w-3.5" /> Download</a>
         </Button>
       ) : (
         <Button size="sm" variant="outline" className="gap-1.5" disabled>
@@ -477,9 +479,9 @@ function LiveSessionBlock({ data }: { data: Record<string, string>; readOnly?: b
         </div>
       </div>
 
-      {data.joinUrl && (
+      {safeHref(data.joinUrl) && (
         <a
-          href={data.joinUrl}
+          href={safeHref(data.joinUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
@@ -505,9 +507,9 @@ function OfferCtaBlock({ data }: { data: Record<string, string>; readOnly?: bool
       </p>
       {data.body && <p className="mt-1.5 text-sm text-muted-foreground">{data.body}</p>}
 
-      {data.ctaUrl ? (
+      {safeHref(data.ctaUrl) ? (
         <a
-          href={data.ctaUrl}
+          href={safeHref(data.ctaUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"

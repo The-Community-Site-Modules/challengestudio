@@ -10,6 +10,8 @@ import { PageHeader } from '@/components/shared/page-header'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
+import { redirect } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { approveParticipantAction, rejectParticipantAction } from './actions'
 import { ApprovalActions } from './_components/approval-actions'
@@ -41,7 +43,14 @@ function initialsOf(name: string | null, email: string) {
 
 export default async function ParticipantsPage({ params }: Props) {
   const { workspaceSlug } = await params
-  const { workspace } = await requireWorkspaceMember(workspaceSlug)
+  const { user, workspace } = await requireWorkspaceMember(workspaceSlug)
+
+  // Every participant's name and email, across every challenge. The
+  // per-challenge list already asked for participant.view; this one asked for
+  // nothing, so any MEMBER could read the whole roster here instead.
+  if (!(await hasPermission(user.id, workspace.id, 'participant.view'))) {
+    redirect(`/ws/${workspaceSlug}`)
+  }
 
   const participants = await db.participant.findMany({
     where: { challenge: { workspaceId: workspace.id } },

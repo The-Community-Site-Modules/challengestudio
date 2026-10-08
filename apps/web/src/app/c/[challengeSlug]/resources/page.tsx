@@ -11,8 +11,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, Video, MessageCircle } from 'lucide-react'
 import { getCurrentUser } from '@/lib/auth/session'
-import { getParticipantProgress } from '../actions'
+import { getParticipantProgress } from '@/lib/enrollment/progress'
 import { db } from '@/lib/db'
+import { safeHref } from '@/lib/safe-url'
+import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -35,13 +37,13 @@ export default async function ResourcesPage({ params }: Props) {
 
   const progress = await getParticipantProgress(challengeSlug, user.id)
   if (!progress) redirect(`/c/${challengeSlug}`)
-  if (progress.participant.status === 'PENDING') redirect(`/c/${challengeSlug}/welcome`)
+  if (!isParticipating(progress.participant.status)) redirect(`/c/${challengeSlug}/welcome`)
 
   const { steps } = progress
   const base = `/c/${challengeSlug}`
 
   const unlockedStepIds = steps.filter((s) => s.unlocked).map((s) => s.id)
-  const dayNumberByStep = new Map(steps.map((s) => [s.id, s.order + 1]))
+  const dayNumberByStep = new Map(steps.map((s) => [s.id, s.position]))
 
   const [blocks, sessions] = await Promise.all([
     unlockedStepIds.length > 0
@@ -81,7 +83,7 @@ export default async function ResourcesPage({ params }: Props) {
                 </h2>
                 <ul className="mt-3 space-y-2">
                   {blocks.map((b) => {
-                    const url = payloadString(b.data, ['url', 'href'], '')
+                    const url = safeHref(payloadString(b.data, ['url', 'href'], ''))
                     const name = payloadString(b.data, ['name', 'title', 'caption'], 'Download')
                     const day = dayNumberByStep.get(b.stepId)
                     const row = (

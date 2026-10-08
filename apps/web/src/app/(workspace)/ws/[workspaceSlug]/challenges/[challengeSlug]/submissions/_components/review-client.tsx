@@ -17,6 +17,8 @@ export interface SubmissionRow {
   isPrivate: boolean
   /** Null when the viewer may not open private work. */
   answer: string | null
+  /** Uploaded files, each behind a permission-checked link. */
+  files: { filename: string; href: string }[]
   feedback: string
   reviewedAt: string | null
   reviewerName: string | null
@@ -155,9 +157,27 @@ function Row({ submission, workspaceSlug, challengeSlug, canReview }: {
               submissions.
             </p>
           ) : (
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-              {submission.answer || <span className="text-slate-500">No written answer.</span>}
-            </p>
+            <>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                {submission.answer || (submission.files.length === 0 && <span className="text-slate-500">No written answer.</span>)}
+              </p>
+              {submission.files.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {submission.files.map((file) => (
+                    <li key={file.href}>
+                      <a
+                        href={file.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        {file.filename}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
 
           {submission.reviewedAt && !open && (

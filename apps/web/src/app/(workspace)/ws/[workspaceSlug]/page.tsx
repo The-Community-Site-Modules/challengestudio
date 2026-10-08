@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { formatInZone } from '@/lib/time/zoned'
 import { TimeSeriesChart, type TimePoint } from '@/components/shared/time-series-chart'
 
 interface Props {
@@ -92,7 +93,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, slug: true, title: true, description: true, coverImageUrl: true,
-          status: true, startsAt: true,
+          status: true, startsAt: true, timezone: true,
           _count: { select: { participants: true, steps: true } },
         },
       }),
@@ -104,7 +105,11 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
           submissions: { some: { submittedAt: { gte: since7 } } },
         },
       }),
-      db.submission.count({ where: { participant: { challenge: { workspaceId: workspace.id } } } }),
+      // Awaiting review only. This counted every submission ever made, so the
+      // "waiting to be reviewed" prompt never went down as work was reviewed.
+      db.submission.count({
+        where: { participant: { challenge: { workspaceId: workspace.id } }, reviewedAt: null },
+      }),
       db.participant.findMany({
         where:  { challenge: { workspaceId: workspace.id }, registeredAt: { gte: since30 } },
         select: { registeredAt: true },
@@ -306,8 +311,8 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                             <div className="min-w-0">
                               <p className="text-xs font-medium text-foreground">{startsIn(c.startsAt, now)}</p>
                               <p className="text-xs text-muted-foreground">
-                                {c.startsAt.toLocaleDateString('en-US', {
-                                  month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+                                {formatInZone(c.startsAt, c.timezone, {
+                                  month: 'short', day: 'numeric', year: 'numeric',
                                 })}
                                 {' • '}{c._count.participants} registered
                               </p>

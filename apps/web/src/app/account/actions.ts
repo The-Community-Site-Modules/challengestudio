@@ -63,8 +63,10 @@ export async function requestPasswordChangeAction() {
   const user = await requireUser()
 
   const supabase = await createClient()
+  // Via the callback, which exchanges the PKCE code for a session first —
+  // see forgotPasswordAction.
   const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
   if (error) {

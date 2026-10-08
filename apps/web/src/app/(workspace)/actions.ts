@@ -8,6 +8,7 @@ import { requirePermission, getMembership } from '@/lib/permissions'
 import { sendEmail, renderWorkspaceInvitation } from '@/lib/email'
 import { WorkspaceRole } from '.prisma/client'
 import { checkSlug } from '@/lib/slugs/reserved'
+import { isValidTimeZone } from '@/lib/time/zoned'
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
   OWNER:  'an owner',
@@ -24,6 +25,7 @@ function slugify(name: string) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
     .slice(0, 50)
 }
 
@@ -44,11 +46,13 @@ function parseRole(value: FormDataEntryValue | null): WorkspaceRole | null {
 
 export async function createWorkspaceAction(formData: FormData) {
   const user = await requireUser()
-  const name = (formData.get('name') as string).trim()
+  const name = String(formData.get('name') ?? '').trim()
 
   if (!name) return redirect('/dashboard?error=' + encodeURIComponent('Workspace name is required.'))
 
-  let slug = slugify(name)
+  // A name with no Latin letters — Urdu, Arabic, Chinese — slugifies to
+  // nothing, and creation was refused as "too short" for a perfectly good name.
+  let slug = slugify(name) || 'workspace'
 
   // Some names belong to the product, and some read as the product's own
   // pages. See lib/slugs/reserved.ts.
@@ -85,9 +89,9 @@ export async function updateWorkspaceAction(workspaceId: string, formData: FormD
   const user = await requireUser()
   await requirePermission(user.id, workspaceId, 'workspace.edit')
 
-  const name     = (formData.get('name')     as string).trim()
-  const newSlug  = (formData.get('slug')     as string).trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-  const timezone = (formData.get('timezone') as string | null)?.trim() ?? 'UTC'
+  const name     = String(formData.get('name') ?? '').trim()
+  const newSlug  = String(formData.get('slug') ?? '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+  const timezone = (formData.get('timezone') as string | null)?.trim() || 'UTC'
 
   // Get current slug for redirect fallback
   const current = await db.workspace.findUnique({ where: { id: workspaceId }, select: { slug: true } })
@@ -95,6 +99,19 @@ export async function updateWorkspaceAction(workspaceId: string, formData: FormD
 
   if (!name)    return redirect(`/ws/${fallbackSlug}/settings?error=` + encodeURIComponent('Name is required.'))
   if (!newSlug) return redirect(`/ws/${fallbackSlug}/settings?error=` + encodeURIComponent('Slug is required.'))
+  if (!isValidTimeZone(timezone)) {
+    return redirect(`/ws/${fallbackSlug}/settings?error=` + encodeURIComponent('That timezone is not recognised.'))
+  }
+
+  // The same rule createWorkspaceAction applies — renaming was the way round
+  // it, onto "admin", "support" or a single character. An unchanged slug is
+  // left alone so a legacy one does not block saving the name.
+  if (newSlug !== current?.slug) {
+    const available = checkSlug(newSlug)
+    if (!available.ok) {
+      return redirect(`/ws/${fallbackSlug}/settings?error=` + encodeURIComponent(available.error!))
+    }
+  }
 
   // Check new slug not taken by another workspace
   const slugConflict = await db.workspace.findFirst({
@@ -130,7 +147,7 @@ export async function inviteMemberAction(workspaceId: string, formData: FormData
   const user = await requireUser()
   await requirePermission(user.id, workspaceId, 'workspace.team.manage')
 
-  const email = (formData.get('email') as string).trim().toLowerCase()
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const role  = parseRole(formData.get('role')) ?? WorkspaceRole.MEMBER
 
   const workspace = await db.workspace.findUniqueOrThrow({
@@ -227,11 +244,17 @@ export async function acceptInvitationAction(token: string) {
     ))
   }
 
-  // Add member
+  // Add member. Someone already in the workspace keeps the higher of their
+  // role and the invited one: accepting a MEMBER invitation used to demote an
+  // existing owner, which could leave the workspace with none.
+  const RANK: Record<WorkspaceRole, number> = { MEMBER: 0, ADMIN: 1, OWNER: 2 }
+  const current = await getMembership(user.id, invitation.workspaceId)
+  const role = current && RANK[current.role] > RANK[invitation.role] ? current.role : invitation.role
+
   await db.workspaceMember.upsert({
     where: { workspaceId_profileId: { workspaceId: invitation.workspaceId, profileId: user.id } },
-    update: { role: invitation.role, joinedAt: new Date() },
-    create: { workspaceId: invitation.workspaceId, profileId: user.id, role: invitation.role, joinedAt: new Date() },
+    update: { role },
+    create: { workspaceId: invitation.workspaceId, profileId: user.id, role, joinedAt: new Date() },
   })
 
   // Mark invitation accepted
@@ -261,6 +284,16 @@ export async function removeMemberAction(workspaceId: string, memberId: string) 
   // Users can always remove themselves; others need team.manage
   const isSelf = membership.profileId === user.id
   if (!isSelf) await requirePermission(user.id, workspaceId, 'workspace.team.manage')
+
+  // Same ownership rule as updateMemberRoleAction. Without it an admin — who
+  // holds team.manage — could not demote an owner but could simply remove one.
+  if (!isSelf && membership.role === WorkspaceRole.OWNER) {
+    const actorRole = (await getMembership(user.id, workspaceId))?.role
+    if (actorRole !== WorkspaceRole.OWNER) {
+      const ws = await db.workspace.findUnique({ where: { id: workspaceId }, select: { slug: true } })
+      return redirect(`/ws/${ws?.slug}/team?error=` + encodeURIComponent('Only a workspace owner can remove another owner.'))
+    }
+  }
 
   // Can't remove the last owner
   if (membership.role === WorkspaceRole.OWNER) {

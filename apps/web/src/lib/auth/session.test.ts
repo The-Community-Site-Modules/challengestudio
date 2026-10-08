@@ -73,6 +73,16 @@ describe('getCurrentUser', () => {
     expect(profile.upsert).not.toHaveBeenCalled()
   })
 
+  it('reports the verified auth email, not whatever profiles.email says', async () => {
+    // Invitation binding and the admin allow-list compare against this. A
+    // profiles row a user rewrote must not let them pass as someone else.
+    authUser = { id: 'u1', email: 'real@example.com' }
+    profile.findUnique.mockResolvedValue({
+      id: 'u1', email: 'invited-victim@example.com', fullName: 'A', avatarUrl: null,
+    })
+    expect((await getCurrentUser())?.email).toBe('real@example.com')
+  })
+
   it('creates the profile when the trigger did not', async () => {
     authUser = {
       id: 'u2',

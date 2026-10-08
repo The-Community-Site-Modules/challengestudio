@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const db = {
-  messageDelivery:        { create: vi.fn(), update: vi.fn() },
+  messageDelivery:        { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn() },
   messageTemplate:        { findUnique: vi.fn() },
   notificationPreference: { findUnique: vi.fn(), upsert: vi.fn() },
 }
@@ -46,6 +46,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   db.messageDelivery.create.mockResolvedValue({ id: 'd1' })
   db.messageDelivery.update.mockResolvedValue({})
+  // An existing key is, by default, one that was delivered — nothing to retry.
+  db.messageDelivery.updateMany.mockResolvedValue({ count: 0 })
+  db.messageDelivery.findUnique.mockResolvedValue({ id: 'd0' })
   db.messageTemplate.findUnique.mockResolvedValue(null)
   db.notificationPreference.findUnique.mockResolvedValue(null)
   sendEmail.mockResolvedValue({ sent: true, provider: 'resend' })
@@ -62,6 +65,22 @@ describe('sent once', () => {
     db.messageDelivery.create.mockRejectedValue(new UniqueViolation())
     expect(await dispatch(input())).toEqual({ status: 'duplicate' })
     expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('retries a key whose earlier attempt failed', async () => {
+    // A failed send keeps its row, so the key could never be claimed again
+    // and the message was lost to one provider hiccup.
+    db.messageDelivery.create.mockRejectedValue(new UniqueViolation())
+    db.messageDelivery.updateMany.mockResolvedValue({ count: 1 })
+    expect(await dispatch(input())).toEqual({ status: 'sent' })
+    const where = db.messageDelivery.updateMany.mock.calls[0]?.[0]?.where
+    expect(where).toMatchObject({ idempotencyKey: 'p1:completion', status: 'failed' })
+    // Only recent failures: a permanent one must not be retried forever.
+    const cutoff = where.createdAt.gte as Date
+    expect(Date.now() - cutoff.getTime()).toBeGreaterThan(23 * 3_600_000)
+    expect(Date.now() - cutoff.getTime()).toBeLessThan(25 * 3_600_000)
+    expect(sendEmail).toHaveBeenCalledOnce()
+    expect(db.messageDelivery.update.mock.calls[0]?.[0]?.where).toEqual({ id: 'd0' })
   })
 
   it('does not swallow a real database failure as a duplicate', async () => {

@@ -20,7 +20,7 @@ export default function ForgotPasswordPage() {
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
-    if (error) toast.error(decodeURIComponent(error))
+    if (error) toast.error(error)
     if (sent)  toast.success('Reset link sent! Check your inbox.')
   }, [error, sent])
 

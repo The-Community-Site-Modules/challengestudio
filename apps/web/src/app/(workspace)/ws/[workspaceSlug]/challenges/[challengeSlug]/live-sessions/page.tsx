@@ -8,6 +8,7 @@ import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { dateToZonedLocal } from '@/lib/time/zoned'
 import { SessionsClient, type SessionRow } from './_components/sessions-client'
 
 interface Props {
@@ -16,12 +17,6 @@ interface Props {
 
 export const metadata = { title: 'Live sessions — Challenge Studio' }
 
-/** datetime-local wants "YYYY-MM-DDTHH:mm" in local time, not an ISO string. */
-function forInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-         `T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 
 export default async function LiveSessionsPage({ params }: Props) {
   const { workspaceSlug, challengeSlug } = await params
@@ -42,7 +37,10 @@ export default async function LiveSessionsPage({ params }: Props) {
     id: s.id,
     title: s.title,
     description: s.description ?? '',
-    startsAt: forInput(s.startsAt),
+    // On the challenge's wall clock — the same zone the action reads it back
+    // in. This used the server's clock (UTC) both ways, so the time a creator
+    // typed was silently taken as UTC.
+    startsAt: dateToZonedLocal(s.startsAt, challenge.timezone),
     durationMinutes: s.durationMinutes?.toString() ?? '',
     hostName: s.hostName ?? '',
     joinUrl: s.joinUrl ?? '',
@@ -62,7 +60,7 @@ export default async function LiveSessionsPage({ params }: Props) {
         <div className="mx-auto w-full max-w-[900px] px-5 pb-16 pt-8 sm:px-8 lg:pt-10">
           <PageHeader
             title="Live sessions"
-            description={`Calls attached to ${challenge.title}. Participants see them in their hub.`}
+            description={`Calls attached to ${challenge.title}. Participants see them in their hub. Times are in ${challenge.timezone ?? 'UTC'}.`}
           />
           <SessionsClient
             workspaceSlug={workspaceSlug}

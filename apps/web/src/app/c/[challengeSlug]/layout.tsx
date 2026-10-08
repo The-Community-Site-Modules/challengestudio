@@ -20,7 +20,9 @@ export default async function ChallengeLayout({ children, params }: Props) {
 
   // Read current pathname to decide whether to show nav
   const headersList = await headers()
-  const pathname    = headersList.get('x-pathname') ?? headersList.get('referer') ?? ''
+  // Set by middleware. Not `referer`: that is the previous page, as an
+  // absolute URL, so it never matched and the nav never showed.
+  const pathname    = headersList.get('x-pathname') ?? ''
 
   // Determine if this request is for a nav-bearing route
   // We check the URL segment after /c/[slug]

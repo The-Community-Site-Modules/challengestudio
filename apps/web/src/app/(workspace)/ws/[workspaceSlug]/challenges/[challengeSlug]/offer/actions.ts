@@ -3,8 +3,9 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { requireUser } from '@/lib/auth/session'
+import { requireUser, getCurrentUser } from '@/lib/auth/session'
 import { requirePermission } from '@/lib/permissions'
+import { zonedLocalToDate } from '@/lib/time/zoned'
 
 /**
  * The post-challenge offer (PRD §12.2).
@@ -25,11 +26,11 @@ async function authorize(workspaceSlug: string, challengeSlug: string) {
 
   const challenge = await db.challenge.findUnique({
     where:  { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
-    select: { id: true },
+    select: { id: true, timezone: true },
   })
   if (!challenge) redirect(`/ws/${workspaceSlug}/challenges`)
 
-  return challenge.id
+  return challenge
 }
 
 export interface OfferInput {
@@ -46,7 +47,7 @@ export interface OfferInput {
 export async function saveOfferAction(
   workspaceSlug: string, challengeSlug: string, input: OfferInput
 ) {
-  const challengeId = await authorize(workspaceSlug, challengeSlug)
+  const { id: challengeId, timezone } = await authorize(workspaceSlug, challengeSlug)
 
   const headline = input.headline.trim()
   const ctaUrl   = input.ctaUrl.trim()
@@ -59,7 +60,10 @@ export async function saveOfferAction(
   if (ctaUrl && !/^https?:\/\/\S+$/i.test(ctaUrl)) {
     return { success: false, error: 'The link must start with http:// or https://' }
   }
-  if (input.closesAt && Number.isNaN(Date.parse(input.closesAt))) {
+  // Read in the challenge's timezone, like the settings page — not the
+  // server's, which is UTC in production.
+  const closesAt = input.closesAt ? zonedLocalToDate(input.closesAt, timezone) : null
+  if (input.closesAt && !closesAt) {
     return { success: false, error: 'That closing date could not be read.' }
   }
 
@@ -74,8 +78,10 @@ export async function saveOfferAction(
     body:     input.body.trim() || null,
     ctaLabel: input.ctaLabel.trim() || 'Get started',
     ctaUrl,
-    bonuses:  bonuses.length > 0 ? bonuses : undefined,
-    closesAt: input.closesAt ? new Date(input.closesAt) : null,
+    // An empty list, not undefined: undefined means "leave as is" to Prisma,
+    // so deleting every bonus line used to keep the old bonuses forever.
+    bonuses,
+    closesAt,
   }
 
   await db.offer.upsert({
@@ -96,15 +102,26 @@ export async function saveOfferAction(
  * gated on being a participant: the offer page is reachable after a challenge
  * ends, and a click that is not counted is worse than one from a stranger.
  */
-export async function recordOfferClickAction(offerId: string, participantId?: string) {
+export async function recordOfferClickAction(offerId: string) {
   const offer = await db.offer.findUnique({
     where:  { id: offerId },
-    select: { id: true, enabled: true },
+    select: { id: true, enabled: true, challengeId: true },
   })
   if (!offer || !offer.enabled) return { success: false }
 
+  // Who clicked is worked out here, from the session. It used to arrive as an
+  // argument, so anyone could attribute clicks to any participant id — or
+  // send a made-up one and hit a foreign-key error.
+  const user = await getCurrentUser()
+  const participant = user
+    ? await db.participant.findUnique({
+        where:  { challengeId_profileId: { challengeId: offer.challengeId, profileId: user.id } },
+        select: { id: true },
+      })
+    : null
+
   await db.offerClick.create({
-    data: { offerId: offer.id, ...(participantId ? { participantId } : {}) },
+    data: { offerId: offer.id, ...(participant ? { participantId: participant.id } : {}) },
   })
   return { success: true }
 }

@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { requirePermission } from '@/lib/permissions'
 import { avoidReserved } from '@/lib/slugs/reserved'
+import { isValidTimeZone, zonedLocalToDate } from '@/lib/time/zoned'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,26 @@ function slugify(name: string) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
     .slice(0, 60)
+}
+
+/**
+ * A challenge slug nobody else is using.
+ *
+ * The public page is `/c/<slug>` with no workspace in the URL, so a slug has to
+ * be unique across the whole platform, not just within one workspace. It used
+ * to be checked per workspace only, and every `/c/` route resolved it with
+ * findFirst — so two workspaces picking "30-day-fitness" sent one's
+ * participants into the other's challenge.
+ *
+ * A title with no Latin characters slugifies to nothing; fall back rather than
+ * produce "-2".
+ */
+async function freeChallengeSlug(base: string): Promise<string> {
+  const slug = avoidReserved(base || 'challenge')
+  const taken = await db.challenge.findFirst({ where: { slug }, select: { id: true } })
+  return taken ? `${slug}-${Date.now().toString(36)}` : slug
 }
 
 function modeToEnum(mode: string): string {
@@ -65,7 +85,90 @@ function modeToEnum(mode: string): string {
     SPRINT:     'SPRINT',
     EVERGREEN:  'EVERGREEN',
   }
-  return map[mode] ?? 'SELF_PACED'
+  if (map[mode]) return map[mode]
+  // The settings page sends enum names in lower case ("drip", "live_event",
+  // "certification"). Only "cohort" and "evergreen" happened to be in the map,
+  // so choosing any other mode there silently saved SELF_PACED.
+  const upper = mode.toUpperCase()
+  return CHALLENGE_MODES.includes(upper) ? upper : 'SELF_PACED'
+}
+
+const CHALLENGE_MODES = [
+  'SELF_PACED', 'COHORT', 'LIVE_EVENT', 'DRIP', 'SPRINT', 'EVERGREEN', 'CERTIFICATION', 'CHALLENGE_LADDER',
+]
+
+/**
+ * A date from the wizard or settings, as an instant in the challenge's zone.
+ *
+ * The wizard sends bare dates ("2026-10-10"). `new Date()` reads those as UTC
+ * midnight — the evening before for anyone west of Greenwich — so a cohort in
+ * New York unlocked every day a day early. Read as 00:00 on the challenge's
+ * own clock instead, matching the settings page. ISO instants pass through.
+ */
+function scheduleDate(value: string | undefined, timeZone: string | null | undefined): Date | null {
+  if (!value) return null
+  return zonedLocalToDate(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00` : value, timeZone)
+}
+
+/**
+ * A capacity is a whole number of people, at least one — or none at all.
+ * A negative or zero value used to be stored as given, and registration's
+ * "count >= max" test then called the challenge full before anyone joined.
+ */
+function badCapacity(v: number | null | undefined): boolean {
+  return v !== null && v !== undefined && !(Number.isInteger(v) && v >= 1 && v <= 1_000_000)
+}
+
+/** The wizard's email switches, by the trigger each one controls. */
+const WIZARD_EMAIL_TRIGGERS: Record<string, string> = {
+  registration: 'registration_confirm',
+  start:        'challenge_starting',
+  daily:        'day_available',
+  reminder:     'session_reminder',
+  inactivity:   'inactivity_nudge',
+  completion:   'completion',
+}
+
+/**
+ * Apply the wizard's communications and offer steps.
+ *
+ * Both were collected, stored in `settings` and then read by nothing: an
+ * email switched off in the wizard was still sent, and an offer set up there
+ * never appeared — the offer page and dispatch read their own tables. This
+ * writes those rows, the same ones the Communications and Offer pages edit.
+ */
+async function applyWizardSettings(
+  challengeId: string,
+  settings: Record<string, unknown>,
+  timeZone: string | null | undefined
+) {
+  const triggers = (settings.emailTriggers ?? {}) as Record<string, unknown>
+  const disabled = Object.entries(WIZARD_EMAIL_TRIGGERS)
+    .filter(([key]) => triggers[key] === false)
+    .map(([, trigger]) => ({ challengeId, trigger, enabled: false }))
+  if (disabled.length > 0) {
+    await db.messageTemplate.createMany({ data: disabled, skipDuplicates: true })
+  }
+
+  const offer = (settings.offer ?? {}) as Record<string, unknown>
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const headline = text(offer.headline)
+  const ctaUrl   = text(offer.url)
+  // Only a complete offer goes live — the same rule saveOfferAction applies.
+  if (offer.enabled === true && headline && /^https?:\/\/\S+$/i.test(ctaUrl)) {
+    const bonuses = text(offer.bonuses).split('\n').map((b) => b.trim()).filter(Boolean)
+    await db.offer.create({
+      data: {
+        challengeId,
+        enabled:  true,
+        headline,
+        ctaLabel: text(offer.ctaText) || 'Get started',
+        ctaUrl,
+        bonuses,
+        closesAt: scheduleDate(text(offer.deadline) || undefined, timeZone),
+      },
+    })
+  }
 }
 
 async function resolveWorkspace(workspaceSlug: string) {
@@ -121,11 +224,16 @@ export async function createChallengeAction(workspaceSlug: string, data: WizardD
 
   // Derived from a title as often as typed, so a clash is nudged aside
   // rather than refused.
-  let slug = avoidReserved(data.slug ? slugify(data.slug) : slugify(data.title))
-  const existing = await db.challenge.findUnique({
-    where: { workspaceId_slug: { workspaceId: ws.id, slug } },
-  })
-  if (existing) slug = `${slug}-${Date.now().toString(36)}`
+  const slug = await freeChallengeSlug(slugify(data.slug || data.title))
+
+  // Never store a zone Intl cannot read — every participant page formats
+  // dates with it, and an unknown one throws for every visitor.
+  if (data.timezone && !isValidTimeZone(data.timezone)) {
+    return { error: 'That timezone is not recognised.' }
+  }
+  if (badCapacity(data.maxParticipants)) {
+    return { error: 'The participant limit must be a whole number of at least 1.' }
+  }
 
   const challenge = await db.challenge.create({
     data: {
@@ -141,10 +249,10 @@ export async function createChallengeAction(workspaceSlug: string, data: WizardD
       mode:                modeToEnum(data.mode) as never,
       status:              'DRAFT' as never,
       timezone:            data.timezone || null,
-      startsAt:            data.startsAt ? new Date(data.startsAt) : null,
-      endsAt:              data.endsAt   ? new Date(data.endsAt)   : null,
-      registrationOpensAt:  data.registrationOpensAt  ? new Date(data.registrationOpensAt)  : null,
-      registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt) : null,
+      startsAt:             scheduleDate(data.startsAt, data.timezone),
+      endsAt:               scheduleDate(data.endsAt, data.timezone),
+      registrationOpensAt:  scheduleDate(data.registrationOpensAt, data.timezone),
+      registrationClosesAt: scheduleDate(data.registrationClosesAt, data.timezone),
       isPublic:            data.isPublic,
       maxParticipants:     data.maxParticipants || null,
       requiresApproval:    data.requiresApproval,
@@ -152,48 +260,16 @@ export async function createChallengeAction(workspaceSlug: string, data: WizardD
     },
   })
 
+  await applyWizardSettings(challenge.id, (data.settings || {}) as Record<string, unknown>, data.timezone)
+
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
   redirect(`/ws/${workspaceSlug}/challenges/${challenge.slug}/builder`)
 }
 
-// ─── Save Draft (partial wizard save) ────────────────────────────────────────
-
-export async function saveDraftAction(workspaceSlug: string, data: Partial<WizardData>) {
-  const user = await requireUser()
-  const ws   = await resolveWorkspace(workspaceSlug)
-  await requirePermission(user.id, ws.id, 'challenge.create')
-
-  let slug = avoidReserved(data.slug ? slugify(data.slug) : slugify(data.title ?? `draft-${Date.now().toString(36)}`))
-  const existing = await db.challenge.findUnique({
-    where: { workspaceId_slug: { workspaceId: ws.id, slug } },
-  })
-  if (existing && !data.slug) slug = `${slug}-${Date.now().toString(36)}`
-
-  const challenge = await db.challenge.upsert({
-    where: { workspaceId_slug: { workspaceId: ws.id, slug } },
-    update: {
-      title:             data.title            || undefined,
-      description:       data.description      ?? undefined,
-      promise:           data.promise          ?? undefined,
-      outcome:           data.outcome          ?? undefined,
-      startingPoint:     data.startingPoint    ?? undefined,
-      successDefinition: data.successDefinition ?? undefined,
-      settings:          (data.settings ?? undefined) as never,
-      mode:              data.mode ? modeToEnum(data.mode) as never : undefined,
-    },
-    create: {
-      workspaceId: ws.id,
-      slug,
-      title:       data.title || 'Untitled Challenge',
-      status:      'DRAFT' as never,
-      mode:        modeToEnum(data.mode ?? 'marketing') as never,
-      settings:    data.settings || {},
-    } as never,
-  })
-
-  revalidatePath(`/ws/${workspaceSlug}/challenges`)
-  return { slug: challenge.slug }
-}
+// saveDraftAction was removed. Nothing in the UI called it, but as an exported
+// server action it was still an endpoint — and its upsert keyed on the slug the
+// browser sent, so a draft save could overwrite any existing challenge in the
+// workspace, published ones included, with only challenge.create.
 
 // ─── Update Challenge ────────────────────────────────────────────────────────
 
@@ -203,19 +279,28 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
   await requirePermission(user.id, ws.id, 'challenge.edit')
   await requireChallengeIn(ws.id, workspaceSlug, challengeId)
 
+  if (data.timezone && !isValidTimeZone(data.timezone)) {
+    return { error: 'That timezone is not recognised.' }
+  }
+  if (badCapacity(data.maxParticipants)) {
+    return { error: 'The participant limit must be a whole number of at least 1.' }
+  }
+
   // Changing the slug changes the public URL, so it goes through the same
   // reserved-word guard as creation — otherwise a challenge could be renamed
   // onto a route the app owns and quietly shadow it.
   let nextSlug: string | undefined
   if (data.slug !== undefined) {
-    nextSlug = avoidReserved(slugify(data.slug))
-    if (!nextSlug) return { error: 'That slug is not usable. Try something else.' }
+    const cleaned = slugify(data.slug)
+    if (!cleaned) return { error: 'That slug is not usable. Try something else.' }
+    nextSlug = avoidReserved(cleaned)
 
+    // Across every workspace: /c/<slug> carries no workspace to tell them apart.
     const clash = await db.challenge.findFirst({
-      where: { workspaceId: ws.id, slug: nextSlug, id: { not: challengeId } },
+      where: { slug: nextSlug, id: { not: challengeId } },
       select: { id: true },
     })
-    if (clash) return { error: 'Another challenge in this workspace already uses that slug.' }
+    if (clash) return { error: 'That URL is already taken. Try something else.' }
   }
 
   const challenge = await db.challenge.update({
@@ -230,11 +315,13 @@ export async function updateChallengeAction(challengeId: string, workspaceSlug: 
       ...(data.startingPoint    !== undefined && { startingPoint: data.startingPoint }),
       ...(data.successDefinition !== undefined && { successDefinition: data.successDefinition }),
       ...(data.mode             && { mode: modeToEnum(data.mode) as never }),
-      ...(data.timezone         !== undefined && { timezone: data.timezone }),
-      ...(data.startsAt         !== undefined && { startsAt: data.startsAt ? new Date(data.startsAt) : null }),
-      ...(data.endsAt           !== undefined && { endsAt:   data.endsAt   ? new Date(data.endsAt)   : null }),
-      ...(data.registrationOpensAt  !== undefined && { registrationOpensAt:  data.registrationOpensAt  ? new Date(data.registrationOpensAt)  : null }),
-      ...(data.registrationClosesAt !== undefined && { registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt) : null }),
+      // '' becomes null: pages fall back with `?? 'UTC'`, which an empty
+      // string slips past and Intl then rejects.
+      ...(data.timezone         !== undefined && { timezone: data.timezone || null }),
+      ...(data.startsAt         !== undefined && { startsAt: scheduleDate(data.startsAt, data.timezone) }),
+      ...(data.endsAt           !== undefined && { endsAt:   scheduleDate(data.endsAt, data.timezone) }),
+      ...(data.registrationOpensAt  !== undefined && { registrationOpensAt:  scheduleDate(data.registrationOpensAt, data.timezone) }),
+      ...(data.registrationClosesAt !== undefined && { registrationClosesAt: scheduleDate(data.registrationClosesAt, data.timezone) }),
       ...(data.isPublic         !== undefined && { isPublic: data.isPublic }),
       ...(data.maxParticipants  !== undefined && { maxParticipants: data.maxParticipants }),
       ...(data.requiresApproval !== undefined && { requiresApproval: data.requiresApproval }),
@@ -428,11 +515,16 @@ export async function deleteChallengeAction(challengeId: string, workspaceSlug: 
 
 // ─── Step Actions ────────────────────────────────────────────────────────────
 
-export async function addStepAction(challengeId: string, workspaceSlug: string, stepType = 'day') {
+const STEP_TYPES = ['day', 'orientation', 'graduation', 'bonus'] as const
+
+export async function addStepAction(challengeId: string, workspaceSlug: string, requestedType = 'day') {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
   await requireChallengeIn(ws.id, workspaceSlug, challengeId)
+
+  // Arrives from the browser; anything unknown was stored verbatim.
+  const stepType: string = (STEP_TYPES as readonly string[]).includes(requestedType) ? requestedType : 'day'
 
   const maxOrder = await db.challengeStep.aggregate({
     where: { challengeId },
@@ -480,10 +572,22 @@ export async function updateStepAction(stepId: string, workspaceSlug: string, da
   await requirePermission(user.id, ws.id, 'challenge.edit')
   await requireStepIn(ws.id, workspaceSlug, stepId)
 
+  // The panel sends whatever was typed. A negative points value awarded
+  // negative XP on completion, a decimal failed against the Int column, and a
+  // cleared title left the day nameless everywhere participants see it.
+  const wholeOrNull = (v: number | null | undefined) =>
+    v === null || v === undefined || (Number.isInteger(v) && v >= 0 && v <= 100_000)
+  if (!wholeOrNull(data.estimatedMinutes) || !wholeOrNull(data.pointsXp)) {
+    return { error: 'Minutes and points must be whole numbers, 0 or more.' }
+  }
+  if (data.title !== undefined && !data.title.trim()) {
+    return { error: 'A day needs a title.' }
+  }
+
   const step = await db.challengeStep.update({
     where: { id: stepId },
     data: {
-      ...(data.title            !== undefined && { title:            data.title }),
+      ...(data.title            !== undefined && { title:            data.title.trim() }),
       ...(data.description      !== undefined && { description:      data.description }),
       ...(data.estimatedMinutes !== undefined && { estimatedMinutes: data.estimatedMinutes }),
       ...(data.completionMethod !== undefined && { completionMethod: data.completionMethod }),
@@ -510,9 +614,26 @@ export async function deleteStepAction(stepId: string, workspaceSlug: string) {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
-  await requireStepIn(ws.id, workspaceSlug, stepId)
+  const step = await requireStepIn(ws.id, workspaceSlug, stepId)
 
-  await db.challengeStep.delete({ where: { id: stepId } })
+  // Close the gap the deleted step leaves. `order` is both the day number in
+  // the participant URL (/day/<order + 1>) and the day offset the unlock
+  // schedule counts from, so a hole made every later step open a day late
+  // and broke the "next day" links.
+  await db.$transaction(async (tx) => {
+    await tx.challengeStep.delete({ where: { id: stepId } })
+    const remaining = await tx.challengeStep.findMany({
+      where:   { challengeId: step.challengeId },
+      orderBy: { order: 'asc' },
+      select:  { id: true, order: true },
+    })
+    for (const [index, s] of remaining.entries()) {
+      if (s.order !== index) {
+        await tx.challengeStep.update({ where: { id: s.id }, data: { order: index } })
+      }
+    }
+  })
+
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
   return { success: true }
 }
@@ -562,30 +683,41 @@ const BLOCK_TYPE_MAP: Record<string, string> = {
   offer_cta:         'OFFER_CTA',
 }
 
-export async function saveBlocksAction(stepId: string, workspaceSlug: string, blocks: BlockData[]) {
+export async function saveBlocksAction(
+  stepId: string, workspaceSlug: string, blocks: BlockData[]
+): Promise<{ success: true; count: number } | { success: false; count: 0; error: string }> {
   const user = await requireUser()
   const ws   = await resolveWorkspace(workspaceSlug)
   await requirePermission(user.id, ws.id, 'challenge.edit')
   await requireStepIn(ws.id, workspaceSlug, stepId)
 
-  // Delete all existing blocks for this step and re-create in order
-  // This is simpler than diffing and ensures order is always consistent
-  await db.contentBlock.deleteMany({ where: { stepId } })
+  // Every type is checked before anything is touched. An unknown one used to
+  // reach createMany *after* deleteMany had already run, so one bad block
+  // wiped the whole step.
+  const unknown = blocks.find((b) => !BLOCK_TYPE_MAP[b.type])
+  if (unknown) return { success: false, count: 0, error: `Unknown block type "${unknown.type}".` }
 
-  if (blocks.length > 0) {
-    await db.contentBlock.createMany({
-      // `required` and `points` fold into `data` because `content_blocks` has
-      // no column for either. Until 2026-09-29 `required` was accepted here
-      // and then dropped on the floor — the toggle in the editor had never
-      // once persisted, and a block marked required came back optional.
-      data: blocks.map((b, i) => ({
-        stepId,
-        type:  (BLOCK_TYPE_MAP[b.type] ?? b.type.toUpperCase()) as never,
-        order: i,
-        data:  { ...b.data, required: b.required, points: b.points ?? 0 } as never,
-      })),
-    })
-  }
+  // Delete all existing blocks for this step and re-create in order — simpler
+  // than diffing, and the order is always consistent. One transaction, so a
+  // failure part-way leaves the step exactly as it was.
+  await db.$transaction(async (tx) => {
+    await tx.contentBlock.deleteMany({ where: { stepId } })
+
+    if (blocks.length > 0) {
+      await tx.contentBlock.createMany({
+        // `required` and `points` fold into `data` because `content_blocks` has
+        // no column for either. Until 2026-09-29 `required` was accepted here
+        // and then dropped on the floor — the toggle in the editor had never
+        // once persisted, and a block marked required came back optional.
+        data: blocks.map((b, i) => ({
+          stepId,
+          type:  BLOCK_TYPE_MAP[b.type] as never,
+          order: i,
+          data:  { ...b.data, required: b.required, points: b.points ?? 0 } as never,
+        })),
+      })
+    }
+  })
 
   revalidatePath(`/ws/${workspaceSlug}/challenges`)
   return { success: true, count: blocks.length }

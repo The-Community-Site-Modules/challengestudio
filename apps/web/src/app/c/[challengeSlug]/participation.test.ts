@@ -261,3 +261,84 @@ describe('mail on completion', () => {
     expect(dispatch).not.toHaveBeenCalled()
   })
 })
+
+// ─── Rejection, drafts, and what the page is told ───────────────────────────
+
+describe('participants who are not taking part', () => {
+  it('refuses someone the organiser turned away', async () => {
+    // Rejection sets DROPPED; the gate used to check only for PENDING, so a
+    // rejected participant could carry on submitting as if nothing happened.
+    withParticipant({ status: 'DROPPED' })
+    await submit()
+    expect(db.submission.upsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('unpublished steps', () => {
+  it('only ever loads published steps', async () => {
+    await submit()
+    const query = db.challenge.findFirst.mock.calls[0]?.[0]
+    expect(query.select.steps.where).toEqual({ isPublished: true })
+  })
+
+  it('counts only published required steps towards finishing', async () => {
+    // A draft step marked required used to make finishing impossible.
+    await submit()
+    expect(db.challengeStep.count).toHaveBeenCalledWith({
+      where: { challengeId: 'ch1', isRequired: true, isPublished: true },
+    })
+  })
+})
+
+describe('the result the day page reads', () => {
+  it('reports success when the work was stored', async () => {
+    expect(await completeStepAction('design-sprint', 'st1', { a: 'x' })).toEqual({ success: true })
+  })
+
+  it.each([
+    ['a locked step', () => {
+      const today = new Date()
+      withChallenge({ startsAt: today })
+      withParticipant({ registeredAt: today })
+    }, 'st3'],
+    ['a foreign step', () => {}, 'st-elsewhere'],
+    ['a pending participant', () => withParticipant({ status: 'PENDING' }), 'st1'],
+  ])('reports failure for %s instead of returning nothing', async (_label, arrange, stepId) => {
+    // A bare return looked like success to the page, which celebrated work
+    // that was never saved.
+    arrange()
+    const result = await completeStepAction('design-sprint', stepId, { a: 'x' })
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('completedAt', () => {
+  it('is not moved when someone already finished re-submits a step', async () => {
+    withParticipant({ status: 'COMPLETED' })
+    db.challengeStep.count.mockResolvedValue(1)
+    db.submission.count.mockResolvedValue(1)
+    await submit()
+    expect(db.participant.update).not.toHaveBeenCalled()
+  })
+})
+
+describe('reflection privacy', () => {
+  it('stores a reflection marked private as private', async () => {
+    // The flag is nested under the block id; it used to be read from the top
+    // level, where no block puts it, so every reflection was stored visible.
+    await submit('st1', { blk1: { text: 'just for me', isPrivate: true } })
+    const call = db.submission.upsert.mock.calls[0]?.[0]
+    expect(call.create.isPrivate).toBe(true)
+    expect(call.update.isPrivate).toBe(true)
+  })
+})
+
+describe('what this server-action module exposes', () => {
+  it('does not export the progress reader, which takes a user id', async () => {
+    // Every export of a 'use server' module is a public endpoint. This one
+    // returned any account's progress for any id the caller sent.
+    const actions = await import('./actions')
+    expect('getParticipantProgress' in actions).toBe(false)
+    expect('enrollAfterAuthAction' in actions).toBe(false)
+  })
+})

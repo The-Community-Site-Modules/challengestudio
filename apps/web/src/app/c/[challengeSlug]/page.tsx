@@ -10,6 +10,7 @@ import { Input }     from '@/components/ui/input'
 import { Label }     from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { db }        from '@/lib/db'
+import { formatInZone, safeZone } from '@/lib/time/zoned'
 import { getCurrentUser } from '@/lib/auth/session'
 import { registerAction } from './actions'
 
@@ -35,6 +36,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
       settings: true,
       workspace: { select: { name: true, logoUrl: true } },
       steps: {
+        where:   { isPublished: true },
         orderBy: { order: 'asc' },
         select: { title: true, stepType: true, estimatedMinutes: true },
       },
@@ -68,7 +70,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
   }
 
   const startDate = challenge.startsAt
-    ? challenge.startsAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    ? formatInZone(challenge.startsAt, challenge.timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : 'Coming soon'
 
   /**
@@ -84,13 +86,13 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
     const inZone = (d: Date) =>
       new Intl.DateTimeFormat('en-US', {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-        timeZone: challenge.timezone ?? 'UTC',
+        timeZone: safeZone(challenge.timezone),
       }).format(d)
 
     if (challenge.registrationOpensAt && challenge.registrationOpensAt > now) {
       return {
         open: false,
-        shortLabel: `Opens ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: challenge.timezone ?? 'UTC' }).format(challenge.registrationOpensAt)}`,
+        shortLabel: `Opens ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: safeZone(challenge.timezone) }).format(challenge.registrationOpensAt)}`,
         message: `Registration opens on ${inZone(challenge.registrationOpensAt)}.`,
       }
     }
@@ -294,7 +296,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
 
                   {error && (
                     <div className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {decodeURIComponent(error)}
+                      {error}
                     </div>
                   )}
 

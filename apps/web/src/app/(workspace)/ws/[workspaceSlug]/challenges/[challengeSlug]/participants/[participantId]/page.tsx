@@ -19,7 +19,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { hasPermission } from '@/lib/permissions'
 import { db } from '@/lib/db'
+import { readableAnswer, submissionFiles, submissionIsPrivate } from '@/lib/submissions/payload'
 import { badgeByKey } from '@/lib/gamification'
+import { streakDays } from '@/lib/gamification/streak'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -30,27 +32,6 @@ export const metadata = { title: 'Participant — Challenge Studio' }
 
 const when = (d: Date) =>
   d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-
-/** Consecutive days with a submission, counting back from today. */
-function streakFrom(dates: Date[]): number {
-  const key = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-  const days = new Set(dates.map(d => key(new Date(d))))
-  let streak = 0
-  const cursor = new Date()
-  while (days.has(key(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1) }
-  return streak
-}
-
-function readable(data: unknown): string {
-  if (typeof data !== 'object' || data === null) return ''
-  const d = data as Record<string, unknown>
-  if (typeof d.text === 'string') return d.text
-  if (typeof d.answer === 'string') return d.answer
-  return Object.entries(d)
-    .filter(([k, v]) => typeof v === 'string' && k !== 'isPrivate')
-    .map(([, v]) => v as string)
-    .join('\n\n')
-}
 
 export default async function ParticipantDetailPage({ params }: Props) {
   const { workspaceSlug, challengeSlug, participantId } = await params
@@ -65,7 +46,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
   const challenge = await db.challenge.findUnique({
     where:  { workspaceId_slug: { workspaceId: workspace.id, slug: challengeSlug } },
     select: {
-      id: true, title: true,
+      id: true, title: true, timezone: true,
       steps: { orderBy: { order: 'asc' }, select: { id: true, title: true, order: true, isRequired: true } },
     },
   })
@@ -105,7 +86,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
 
   const stepTitle = new Map(challenge.steps.map(s => [s.id, s]))
   const requiredTotal = challenge.steps.filter(s => s.isRequired).length || challenge.steps.length
-  const streak = streakFrom(participant.submissions.map(s => s.submittedAt))
+  const streak = streakDays(participant.submissions.map(s => s.submittedAt), challenge.timezone ?? 'UTC')
   const lastActivity = participant.submissions[0]?.submittedAt ?? null
   const name = participant.profile.fullName?.trim() || participant.profile.email
 
@@ -202,7 +183,8 @@ export default async function ParticipantDetailPage({ params }: Props) {
               <ul className="divide-y divide-slate-100">
                 {participant.submissions.map((s) => {
                   const step = stepTitle.get(s.stepId)
-                  const withheld = s.isPrivate && !canSeePrivate
+                  const isPrivate = s.isPrivate || submissionIsPrivate(s.data)
+                  const withheld = isPrivate && !canSeePrivate
                   return (
                     <li key={s.id} className="px-5 py-4">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -210,7 +192,7 @@ export default async function ParticipantDetailPage({ params }: Props) {
                           {step ? step.title : 'Removed step'}
                         </span>
                         <span className="text-[12px] text-slate-500">{when(s.submittedAt)}</span>
-                        {s.isPrivate && (
+                        {isPrivate && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                             <Lock className="h-3 w-3" /> Private
                           </span>
@@ -227,8 +209,24 @@ export default async function ParticipantDetailPage({ params }: Props) {
                       )}>
                         {withheld
                           ? 'Marked private. Opening it needs permission to view private submissions.'
-                          : readable(s.data) || 'No written answer.'}
+                          : readableAnswer(s.data) || (submissionFiles(s.data).length === 0 ? 'No written answer.' : '')}
                       </p>
+                      {!withheld && submissionFiles(s.data).length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-2">
+                          {submissionFiles(s.data).map((file, n) => (
+                            <li key={n}>
+                              <a
+                                href={`/ws/${workspaceSlug}/challenges/${challengeSlug}/submissions/${s.id}/file?n=${n}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                {file.filename}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {s.feedback && !withheld && (
                         <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[13px] text-slate-600">
                           <span className="font-medium text-slate-700">Feedback: </span>

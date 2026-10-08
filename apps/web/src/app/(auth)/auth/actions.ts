@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
+import { safeNext } from '@/lib/auth/redirect'
 
 /**
  * PRD §22.2 asks for a limit on authentication attempts.
@@ -32,9 +33,9 @@ export async function signUpAction(formData: FormData) {
 
   const supabase = await createClient()
 
-  const firstName = (formData.get('firstName') as string).trim()
-  const lastName  = (formData.get('lastName')  as string).trim()
-  const email     = (formData.get('email')     as string).trim()
+  const firstName = String(formData.get('firstName') ?? '').trim()
+  const lastName  = String(formData.get('lastName') ?? '').trim()
+  const email     = String(formData.get('email') ?? '').trim()
   const password  = formData.get('password')   as string
 
   const { error } = await supabase.auth.signUp({
@@ -64,7 +65,7 @@ export async function signUpAction(formData: FormData) {
 export async function signInAction(formData: FormData) {
   const supabase = await createClient()
 
-  const email    = (formData.get('email')    as string).trim()
+  const email    = String(formData.get('email') ?? '').trim()
   const password = formData.get('password') as string
 
   const next = safeNext(formData.get('next') as string | null)
@@ -91,7 +92,7 @@ export async function signInAction(formData: FormData) {
 export async function signInWithMagicLinkAction(formData: FormData) {
   const supabase = await createClient()
 
-  const email = (formData.get('email') as string).trim()
+  const email = String(formData.get('email') ?? '').trim()
 
   const next = safeNext(formData.get('next') as string | null)
 
@@ -132,10 +133,14 @@ export async function forgotPasswordAction(formData: FormData) {
 
   const supabase = await createClient()
 
-  const email = (formData.get('email') as string).trim()
+  const email = String(formData.get('email') ?? '').trim()
 
+  // Through the callback, like every other emailed link. The server client
+  // uses the PKCE flow, so the link arrives with a `code` that has to be
+  // exchanged for a session — and /auth/reset-password never did that, so
+  // "Set a new password" always failed with no session.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
   if (error) {
@@ -182,25 +187,13 @@ export async function signOutAction(next?: string) {
   redirect(safeNext(next) ? `/auth/login?next=${encodeURIComponent(next!)}` : '/auth/login')
 }
 
-/**
- * A path on this site: starts with a single slash, never `//` or a scheme.
- *
- * Not exported — every export from a 'use server' module has to be an async
- * server action, and this is a plain helper.
- */
-function safeNext(value: string | null | undefined): string | null {
-  if (!value) return null
-  if (!value.startsWith('/')) return null
-  if (value.startsWith('//')) return null
-  return value
-}
 
 // ── Resend Verification Email ─────────────────────────────────────────────
 
 export async function resendVerificationAction(formData: FormData) {
   const supabase = await createClient()
 
-  const email = (formData.get('email') as string).trim()
+  const email = String(formData.get('email') ?? '').trim()
 
   const blocked = await authAttemptBlocked(`/auth/verify?email=${encodeURIComponent(email)}`)
   if (blocked) return redirect(blocked)

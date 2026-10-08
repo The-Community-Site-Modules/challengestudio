@@ -105,11 +105,14 @@ describe('every other flow that emails a link', () => {
     expect(calls[0]?.options.emailRedirectTo).toBe(`${APP_URL}/api/auth/callback`)
   })
 
-  it('a password reset goes to the page that sets a new password', async () => {
-    // The one legitimate exception: reset-password is a form, not a landing
-    // page, and Supabase signs the user in before it loads.
+  it('a password reset goes through the callback, then to the page that sets a new password', async () => {
+    // It used to point at /auth/reset-password directly. The server client
+    // uses PKCE, so the link carries a `code` that only the callback
+    // exchanges; without it the reset form had no session and always failed.
     await run(() => forgotPasswordAction(form({ email: 'jane@example.com' })))
-    expect(calls[0]?.options.redirectTo).toBe(`${APP_URL}/auth/reset-password`)
+    expect(calls[0]?.options.redirectTo).toBe(
+      `${APP_URL}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`
+    )
   })
 })
 
