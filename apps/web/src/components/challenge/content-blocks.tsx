@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch }   from '@/components/ui/switch'
 import { cn }       from '@/lib/utils'
 import { safeHref } from '@/lib/safe-url'
+import { downloadUrl } from '@/lib/storage/download-url'
 
 /**
  * How a content block looks to a participant.
@@ -112,7 +113,13 @@ function DownloadBlock({ data }: { data: Record<string, string> }) {
       </div>
       {url ? (
         <Button size="sm" variant="outline" className="gap-1.5" asChild>
-          <a href={url} download><Download className="h-3.5 w-3.5" /> Download</a>
+          {/* `safeHref` decides whether this is a link at all; `downloadUrl`
+              decides whether clicking it saves the file or opens it in a tab.
+              `download` alone did neither — it is ignored cross-origin, and
+              these files are on the storage host. */}
+          <a href={downloadUrl(url, data.name)} download={data.name}>
+            <Download className="h-3.5 w-3.5" /> Download
+          </a>
         </Button>
       ) : (
         <Button size="sm" variant="outline" className="gap-1.5" disabled>

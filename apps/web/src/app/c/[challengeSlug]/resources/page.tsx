@@ -15,6 +15,7 @@ import { getParticipantProgress } from '@/lib/enrollment/progress'
 import { db } from '@/lib/db'
 import { safeHref } from '@/lib/safe-url'
 import { isParticipating } from '@/lib/enrollment/register'
+import { downloadUrl } from '@/lib/storage/download-url'
 
 interface Props {
   params: Promise<{ challengeSlug: string }>
@@ -98,10 +99,12 @@ export default async function ResourcesPage({ params }: Props) {
                     return (
                       <li key={b.id}>
                         {url ? (
+                          // Saved, not opened in a tab — same reason as the
+                          // download block: `download` is ignored cross-origin,
+                          // so the URL has to ask for the header itself.
                           <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={downloadUrl(url, name)}
+                            download={name}
                             className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-colors hover:border-primary/40"
                           >
                             {row}
