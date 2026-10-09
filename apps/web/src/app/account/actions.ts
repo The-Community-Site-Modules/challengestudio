@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
+import { requestOrigin } from '@/lib/auth/origin'
 
 // ── Update profile ────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ export async function requestPasswordChangeAction() {
   // Via the callback, which exchanges the PKCE code for a session first —
   // see forgotPasswordAction.
   const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
+    redirectTo: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
   if (error) {

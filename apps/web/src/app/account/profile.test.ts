@@ -19,6 +19,10 @@ vi.mock('next/navigation', () => ({
   redirect: (to: string) => { throw new RedirectError(to) },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+// Emailed links are built from the request's origin (lib/auth/origin).
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers({ origin: 'https://www.example.test' }),
+}))
 
 const sessionUser = { id: 'me', email: 'me@example.com', fullName: 'Me', avatarUrl: null }
 vi.mock('@/lib/auth/session', () => ({ requireUser: async () => sessionUser }))

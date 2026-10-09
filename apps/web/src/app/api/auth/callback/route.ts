@@ -44,9 +44,19 @@ export async function GET(request: NextRequest) {
     const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      return NextResponse.redirect(
-        `${origin}/auth/login?error=${encodeURIComponent(exchangeError.message)}`
-      )
+      // The commonest failure is a link opened in a different browser or on a
+      // different device from the one that asked for it: the PKCE verifier
+      // cookie lives only in the original browser. Supabase's message for that
+      // means nothing to a participant, and the product login page was the
+      // wrong place to send someone who registered for a challenge.
+      const verifierMissing =
+        exchangeError.code === 'bad_code_verifier' || /code.verifier/i.test(exchangeError.message)
+      const message = verifierMissing
+        ? 'That link has to be opened in the same browser you used to request it. Ask for a new link here and open it in this browser.'
+        : exchangeError.message
+      const challengePath = /^\/c\/[^/]+/.exec(next)?.[0]
+      const signIn = challengePath ? `${challengePath}/access` : '/auth/login'
+      return NextResponse.redirect(`${origin}${signIn}?error=${encodeURIComponent(message)}`)
     }
 
     // If this came from challenge registration → create Profile + Participant

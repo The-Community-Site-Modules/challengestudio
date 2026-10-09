@@ -8,6 +8,7 @@ import { awardPoints, earnedBadgeKeys, badgeByKey } from '@/lib/gamification'
 import { dispatch } from '@/lib/communications'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
+import { requestOrigin } from '@/lib/auth/origin'
 import { initialParticipantStatus, isParticipating, registrationBlocker } from '@/lib/enrollment/register'
 import { submissionIsPrivate } from '@/lib/submissions/payload'
 import { streakDays } from '@/lib/gamification/streak'
@@ -111,7 +112,9 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   //        → callback creates Profile + Participant → redirect to /welcome
 
   const callbackNext = `/c/${challengeSlug}/welcome`
-  const callbackUrl  = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+  // The domain this form was submitted on — the only one holding the PKCE
+  // verifier cookie this link needs. See lib/auth/origin.
+  const callbackUrl  = `${await requestOrigin()}/api/auth/callback`
     + `?next=${encodeURIComponent(callbackNext)}`
     + `&challenge=${encodeURIComponent(challenge.id)}`
     + `&name=${encodeURIComponent(fullName)}`

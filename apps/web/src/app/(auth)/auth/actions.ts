@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
 import { safeNext } from '@/lib/auth/redirect'
+import { requestOrigin } from '@/lib/auth/origin'
 
 /**
  * PRD §22.2 asks for a limit on authentication attempts.
@@ -49,7 +50,7 @@ export async function signUpAction(formData: FormData) {
       // there, created no session, and left the person to sign in by hand.
       // Every other flow already pointed at the callback; sign-up was the
       // odd one out.
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+      emailRedirectTo: `${await requestOrigin()}/api/auth/callback`,
     },
   })
 
@@ -104,7 +105,7 @@ export async function signInWithMagicLinkAction(formData: FormData) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+      emailRedirectTo: `${await requestOrigin()}/api/auth/callback`
         + (next ? `?next=${encodeURIComponent(next)}` : ''),
     },
   })
@@ -140,7 +141,7 @@ export async function forgotPasswordAction(formData: FormData) {
   // exchanged for a session — and /auth/reset-password never did that, so
   // "Set a new password" always failed with no session.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
+    redirectTo: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
   if (error) {
@@ -202,7 +203,7 @@ export async function resendVerificationAction(formData: FormData) {
     type: 'signup',
     email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+      emailRedirectTo: `${await requestOrigin()}/api/auth/callback`,
     },
   })
 
