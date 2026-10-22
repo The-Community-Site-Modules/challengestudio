@@ -4,11 +4,13 @@ import { useState, useRef, useTransition } from 'react'
 import { useParams } from 'next/navigation'
 import {
   Play, Download, Users, BookOpen, Upload, Zap, MessageCircle, Image as ImageIcon, Radio,
+  Loader2, Check,
 } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
 import { Badge }    from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { uploadSubmissionFileAction } from '@/app/c/[challengeSlug]/upload-actions'
+import { createPostAction } from '@/app/c/[challengeSlug]/feed/actions'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch }   from '@/components/ui/switch'
@@ -253,7 +255,57 @@ function ReflectionBlock({ data, blockId, onInteract }: {
   )
 }
 
-function DiscussionBlock({ data, readOnly }: { data: Record<string, string>; readOnly?: boolean }) {
+/**
+ * A prompt the participant answers in front of everyone else.
+ *
+ * This was a textarea and a button with no handler: a participant could type a
+ * whole reply, press Post, and nothing happened — no error, no post, and the
+ * text still sitting there. It now goes through the feed's own
+ * `createPostAction`, so a reply from here is the same post the feed page would
+ * have made — same participant check, same rate limit, same points.
+ *
+ * `stepId` ties the post to this day, so the feed can show which day's prompt
+ * it answers. The action checks it belongs to this challenge and is published;
+ * this component does not have to be trusted with that.
+ */
+function DiscussionBlock({ data, readOnly, stepId }: {
+  data: Record<string, string>
+  readOnly?: boolean
+  stepId?: string
+}) {
+  const params = useParams<{ challengeSlug?: string }>()
+  const challengeSlug = params?.challengeSlug
+  const [text, setText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [posted, setPosted] = useState(false)
+  const [isPosting, startPosting] = useTransition()
+
+  // Preview has no participant to post as, and the builder is not inside a
+  // challenge route at all — so there is nowhere for the post to go.
+  const canPost = !readOnly && Boolean(challengeSlug)
+  const trimmed = text.trim()
+
+  function post() {
+    if (!canPost || !challengeSlug || !trimmed) return
+    setError(null)
+    startPosting(async () => {
+      try {
+        const result = await createPostAction(challengeSlug, trimmed, stepId)
+        if (!result.success) {
+          setError(result.error ?? 'That did not post. Try again.')
+          return
+        }
+        setText('')
+        setPosted(true)
+      } catch {
+        // An action can reject outright — a dropped connection, a session
+        // that expired mid-day. Uncaught, that reaches the error boundary
+        // and takes the whole day page with it.
+        setError('That did not post. Check your connection and try again.')
+      }
+    })
+  }
+
   return (
     <div className="rounded-xl border border-pink-200 bg-pink-50 p-5 space-y-4">
       <div className="flex items-start gap-3">
@@ -265,10 +317,46 @@ function DiscussionBlock({ data, readOnly }: { data: Record<string, string>; rea
           {data.prompt && <p className="mt-1 text-sm text-muted-foreground">{data.prompt}</p>}
         </div>
       </div>
-      <Textarea placeholder="Share your response..." rows={3} className="bg-white" />
-      <Button size="sm" className="gap-2" disabled={readOnly}>
-        <MessageCircle className="h-3.5 w-3.5" /> Post to feed
-      </Button>
+      <Textarea
+        placeholder="Share your response..."
+        rows={3}
+        className="bg-white"
+        value={text}
+        onChange={(e) => { setText(e.target.value); if (posted) setPosted(false) }}
+        disabled={!canPost || isPosting}
+        aria-label="Your response"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          size="sm"
+          className="gap-2"
+          onClick={post}
+          disabled={!canPost || !trimmed || isPosting}
+        >
+          {isPosting ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Posting…</>
+          ) : (
+            <><MessageCircle className="h-3.5 w-3.5" /> Post to feed</>
+          )}
+        </Button>
+        {posted && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+            <Check className="h-3.5 w-3.5" /> Posted.{' '}
+            {challengeSlug && (
+              <a href={`/c/${challengeSlug}/feed`} className="underline underline-offset-2">
+                See it in the feed
+              </a>
+            )}
+          </span>
+        )}
+        {readOnly && (
+          <span className="text-xs text-muted-foreground">Participants post from here.</span>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="text-xs font-medium text-destructive">{error}</p>
+      )}
     </div>
   )
 }
@@ -426,11 +514,15 @@ function ImageBlock({ data }: { data: Record<string, string> }) {
 }
 
 
-/** Renders one block. Pass `onInteract` for a live step, `readOnly` for preview. */
-export function ContentBlock({ block, onInteract, readOnly }: {
+/**
+ * Renders one block. Pass `onInteract` for a live step, `readOnly` for preview.
+ * `stepId` lets a discussion reply be filed under the day it answers.
+ */
+export function ContentBlock({ block, onInteract, readOnly, stepId }: {
   block: RenderableBlock
   onInteract?: Interact
   readOnly?: boolean
+  stepId?: string
 }) {
   const { type, data, id } = block
 
@@ -439,7 +531,7 @@ export function ContentBlock({ block, onInteract, readOnly }: {
     case 'video':             return <VideoBlock        data={data} />
     case 'image':             return <ImageBlock        data={data} />
     case 'download':          return <DownloadBlock     data={data} />
-    case 'discussion_prompt': return <DiscussionBlock   data={data} readOnly={readOnly} />
+    case 'discussion_prompt': return <DiscussionBlock   data={data} readOnly={readOnly} {...(stepId ? { stepId } : {})} />
     case 'file_upload':       return <FileUploadBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'checklist':         return <ChecklistBlock    data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'assignment':        return <AssignmentBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />

@@ -154,7 +154,7 @@ export default async function ChallengeHubPage({ params }: Props) {
               <section className="overflow-hidden rounded-2xl bg-primary p-6 text-primary-foreground">
                 <div className="grid gap-6 lg:grid-cols-[1fr_minmax(0,280px)]">
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary-foreground/75">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary-foreground/90">
                       Today · Day {todayStep.position} of {steps.length}
                     </p>
                     <h1 className="mt-2 text-[30px] font-bold leading-tight tracking-tight">
@@ -167,7 +167,7 @@ export default async function ChallengeHubPage({ params }: Props) {
                         </Link>
                       </Button>
                       {todayStep.estimatedMinutes && (
-                        <span className="text-sm text-primary-foreground/80">
+                        <span className="text-sm text-primary-foreground/90">
                           About {todayStep.estimatedMinutes} min left
                         </span>
                       )}

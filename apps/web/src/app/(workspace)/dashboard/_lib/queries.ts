@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { roleCan, type Capability } from '@/lib/permissions'
 
 export interface WorkspaceSummary {
   id: string
@@ -175,6 +176,28 @@ export interface AgencyOverview {
   registrations: { date: string; value: number }[]
   /** The newest real events, mixed across workspaces. */
   events: AgencyEvent[]
+  /**
+   * Whether this person may see participants anywhere. Without it an empty
+   * feed would read "nothing has happened yet", which would be false.
+   */
+  peopleVisible: boolean
+}
+
+/**
+ * The workspaces in which this person holds a capability.
+ *
+ * Every agency-level query that returns people goes through here first. Being
+ * a member of a workspace is not the same as being allowed to see who is in
+ * its challenges: a MEMBER holds only `workspace.view` and `community.post`,
+ * and the workspace's own participants, submissions and analytics pages turn
+ * them away. These pages first shipped without that check, so a member could
+ * read every participant's name and email here that they could not read there.
+ *
+ * Filtering the ids, rather than hiding rows on the page, means the people are
+ * never fetched — a page that forgets to check has nothing to leak.
+ */
+export function permitted(summaries: WorkspaceSummary[], capability: Capability): WorkspaceSummary[] {
+  return summaries.filter((s) => roleCan(s.role, capability))
 }
 
 export async function getAgencyOverview(
@@ -183,14 +206,23 @@ export async function getAgencyOverview(
 ): Promise<AgencyOverview> {
   const ids = summaries.map((s) => s.id)
   if (ids.length === 0) {
-    return { challenges: [], pendingReviews: 0, pendingApprovals: 0, registrations: [], events: [] }
+    return {
+      challenges: [], pendingReviews: 0, pendingApprovals: 0,
+      registrations: [], events: [], peopleVisible: false,
+    }
   }
+
+  // Three different audiences on one page. Challenges and the registration
+  // count are what the workspace dashboard already shows any member; names,
+  // approvals and the review queue are not.
+  const peopleIds = permitted(summaries, 'participant.view').map((s) => s.id)
+  const reviewIds = permitted(summaries, 'submission.view_all').map((s) => s.id)
 
   const nameByWorkspace = new Map(summaries.map((s) => [s.id, s.name]))
   const slugByWorkspace = new Map(summaries.map((s) => [s.id, s.slug]))
   const since = new Date(now.getTime() - 30 * 86_400_000)
 
-  const [rows, pendingReviews, pendingApprovals, registrations, submissions] = await Promise.all([
+  const [rows, pendingReviews, pendingApprovals, counted, joined, submissions] = await Promise.all([
     db.challenge.findMany({
       where: { workspaceId: { in: ids }, status: { in: ['ACTIVE', 'PUBLISHED'] } },
       orderBy: { startsAt: 'desc' },
@@ -200,23 +232,31 @@ export async function getAgencyOverview(
         _count: { select: { participants: true, steps: true } },
       },
     }),
-    db.submission.count({
-      where: { reviewedAt: null, participant: { challenge: { workspaceId: { in: ids } } } },
+    reviewIds.length === 0 ? Promise.resolve(0) : db.submission.count({
+      where: { reviewedAt: null, participant: { challenge: { workspaceId: { in: reviewIds } } } },
     }),
-    db.participant.count({
-      where: { status: 'PENDING', challenge: { workspaceId: { in: ids } } },
+    peopleIds.length === 0 ? Promise.resolve(0) : db.participant.count({
+      where: { status: 'PENDING', challenge: { workspaceId: { in: peopleIds } } },
     }),
+    // Dates only — the chart is a count, and a count needs no names.
     db.participant.findMany({
       where: { challenge: { workspaceId: { in: ids } }, registeredAt: { gte: since } },
+      select: { registeredAt: true },
+    }),
+    peopleIds.length === 0 ? Promise.resolve([]) : db.participant.findMany({
+      where: { challenge: { workspaceId: { in: peopleIds } }, registeredAt: { gte: since } },
+      orderBy: { registeredAt: 'desc' },
+      take: 10,
       select: {
         id: true, registeredAt: true,
         profile: { select: { fullName: true, email: true } },
         challenge: { select: { title: true, workspaceId: true } },
       },
-      orderBy: { registeredAt: 'desc' },
     }),
-    db.submission.findMany({
-      where: { participant: { challenge: { workspaceId: { in: ids } } } },
+    peopleIds.length === 0 ? Promise.resolve([]) : db.submission.findMany({
+      where: { participant: { challenge: { workspaceId: { in: peopleIds } } } },
+      orderBy: { submittedAt: 'desc' },
+      take: 10,
       select: {
         id: true, submittedAt: true,
         participant: {
@@ -226,8 +266,6 @@ export async function getAgencyOverview(
           },
         },
       },
-      orderBy: { submittedAt: 'desc' },
-      take: 10,
     }),
   ])
 
@@ -250,7 +288,7 @@ export async function getAgencyOverview(
     const d = new Date(now.getTime() - i * 86_400_000)
     buckets.set(d.toISOString().slice(0, 10), 0)
   }
-  for (const r of registrations) {
+  for (const r of counted) {
     const key = r.registeredAt.toISOString().slice(0, 10)
     if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1)
   }
@@ -259,7 +297,7 @@ export async function getAgencyOverview(
     p?.fullName?.trim() || p?.email?.split('@')[0] || 'Someone'
 
   const events: AgencyEvent[] = [
-    ...registrations.slice(0, 10).map((r) => ({
+    ...joined.map((r) => ({
       id: `reg-${r.id}`,
       kind: 'registration' as const,
       who: named(r.profile),
@@ -285,6 +323,7 @@ export async function getAgencyOverview(
     pendingApprovals,
     registrations: [...buckets].map(([date, value]) => ({ date, value })),
     events,
+    peopleVisible: peopleIds.length > 0,
   }
 }
 
@@ -383,7 +422,8 @@ export interface AgencyParticipant {
 export async function getAgencyParticipants(
   summaries: WorkspaceSummary[]
 ): Promise<AgencyParticipant[]> {
-  const ids = summaries.map((s) => s.id)
+  // Only workspaces where this person may see participants — see `permitted`.
+  const ids = permitted(summaries, 'participant.view').map((s) => s.id)
   if (ids.length === 0) return []
 
   const byId = new Map(summaries.map((s) => [s.id, s.name]))

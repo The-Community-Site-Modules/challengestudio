@@ -12,14 +12,19 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/auth/session'
 import { TimeSeriesChart } from '@/components/shared/time-series-chart'
 import { AgencyShell, CountStrip, NothingYet } from '../_components/agency-shell'
-import { getWorkspaceSummaries, getPickerTotals, getAgencyOverview } from '../_lib/queries'
+import { getWorkspaceSummaries, getPickerTotals, getAgencyOverview, permitted } from '../_lib/queries'
 
 export const metadata = { title: 'Analytics — Challenge Studio' }
 export const dynamic = 'force-dynamic'
 
 export default async function AgencyAnalyticsPage() {
   const user = await requireUser()
-  const summaries = await getWorkspaceSummaries(user.id)
+  const all = await getWorkspaceSummaries(user.id)
+  // Analytics is a capability, not a perk of membership: the workspace's own
+  // analytics page turns a MEMBER away, so this one counts only the
+  // workspaces where it would have let them in.
+  const summaries = permitted(all, 'analytics.view')
+  const hidden = all.length - summaries.length
   const [totals, agency] = await Promise.all([
     getPickerTotals(user.id, summaries),
     getAgencyOverview(summaries),
@@ -29,7 +34,7 @@ export default async function AgencyAnalyticsPage() {
 
   return (
     <AgencyShell
-      workspaces={summaries.map((s) => ({ slug: s.slug, name: s.name }))}
+      workspaces={all.map((s) => ({ slug: s.slug, name: s.name }))}
       userName={user.fullName ?? ''}
       userEmail={user.email}
       {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
@@ -37,10 +42,15 @@ export default async function AgencyAnalyticsPage() {
       title="Agency analytics"
       description="Every workspace combined, and each one on its own."
     >
-      {summaries.length === 0 ? (
+      {all.length === 0 ? (
         <NothingYet
           title="Nothing to measure yet"
           body="Create a workspace and publish a challenge, and the numbers start here."
+        />
+      ) : summaries.length === 0 ? (
+        <NothingYet
+          title="Analytics are not visible to you"
+          body="Your role in these workspaces does not include analytics. A workspace owner or admin can change that."
         />
       ) : (
         <>
@@ -52,6 +62,13 @@ export default async function AgencyAnalyticsPage() {
               { label: 'Submissions to review', value: agency.pendingReviews },
             ]}
           />
+
+          {hidden > 0 && (
+            <p className="mt-4 text-sm text-slate-500">
+              Counting {summaries.length} of {all.length} workspaces. In the
+              other {hidden === 1 ? 'one' : hidden}, your role does not include analytics.
+            </p>
+          )}
 
           <section className="mt-4 rounded-xl border border-slate-200 bg-white px-5 py-4">
             <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">

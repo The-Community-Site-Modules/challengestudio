@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Search, Filter, Zap } from 'lucide-react'
+import { Plus, Search, Filter, Zap, X } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -13,7 +13,19 @@ import { formatInZone } from '@/lib/time/zoned'
 
 interface Props {
   params:       Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; mode?: string }>
+}
+
+/** How each mode reads in the filter. Only modes in use are offered. */
+const MODE_LABEL: Record<string, string> = {
+  SELF_PACED:       'Self-paced',
+  COHORT:           'Cohort',
+  LIVE_EVENT:       'Live event',
+  DRIP:             'Drip',
+  SPRINT:           'Sprint',
+  EVERGREEN:        'Evergreen',
+  CERTIFICATION:    'Certification',
+  CHALLENGE_LADDER: 'Challenge ladder',
 }
 
 const STATUS_MAP: Record<string, string> = {
@@ -37,7 +49,9 @@ const MODE_MAP: Record<string, string> = {
 
 export default async function ChallengesPage({ params, searchParams }: Props) {
   const { workspaceSlug } = await params
-  const { tab = 'all' }   = await searchParams
+  const { tab = 'all', q: rawQ = '', mode: rawMode = '' } = await searchParams
+  const q = rawQ.trim()
+  const mode = MODE_LABEL[rawMode] ? rawMode : ''
 
   const { workspace } = await requireWorkspaceMember(workspaceSlug)
 
@@ -50,8 +64,34 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
     orderBy: { createdAt: 'desc' },
   })
 
+  // Search and mode first, then the tab — so the counts on the tabs describe
+  // what the search found, and "Live (2)" means two live ones that match.
+  //
+  // In memory rather than in the query: a workspace has dozens of challenges,
+  // not thousands, and the tab counts need the whole set anyway.
+  const needle = q.toLowerCase()
+  const matching = challenges.filter((c) =>
+    (!mode || c.mode === mode) &&
+    (!needle ||
+      c.title.toLowerCase().includes(needle) ||
+      (c.description ?? '').toLowerCase().includes(needle) ||
+      (c.promise ?? '').toLowerCase().includes(needle))
+  )
+  const modesInUse = [...new Set(challenges.map((c) => c.mode as string))]
+    .filter((m) => MODE_LABEL[m])
+
+  /** A link that keeps the search and mode while changing one thing. */
+  const withParams = (extra: Record<string, string>) => {
+    const p = new URLSearchParams()
+    if (q) p.set('q', q)
+    if (mode) p.set('mode', mode)
+    for (const [k, v] of Object.entries(extra)) p.set(k, v)
+    return `/ws/${workspaceSlug}/challenges?${p.toString()}`
+  }
+  const searching = Boolean(q || mode)
+
   // Filter by tab
-  const filtered = tab === 'all' ? challenges : challenges.filter(c => {
+  const filtered = tab === 'all' ? matching : matching.filter(c => {
     const s = (c.status as string).toLowerCase()
     if (tab === 'live')      return s === 'published' || s === 'active'
     if (tab === 'draft')     return s === 'draft'
@@ -62,11 +102,11 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
 
   // Tab counts
   const counts = {
-    all:       challenges.length,
-    live:      challenges.filter(c => ['PUBLISHED','ACTIVE'].includes(c.status as string)).length,
-    draft:     challenges.filter(c => c.status === 'DRAFT').length,
-    scheduled: challenges.filter(c => c.status === 'PUBLISHED' && c.startsAt && c.startsAt > new Date()).length,
-    completed: challenges.filter(c => ['COMPLETED','ARCHIVED'].includes(c.status as string)).length,
+    all:       matching.length,
+    live:      matching.filter(c => ['PUBLISHED','ACTIVE'].includes(c.status as string)).length,
+    draft:     matching.filter(c => c.status === 'DRAFT').length,
+    scheduled: matching.filter(c => c.status === 'PUBLISHED' && c.startsAt && c.startsAt > new Date()).length,
+    completed: matching.filter(c => ['COMPLETED','ARCHIVED'].includes(c.status as string)).length,
   }
 
   return (
@@ -86,16 +126,52 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
           }
         />
 
-        {/* Filters */}
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        {/* Search and filter. A plain GET form: no client code, and the
+            result lives in the URL, so it survives a reload and can be sent
+            to someone. Both controls did nothing before — the input had no
+            name and the button no handler. */}
+        <form
+          method="get"
+          action={`/ws/${workspaceSlug}/challenges`}
+          className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center"
+        >
+          {tab !== 'all' && <input type="hidden" name="tab" value={tab} />}
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search challenges..." className="pl-9" />
+            <Input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Search challenges..."
+              aria-label="Search challenges"
+              className="pl-9"
+            />
           </div>
-          <Button variant="outline" size="sm" className="gap-2 self-start">
+          {modesInUse.length > 1 && (
+            <select
+              name="mode"
+              defaultValue={mode}
+              aria-label="Filter by mode"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All modes</option>
+              {modesInUse.map((m) => (
+                <option key={m} value={m}>{MODE_LABEL[m]}</option>
+              ))}
+            </select>
+          )}
+          <Button type="submit" variant="outline" size="sm" className="gap-2 self-start sm:self-auto">
             <Filter className="h-4 w-4" /> Filter
           </Button>
-        </div>
+          {searching && (
+            <Link
+              href={tab === 'all' ? `/ws/${workspaceSlug}/challenges` : `/ws/${workspaceSlug}/challenges?tab=${tab}`}
+              className="flex items-center gap-1 self-start text-sm text-muted-foreground hover:text-foreground sm:self-auto"
+            >
+              <X className="h-3.5 w-3.5" /> Clear
+            </Link>
+          )}
+        </form>
 
         {/* Tabs */}
         <Tabs value={tab} className="mt-6">
@@ -108,7 +184,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
               ['completed', 'Completed'],
             ] as const).map(([key, label]) => (
               <TabsTrigger key={key} value={key} asChild>
-                <Link href={`/ws/${workspaceSlug}/challenges?tab=${key}`}>
+                <Link href={withParams({ tab: key })}>
                   {label} ({counts[key]})
                 </Link>
               </TabsTrigger>
@@ -145,12 +221,14 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
         </div>
 
         {/* Empty state */}
-        {filtered.length === 0 && tab !== 'all' && (
+        {filtered.length === 0 && challenges.length > 0 && (tab !== 'all' || searching) && (
           <div className="mt-8">
             <EmptyState
               icon={<Zap className="h-7 w-7" />}
               title="No challenges here"
-              description="No challenges match this filter yet."
+              description={searching
+                ? `Nothing matches${q ? ` "${q}"` : ''}${mode ? ` in ${MODE_LABEL[mode]}` : ''}.`
+                : 'No challenges match this filter yet.'}
             />
           </div>
         )}

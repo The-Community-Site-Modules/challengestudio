@@ -291,7 +291,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
                       Recent activity
                     </h2>
-                    {agency.events.length === 0 ? (
+                    {/* "Nothing has happened yet" would be false for someone who
+                        is simply not allowed to see who did what. */}
+                    {!agency.peopleVisible ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        Who joined and who submitted is visible to workspace owners and admins.
+                      </p>
+                    ) : agency.events.length === 0 ? (
                       <p className="mt-3 text-sm text-slate-500">Nothing has happened yet.</p>
                     ) : (
                       <ul className="mt-3 space-y-2.5">

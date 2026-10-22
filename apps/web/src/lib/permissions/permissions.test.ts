@@ -10,6 +10,7 @@ vi.mock('@/lib/db', () => ({
 
 const {
   ROLE_CAPABILITIES,
+  roleCan,
   hasPermission,
   requirePermission,
   isPlatformAdmin,
@@ -155,5 +156,50 @@ describe('isPlatformAdmin', () => {
     process.env.PLATFORM_ADMIN_EMAIL = 'owner@example.com'
     expect(isPlatformAdmin('owner@example.com.attacker.test')).toBe(false)
     expect(isPlatformAdmin('notowner@example.com')).toBe(false)
+  })
+})
+
+// ─── roleCan: the check for a role already in hand ───────────────────────────
+//
+// The agency-level pages list several workspaces at once and decide per
+// workspace from the membership role they already hold. They first shipped
+// without this, and a MEMBER could read every participant's name and email on
+// /dashboard/participants that the workspace's own page refused them. These
+// pin the three capabilities those pages depend on.
+
+describe('roleCan', () => {
+  it('keeps participants, submissions and analytics from a member', () => {
+    for (const capability of ['participant.view', 'submission.view_all', 'analytics.view'] as const) {
+      expect(roleCan('MEMBER', capability)).toBe(false)
+    }
+  })
+
+  it('lets owners and admins see them', () => {
+    for (const role of ['OWNER', 'ADMIN']) {
+      for (const capability of ['participant.view', 'submission.view_all', 'analytics.view'] as const) {
+        expect(roleCan(role, capability)).toBe(true)
+      }
+    }
+  })
+
+  it('keeps private submissions to the owner', () => {
+    expect(roleCan('OWNER', 'submission.view_private')).toBe(true)
+    expect(roleCan('ADMIN', 'submission.view_private')).toBe(false)
+    expect(roleCan('MEMBER', 'submission.view_private')).toBe(false)
+  })
+
+  it('answers no for a role it does not know, rather than throwing', () => {
+    expect(roleCan('SUPERUSER', 'participant.view')).toBe(false)
+    expect(roleCan('', 'workspace.view')).toBe(false)
+  })
+
+  it('agrees with hasPermission for every role and capability', async () => {
+    const capabilities = [...new Set(Object.values(ROLE_CAPABILITIES).flat())]
+    for (const role of ['OWNER', 'ADMIN', 'MEMBER']) {
+      for (const capability of capabilities) {
+        findUnique.mockResolvedValueOnce({ role })
+        expect(await hasPermission('user', 'ws', capability)).toBe(roleCan(role, capability))
+      }
+    }
   })
 })

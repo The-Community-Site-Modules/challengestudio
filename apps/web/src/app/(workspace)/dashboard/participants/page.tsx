@@ -12,7 +12,7 @@ import { requireUser } from '@/lib/auth/session'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { AgencyShell, CountStrip, NothingYet, WorkspaceTag } from '../_components/agency-shell'
-import { getWorkspaceSummaries, getAgencyParticipants } from '../_lib/queries'
+import { getWorkspaceSummaries, getAgencyParticipants, permitted } from '../_lib/queries'
 
 export const metadata = { title: 'Participants — Challenge Studio' }
 export const dynamic = 'force-dynamic'
@@ -34,6 +34,11 @@ export default async function AgencyParticipantsPage() {
   const user = await requireUser()
   const summaries = await getWorkspaceSummaries(user.id)
   const people = await getAgencyParticipants(summaries)
+  // The query already leaves out workspaces this person may not see into;
+  // these are for saying so, rather than letting an empty list look like
+  // nobody has registered.
+  const visible = permitted(summaries, 'participant.view')
+  const hidden = summaries.length - visible.length
 
   const enrolments = people.reduce((n, p) => n + p.enrolments.length, 0)
   const completed = people.filter((p) =>
@@ -51,7 +56,12 @@ export default async function AgencyParticipantsPage() {
       title="All participants"
       description="Everyone taking part across every workspace, counted once each."
     >
-      {people.length === 0 ? (
+      {visible.length === 0 ? (
+        <NothingYet
+          title="Participants are not visible to you"
+          body="Your role in these workspaces does not include seeing who takes part. A workspace owner or admin can change that."
+        />
+      ) : people.length === 0 ? (
         <NothingYet
           title="No participants yet"
           body="People appear here as soon as they register for one of your challenges."
@@ -66,6 +76,13 @@ export default async function AgencyParticipantsPage() {
               { label: 'Awaiting approval', value: pending },
             ]}
           />
+
+          {hidden > 0 && (
+            <p className="mt-4 text-sm text-slate-500">
+              Showing {visible.length} of {summaries.length} workspaces. In the
+              other {hidden === 1 ? 'one' : hidden}, your role does not include seeing participants.
+            </p>
+          )}
 
           <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <ul className="divide-y divide-slate-100">

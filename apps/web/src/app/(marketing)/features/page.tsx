@@ -377,7 +377,7 @@ export default function FeaturesPage() {
                   <span
                     className={cn(
                       'text-[11px] font-semibold uppercase tracking-[0.12em]',
-                      i === 0 ? 'text-primary-foreground/75' : 'text-primary'
+                      i === 0 ? 'text-primary-foreground/90' : 'text-primary'
                     )}
                   >
                     {card.label}
@@ -388,7 +388,7 @@ export default function FeaturesPage() {
                   <span
                     className={cn(
                       'mt-3 text-xs',
-                      i === 0 ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                      i === 0 ? 'text-primary-foreground/90' : 'text-muted-foreground'
                     )}
                   >
                     {card.count} {card.count === 1 ? 'feature' : 'features'}

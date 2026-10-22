@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { UserRound, AtSign, ShieldCheck, LayoutDashboard } from 'lucide-react'
+import { UserRound, AtSign, ShieldCheck, LayoutDashboard, Trophy, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { Logo } from '@/components/shared/logo'
@@ -20,10 +21,21 @@ import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
  * whichever section is nearest the top of the viewport is the active one, which
  * keeps it honest when someone scrolls instead of clicking.
  *
- * Only three sections, because only three exist. /account/notifications and
- * /account/challenges are still milestone stubs, and an item leading to a page
- * that says "Milestone 13" is worse than no item.
+ * The three settings items are sections of /account/profile, so on any other
+ * account page they link there with the hash rather than to a bare `#profile`
+ * — which on /account/challenges would have changed the URL and gone nowhere.
+ *
+ * My challenges and Notifications were left out while they were milestone
+ * stubs, on the grounds that a link to "Milestone 13" is worse than none. Both
+ * are real pages now, and an unlinked page is one nobody finds.
  */
+
+const PROFILE_PATH = '/account/profile'
+
+const PAGES = [
+  { href: '/account/challenges',    label: 'My challenges', Icon: Trophy },
+  { href: '/account/notifications', label: 'Notifications', Icon: Bell },
+] as const
 
 const SECTIONS = [
   { id: 'profile',  label: 'Profile',  Icon: UserRound  },
@@ -38,9 +50,12 @@ interface Props {
 }
 
 export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
+  const pathname = usePathname()
+  const onProfile = pathname === PROFILE_PATH
   const [active, setActive] = useState<string>(SECTIONS[0].id)
 
   useEffect(() => {
+    if (!onProfile) return
     const targets = SECTIONS
       .map(({ id }) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null)
@@ -60,7 +75,7 @@ export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
 
     targets.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [])
+  }, [onProfile])
 
   function go(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
     const target = document.getElementById(id)
@@ -94,12 +109,12 @@ export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
         </p>
         <div className="space-y-0.5">
           {SECTIONS.map(({ id, label, Icon }) => {
-            const isActive = active === id
+            const isActive = onProfile && active === id
             return (
               <a
                 key={id}
-                href={`#${id}`}
-                onClick={(e) => go(e, id)}
+                href={onProfile ? `#${id}` : `${PROFILE_PATH}#${id}`}
+                onClick={(e) => { if (onProfile) go(e, id) }}
                 aria-current={isActive ? 'true' : undefined}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -111,6 +126,31 @@ export function SettingsNav({ userName, userEmail, userAvatar }: Props) {
                 <Icon className="h-[18px] w-[18px] shrink-0" />
                 <span className="truncate">{label}</span>
               </a>
+            )
+          })}
+        </div>
+
+        <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Participation
+        </p>
+        <div className="space-y-0.5">
+          {PAGES.map(({ href, label, Icon }) => {
+            const isActive = pathname.startsWith(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="truncate">{label}</span>
+              </Link>
             )
           })}
         </div>

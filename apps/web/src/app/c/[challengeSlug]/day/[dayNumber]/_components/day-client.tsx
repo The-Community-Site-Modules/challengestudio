@@ -141,7 +141,7 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
         {/* Content blocks from DB */}
         {step.blocks.length > 0 ? (
           step.blocks.map((block) => {
-            return <ContentBlock key={block.id} block={block} onInteract={handleBlockInteract} />
+            return <ContentBlock key={block.id} block={block} onInteract={handleBlockInteract} stepId={step.id} />
           })
         ) : (
           <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">

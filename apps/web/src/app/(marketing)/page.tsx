@@ -558,7 +558,7 @@ export default function HomePage() {
               <Link href="/pricing">See pricing</Link>
             </Button>
           </div>
-          <p className="mt-5 text-sm text-primary-foreground/80">
+          <p className="mt-5 text-sm text-primary-foreground/90">
             Free during beta · No credit card · Unlimited participants
           </p>
         </div>

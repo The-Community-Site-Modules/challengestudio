@@ -6,6 +6,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { WorkspaceSidebar } from '@/components/workspace/workspace-sidebar'
 import { requireWorkspaceMember } from '@/lib/auth/session'
+import { roleCan } from '@/lib/permissions'
 import { db } from '@/lib/db'
 import { formatInZone } from '@/lib/time/zoned'
 import { TimeSeriesChart, type TimePoint } from '@/components/shared/time-series-chart'
@@ -99,7 +100,16 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
   const { workspaceSlug } = await params
   const { filter: rawFilter } = await searchParams
   const filter = FILTERS.some((f) => f.key === rawFilter) ? rawFilter! : 'all'
-  const { user, workspace } = await requireWorkspaceMember(workspaceSlug)
+  const { user, workspace, role } = await requireWorkspaceMember(workspaceSlug)
+
+  // Everyone in the workspace sees this page; not everyone may see who is in
+  // its challenges. The participants page turns a MEMBER away, and this one
+  // used to hand the same names over in its activity feed — so the feed, and
+  // the approvals it points at, follow the same capabilities as those pages.
+  const canSeePeople   = roleCan(role, 'participant.view')
+  const canManagePeople = roleCan(role, 'participant.manage')
+  // The review prompt links to a page a MEMBER is turned away from.
+  const canReview       = roleCan(role, 'submission.view_all')
 
   const now = new Date()
   const since30 = startOfDayUTC(new Date(now.getTime() - 29 * 86_400_000))
@@ -137,20 +147,17 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
       // Drives both the chart below and the "who just joined" half of the
       // activity feed, so the names are selected here rather than fetched
       // again — 30 days of registrations is the same set either way.
+      // Dates for the chart. A count needs no names, so they are not fetched
+      // here; the feed below asks for them only when this person may see them.
       db.participant.findMany({
         where:  { challenge: { workspaceId: workspace.id }, registeredAt: { gte: since30 } },
-        orderBy: { registeredAt: 'desc' },
-        select: {
-          id: true, registeredAt: true,
-          profile:   { select: { fullName: true, email: true } },
-          challenge: { select: { title: true } },
-        },
+        select: { registeredAt: true },
       }),
       // Waiting to be let in, where the challenge asks for approval.
-      db.participant.count({
+      !canManagePeople ? Promise.resolve(0) : db.participant.count({
         where: { challenge: { workspaceId: workspace.id }, status: 'PENDING' },
       }),
-      db.submission.findMany({
+      !canSeePeople ? Promise.resolve([]) : db.submission.findMany({
         where: { participant: { challenge: { workspaceId: workspace.id } } },
         orderBy: { submittedAt: 'desc' },
         take: 10,
@@ -165,6 +172,17 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
         },
       }),
     ])
+
+  const recentJoins = !canSeePeople ? [] : await db.participant.findMany({
+    where:   { challenge: { workspaceId: workspace.id }, registeredAt: { gte: since30 } },
+    orderBy: { registeredAt: 'desc' },
+    take:    10,
+    select: {
+      id: true, registeredAt: true,
+      profile:   { select: { fullName: true, email: true } },
+      challenge: { select: { title: true } },
+    },
+  })
 
   const ordered = [...challenges].sort(
     (a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9)
@@ -197,7 +215,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
   // and sorted together — the same feed the agency dashboard shows, asked of
   // one workspace.
   const events = [
-    ...recent.slice(0, 10).map((r) => ({
+    ...recentJoins.map((r) => ({
       id: `reg-${r.id}`,
       who: personName(r.profile),
       what: `joined ${r.challenge.title}`,
@@ -243,22 +261,37 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative hidden md:block">
+            {/* Searches the full challenge list rather than this page, which
+                only shows six. A GET form, so it needs no client code; the
+                input had no name and nothing to send it to before. */}
+            <form
+              method="get"
+              action={`/ws/${workspaceSlug}/challenges`}
+              role="search"
+              className="relative hidden md:block"
+            >
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Search…"
+                name="q"
+                placeholder="Search challenges…"
                 aria-label="Search challenges"
                 className="h-10 w-56 rounded-full border border-input bg-muted/50 pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:bg-background"
               />
-            </div>
-            <button
-              type="button"
-              aria-label="Notifications"
+            </form>
+            {/* There is no in-app notification inbox — notifications here are
+                emails. So the bell opens the email settings, the same place
+                the participant's bell already goes, and is labelled for what
+                it does rather than promising an inbox. It was a button with
+                no handler. */}
+            <Link
+              href="/account/notifications"
+              aria-label="Notification settings"
+              title="Notification settings"
               className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Bell className="h-5 w-5" />
-            </button>
+            </Link>
             <Button asChild className="gap-1.5 rounded-lg">
               <Link href={`/ws/${workspaceSlug}/challenges/new`}>
                 <Plus className="h-4 w-4" /> Create Challenge
@@ -454,7 +487,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                 </h2>
 
                 <div className="mt-4 space-y-4">
-                  {pendingReview > 0 && (
+                  {pendingReview > 0 && canReview && (
                     <div className="flex gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
                         <Inbox className="h-4 w-4" />
@@ -517,7 +550,7 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                     </div>
                   )}
 
-                  {pendingReview === 0 && pendingApprovals === 0 && !challenges.some((c) => c.status === 'DRAFT') && (
+                  {(pendingReview === 0 || !canReview) && pendingApprovals === 0 && !challenges.some((c) => c.status === 'DRAFT') && (
                     <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                       Nothing needs you right now.
@@ -532,7 +565,11 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                 <h2 id="recent" className="text-base font-semibold text-foreground">
                   Recent activity
                 </h2>
-                {events.length === 0 ? (
+                {!canSeePeople ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Who joined and who submitted is visible to owners and admins.
+                  </p>
+                ) : events.length === 0 ? (
                   <p className="mt-3 text-sm text-muted-foreground">
                     Nothing yet. Registrations and submitted work appear here.
                   </p>

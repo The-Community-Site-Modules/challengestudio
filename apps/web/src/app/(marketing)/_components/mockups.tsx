@@ -106,7 +106,7 @@ function PhoneCard() {
     <div className="w-[228px] overflow-hidden rounded-[1.75rem] border-[6px] border-foreground/85 bg-card shadow-2xl">
       <div className="bg-primary px-4 pb-4 pt-3">
         <div className="flex items-center justify-between">
-          <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-primary-foreground/80">
+          <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-primary-foreground/90">
             Day 3 of 5
           </span>
           <span className="flex items-center gap-1 text-[9px] font-semibold text-primary-foreground/90">
@@ -116,7 +116,7 @@ function PhoneCard() {
         <p className="mt-2.5 text-[17px] font-bold leading-tight tracking-tight text-primary-foreground">
           Craft your offer
         </p>
-        <p className="mt-1 text-[10px] text-primary-foreground/80">About 20 minutes</p>
+        <p className="mt-1 text-[10px] text-primary-foreground/90">About 20 minutes</p>
       </div>
 
       <div className="space-y-1.5 p-3">

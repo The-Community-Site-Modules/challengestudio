@@ -102,7 +102,23 @@ export async function hasPermission(
 
   if (!membership) return false
 
-  const appRole = DB_ROLE_MAP[membership.role]
+  return roleCan(membership.role, capability)
+}
+
+/**
+ * The capability check itself, for a role already in hand.
+ *
+ * `hasPermission` costs a query per call. A page that lists several workspaces
+ * already holds each membership's role, and asking the database again per
+ * workspace per capability would be the same answer, slower. Both go through
+ * here, so the two cannot drift apart.
+ *
+ * Typed loosely on purpose: Prisma's enum and a plain string both arrive here,
+ * and an unknown role answers no rather than throwing.
+ */
+export function roleCan(dbRole: string, capability: Capability): boolean {
+  const appRole = DB_ROLE_MAP[dbRole as DbRole]
+  if (!appRole) return false
   return ROLE_CAPABILITIES[appRole].includes(capability)
 }
 
