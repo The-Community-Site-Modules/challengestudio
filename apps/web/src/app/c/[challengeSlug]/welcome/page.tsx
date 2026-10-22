@@ -116,15 +116,15 @@ export default async function WelcomePage({ params }: Props) {
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-8 text-primary-foreground text-center space-y-3">
-            <Badge className="bg-white/20 text-white">You&apos;re in!</Badge>
+          <div className="rounded-2xl bg-gradient-to-br from-primary to-[hsl(var(--brand-accent))] p-8 text-primary-foreground text-center space-y-3">
+            <Badge className="bg-primary-foreground/15 text-primary-foreground">You&apos;re in!</Badge>
             <h1 className="text-3xl font-extrabold">
               Welcome, {firstName}! 🎉
             </h1>
             <p className="text-primary-foreground/90">
               You&apos;re registered for{' '}
-              <strong className="text-white">{challenge.title}</strong>.
-              {startDate && <><br />Challenge starts <strong className="text-white">{startDate}</strong>.</>}
+              <strong className="text-primary-foreground">{challenge.title}</strong>.
+              {startDate && <><br />Challenge starts <strong className="text-primary-foreground">{startDate}</strong>.</>}
             </p>
           </div>
         )}

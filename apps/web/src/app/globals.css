@@ -13,6 +13,9 @@
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 243.4 75.4% 58.6%;
     --primary-foreground: 210 40% 98%;
+    /* The second colour in welcome and completion banners. A workspace may
+       set its own (Branding → Accent colour); this is the platform's. */
+    --brand-accent: 262.1 83.3% 57.8%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
@@ -44,6 +47,7 @@
     --popover-foreground: 210 40% 98%;
     --primary: 238.4 79.4% 71.4%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --brand-accent: 255.1 91.7% 76.3%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;

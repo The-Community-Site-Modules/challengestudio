@@ -20,6 +20,8 @@
  * be suppressed by unsubscribe preferences (PRD §15.2).
  */
 
+import { safeEmail, safeSenderName } from '@/lib/branding'
+
 export type EmailTrigger =
   | 'workspace_invitation'
   | 'registration_confirm'
@@ -39,6 +41,14 @@ export interface EmailMessage {
   html: string
   text: string
   trigger: EmailTrigger
+  /**
+   * The display half of From, set per workspace in Branding. The address half
+   * is always this platform's: mail can only leave from a domain verified
+   * with the provider. Cleaned before use — see `safeSenderName`.
+   */
+  fromName?: string | null
+  /** Where a reply goes — the workspace's support inbox, when it has one. */
+  replyTo?: string | null
 }
 
 export interface SendResult {
@@ -78,12 +88,16 @@ const resendDriver: EmailDriver = {
     const { Resend } = await import('resend')
     const client = new Resend(process.env.RESEND_API_KEY)
 
+    // Checked again here rather than trusted from the caller: this is the last
+    // point before the value becomes a header.
+    const replyTo = safeEmail(message.replyTo)
     const { data, error } = await client.emails.send({
       from,
       to: message.to,
       subject: message.subject,
       html: message.html,
       text: message.text,
+      ...(replyTo ? { replyTo } : {}),
     })
 
     if (error) {
@@ -105,9 +119,9 @@ function selectDriver(): EmailDriver {
  * for inviting a colleague. Set EMAIL_FROM_ADDRESS to something on a domain
  * verified in Resend before expecting mail to reach anyone else.
  */
-function fromAddress(): string {
+function fromAddress(fromName?: string | null): string {
   const address = process.env.EMAIL_FROM_ADDRESS || 'onboarding@resend.dev'
-  const name = process.env.EMAIL_FROM_NAME || 'Challenge Studio'
+  const name = safeSenderName(fromName) ?? (process.env.EMAIL_FROM_NAME || 'Challenge Studio')
   return `${name} <${address}>`
 }
 
@@ -124,7 +138,7 @@ function fromAddress(): string {
 export async function sendEmail(message: EmailMessage): Promise<SendResult> {
   const driver = selectDriver()
   try {
-    return await driver.send(message, fromAddress())
+    return await driver.send(message, fromAddress(message.fromName))
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'unknown error'
     // eslint-disable-next-line no-console

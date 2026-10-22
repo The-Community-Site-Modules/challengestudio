@@ -52,24 +52,24 @@ export default async function CompletePage({ params }: Props) {
   return (
     <div className="min-h-screen bg-slate-50/70">
 
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-500 px-6 py-16 text-center">
-        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/15 text-3xl">
+      <div className="bg-gradient-to-br from-primary to-[hsl(var(--brand-accent))] px-6 py-16 text-center">
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-foreground/15 text-3xl">
           🏆
         </span>
-        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70">
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-foreground/90">
           Challenge complete
         </p>
-        <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-tight text-white sm:text-[38px]">
+        <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-tight text-primary-foreground sm:text-[38px]">
           Well done, {firstName}
         </h1>
-        <p className="mt-2 text-[15px] text-white/85">
-          You finished <strong className="font-semibold text-white">{challenge.title}</strong> on {finishedOn}.
+        <p className="mt-2 text-[15px] text-primary-foreground/90">
+          You finished <strong className="font-semibold text-primary-foreground">{challenge.title}</strong> on {finishedOn}.
         </p>
 
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm text-white/85">
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm text-primary-foreground/90">
           {facts.map(({ Icon, label }) => (
             <span key={label} className="inline-flex items-center gap-1.5">
-              <Icon className="h-4 w-4 text-white/70" />
+              <Icon className="h-4 w-4 text-primary-foreground/90" />
               {label}
             </span>
           ))}

@@ -16,6 +16,7 @@
  * silent failure wearing a different hat.
  */
 
+import { safeHttpsUrl } from '@/lib/branding'
 import { db } from '@/lib/db'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { sendEmail, type EmailTrigger } from '@/lib/email'
@@ -144,6 +145,36 @@ export function textToHtml(text: string): string {
   return `<p>${escaped.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
 }
 
+/**
+ * The creator's own privacy and terms links, for the foot of their emails.
+ *
+ * Only https addresses are emitted, and the URL is escaped before it goes into
+ * an attribute — it was typed by a creator and is read in someone else's
+ * inbox, which is exactly the path `textToHtml` exists to guard.
+ */
+export function legalFooter(
+  privacyUrl: string | null | undefined,
+  termsUrl: string | null | undefined
+): { text: string; html: string } | null {
+  const links = [
+    ['Privacy policy', safeHttpsUrl(privacyUrl)],
+    ['Terms', safeHttpsUrl(termsUrl)],
+  ].filter((l): l is [string, string] => Boolean(l[1]))
+  if (links.length === 0) return null
+
+  const esc = (v: string) => v
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+  return {
+    text: '—\n' + links.map(([label, url]) => `${label}: ${url}`).join('\n'),
+    html: '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 12px"/>' +
+      '<p style="font-size:12px;color:#6b7280">' +
+      links.map(([label, url]) => `<a href="${esc(url)}" style="color:#6b7280">${esc(label)}</a>`).join(' · ') +
+      '</p>',
+  }
+}
+
 async function actuallySend(
   input: DispatchInput,
   defaultSubject: string,
@@ -167,12 +198,22 @@ async function actuallySend(
   const subject = render(template?.subject || defaultSubject, input.trigger, input.values)
   const body    = render(template?.body    || defaultBody,    input.trigger, input.values)
 
+  // The workspace's branding, set on its Branding page: whose name the mail
+  // comes from, where a reply goes, and its own legal links at the foot.
+  const brand = await db.workspace.findUnique({
+    where:  { id: input.workspaceId },
+    select: { senderName: true, supportEmail: true, privacyUrl: true, termsUrl: true },
+  })
+  const footer = legalFooter(brand?.privacyUrl, brand?.termsUrl)
+
   const result = await sendEmail({
-    to:      input.to,
+    to:        input.to,
     subject,
-    text:    body,
-    html:    textToHtml(body),
-    trigger: input.trigger as EmailTrigger,
+    text:      footer ? `${body}\n\n${footer.text}` : body,
+    html:      footer ? `${textToHtml(body)}${footer.html}` : textToHtml(body),
+    trigger:   input.trigger as EmailTrigger,
+    fromName:  brand?.senderName ?? null,
+    replyTo:   brand?.supportEmail ?? null,
   })
 
   return result.sent

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { safeHttpsUrl } from '@/lib/branding'
 import {
   CheckCircle, Calendar, Clock, Users,
   ArrowRight, Zap,
@@ -34,7 +35,7 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
       registrationOpensAt: true, registrationClosesAt: true,
       maxParticipants: true, isPublic: true, requiresApproval: true,
       settings: true,
-      workspace: { select: { name: true, logoUrl: true } },
+      workspace: { select: { name: true, logoUrl: true, privacyUrl: true, termsUrl: true } },
       steps: {
         where:   { isPublished: true },
         orderBy: { order: 'asc' },
@@ -65,6 +66,10 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
   // Already-enrolled participants still need this URL — it is where their
   // "continue" link points. Everyone else gets nothing to see, which matches
   // what registerAction now refuses.
+  // Creator-supplied links: https only, or not shown at all.
+  const creatorTerms   = safeHttpsUrl(challenge.workspace.termsUrl)
+  const creatorPrivacy = safeHttpsUrl(challenge.workspace.privacyUrl)
+
   if (!challenge.isPublic && !alreadyEnrolled) {
     notFound()
   }
@@ -320,7 +325,26 @@ export default async function RegistrationPage({ params, searchParams }: Props) 
                         By registering you agree to our{' '}
                         <Link href="/legal/terms" className="underline hover:text-foreground">Terms</Link>
                         {' '}and{' '}
-                        <Link href="/legal/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+                        <Link href="/legal/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+                        {/* The creator's own terms, when they have set them: they
+                            run the challenge and decide what happens to the
+                            answers, so a participant should be able to read
+                            theirs before joining, not only ours. */}
+                        {(creatorTerms || creatorPrivacy) ? (
+                          <>
+                            , and to {challenge.workspace.name}&apos;s{' '}
+                            {creatorTerms && (
+                              <a href={creatorTerms} target="_blank" rel="noopener noreferrer"
+                                className="underline hover:text-foreground">terms</a>
+                            )}
+                            {creatorTerms && creatorPrivacy && ' and '}
+                            {creatorPrivacy && (
+                              <a href={creatorPrivacy} target="_blank" rel="noopener noreferrer"
+                                className="underline hover:text-foreground">privacy policy</a>
+                            )}
+                            .
+                          </>
+                        ) : '.'}
                       </p>
                       <Button type="submit" size="lg" className="w-full gap-2">
                         Register for free <ArrowRight className="h-4 w-4" />

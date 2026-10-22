@@ -13,17 +13,23 @@ const db = {
   messageDelivery:        { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn() },
   messageTemplate:        { findUnique: vi.fn() },
   notificationPreference: { findUnique: vi.fn(), upsert: vi.fn() },
+  // The workspace's branding, read once per send. Undefined by default, which
+  // is a workspace that has never opened its Branding page.
+  workspace:              { findUnique: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
 
-interface SentMessage { to: string; subject: string; text: string; html: string; trigger: string }
+interface SentMessage {
+  to: string; subject: string; text: string; html: string; trigger: string
+  fromName?: string | null; replyTo?: string | null
+}
 interface SendOutcome { sent: boolean; provider: 'resend' | 'console'; reason?: string }
 const sendEmail = vi.fn<(m: SentMessage) => Promise<SendOutcome>>(
   async () => ({ sent: true, provider: 'resend' })
 )
 vi.mock('@/lib/email', () => ({ sendEmail }))
 
-const { dispatch, setUnsubscribed } = await import('./send')
+const { dispatch, setUnsubscribed, legalFooter } = await import('./send')
 const { render, MESSAGES, isEssential } = await import('./catalogue')
 
 class UniqueViolation extends Error { code = 'P2002' }
@@ -205,5 +211,72 @@ describe('the catalogue', () => {
   it('agrees with isEssential', () => {
     expect(isEssential('account_setup')).toBe(true)
     expect(isEssential('completion')).toBe(false)
+  })
+})
+
+// ─── Workspace branding on challenge mail ────────────────────────────────────
+//
+// A creator's Branding page sets whose name the mail is from, where a reply
+// goes, and their own legal links. Before it was wired, every one of these
+// saved and changed nothing.
+
+describe('workspace branding', () => {
+  const fresh = () => {
+    db.messageDelivery.findUnique.mockResolvedValue(null)
+    db.messageDelivery.create.mockResolvedValue({ id: 'd1' })
+    db.messageDelivery.update.mockResolvedValue({})
+    db.messageTemplate.findUnique.mockResolvedValue(null)
+    db.notificationPreference.findUnique.mockResolvedValue(null)
+  }
+
+  it('sends from the workspace name and replies to its support inbox', async () => {
+    fresh()
+    db.workspace.findUnique.mockResolvedValue({
+      senderName: 'Coaching Studio', supportEmail: 'help@coach.example',
+      privacyUrl: null, termsUrl: null,
+    })
+    await dispatch(input())
+    const sent = sendEmail.mock.calls.at(-1)![0]
+    expect(sent.fromName).toBe('Coaching Studio')
+    expect(sent.replyTo).toBe('help@coach.example')
+  })
+
+  it('leaves the sender alone for a workspace that set nothing', async () => {
+    fresh()
+    db.workspace.findUnique.mockResolvedValue(null)
+    await dispatch(input())
+    const sent = sendEmail.mock.calls.at(-1)![0]
+    expect(sent.fromName ?? null).toBeNull()
+    expect(sent.replyTo ?? null).toBeNull()
+    expect(sent.text).not.toContain('Privacy policy')
+  })
+
+  it("puts the creator's legal links at the foot, in both parts", async () => {
+    fresh()
+    db.workspace.findUnique.mockResolvedValue({
+      senderName: null, supportEmail: null,
+      privacyUrl: 'https://coach.example/privacy', termsUrl: 'https://coach.example/terms',
+    })
+    await dispatch(input())
+    const sent = sendEmail.mock.calls.at(-1)![0]
+    expect(sent.text).toContain('Privacy policy: https://coach.example/privacy')
+    expect(sent.text).toContain('Terms: https://coach.example/terms')
+    expect(sent.html).toContain('href="https://coach.example/privacy"')
+  })
+})
+
+describe('legalFooter', () => {
+  it('drops anything that is not an https link', () => {
+    expect(legalFooter('javascript:alert(1)', 'http://plain.example')).toBeNull()
+    expect(legalFooter(null, undefined)).toBeNull()
+  })
+
+  it('escapes the address before it reaches an attribute', () => {
+    const footer = legalFooter('https://x.example/?a="><script>', null)!
+    // The payload must not survive as markup: no tag, and no quote that
+    // closes the href early.
+    expect(footer.html).not.toContain('<script>')
+    expect(footer.html).not.toContain('"><script')
+    expect(footer.html).toContain('href="https://x.example/?a=%22%3E%3Cscript%3E"')
   })
 })

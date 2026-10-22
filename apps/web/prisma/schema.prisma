@@ -101,6 +101,19 @@ model Workspace {
   description String?
   logoUrl     String?  @map("logo_url")
   timezone    String   @default("UTC") @map("timezone")
+
+  // Branding (workspace settings → Branding). Added by
+  // add_workspace_branding.sql, applied by hand on 2026-10-23 before any code
+  // read them — the other order is how add_challenge_fields.sql broke a page.
+  // Every one of these is read somewhere a participant sees it; a field here
+  // with no reader is a setting that saves and does nothing.
+  faviconUrl   String? @map("favicon_url")    // browser tab on /c/<slug>
+  primaryColor String? @map("primary_color")  // #RRGGBB; buttons, headers on /c/<slug>
+  accentColor  String? @map("accent_color")   // #RRGGBB; gradients on welcome and completion
+  senderName   String? @map("sender_name")    // the name in a challenge email's From
+  supportEmail String? @map("support_email")  // Reply-To on challenge emails
+  privacyUrl   String? @map("privacy_url")    // registration consent, email footer
+  termsUrl     String? @map("terms_url")      // registration consent, email footer
   ownerId     String   @map("owner_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
