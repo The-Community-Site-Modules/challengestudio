@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   LayoutGrid, LayoutDashboard, Settings, LifeBuoy, Plus, FileText,
   Users, UserRoundCog, BarChart3, type LucideIcon,
@@ -9,6 +10,10 @@ import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { Logo } from '@/components/shared/logo'
 import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 
 /**
  * Sidebar for the global level — signed in, but not inside a workspace.
@@ -17,15 +22,29 @@ import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
  * application. What differs is scope: nothing here is workspace-specific,
  * because at this level no workspace is selected. Challenges, Participants and
  * the rest only make sense once you are in one, and they live in that sidebar.
+ *
+ * ── Why nothing here opens a single workspace ───────────────────────────────
+ *
+ * Content, Participants, Team and Analytics used to point at "the most
+ * recently active workspace" with nothing on screen saying which, so every
+ * click was a guess. They now have agency-wide pages of their own: the same
+ * words, every workspace at once, with the workspace named on each row.
+ *
+ * The one exception is Create challenge, because a challenge has to be created
+ * somewhere. It asks which workspace rather than picking one.
  */
+
+export interface SidebarWorkspace {
+  slug: string
+  name: string
+}
 
 interface Props {
   /**
-   * Where the workspace-level items point: the most recently active workspace.
-   * Challenges, Content and the rest are workspace concepts, so without one
-   * there is nowhere for them to go and they are left out.
+   * Every workspace this person belongs to, most recently active first. Only
+   * Create challenge uses these — to ask which one.
    */
-  primarySlug?: string
+  workspaces?: readonly SidebarWorkspace[]
   /** Rendered in the sidebar's create slot — a dialog trigger from the page. */
   createSlot?: React.ReactNode
   userName?: string
@@ -57,9 +76,11 @@ function Item({ href, label, Icon, active = false }: {
 }
 
 export function GlobalSidebar({
-  createSlot, primarySlug, userName, userEmail, userAvatar,
+  createSlot, workspaces = [], userName, userEmail, userAvatar,
 }: Props) {
-  const ws = primarySlug ? `/ws/${primarySlug}` : null
+  const pathname = usePathname()
+  const isHere = (href: string) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
 
   return (
     <SidebarFrame label="Main navigation">
@@ -74,47 +95,78 @@ export function GlobalSidebar({
         </span>
       </Link>
 
-      {ws && (
-        <div className="px-3 pb-1">
-          <Link
-            href={`${ws}/challenges/new`}
-            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Create challenge
-          </Link>
-        </div>
-      )}
-
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-4">
         <p className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Main
         </p>
         <div className="space-y-0.5">
-          {ws && <Item href={ws} label="Dashboard" Icon={LayoutDashboard} />}
-          <Item href="/dashboard" label="Workspaces" Icon={LayoutGrid} active />
+          {/* `?all=1` because a plain /dashboard sends anyone with a single
+              workspace straight into that workspace — right as a landing rule,
+              wrong for a row labelled Dashboard. */}
+          <Item href="/dashboard?all=1" label="Dashboard" Icon={LayoutDashboard}
+                active={isHere('/dashboard') } />
+          <Item href="/dashboard/workspaces" label="Workspaces" Icon={LayoutGrid}
+                active={isHere('/dashboard/workspaces')} />
         </div>
 
-        {/* Workspace concepts, pointed at the workspace you were last in. They
-            are hidden entirely when you have none, rather than linking nowhere. */}
-        {ws && (
-          <>
-            <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Management
-            </p>
-            <div className="space-y-0.5">
-              <Item href={`${ws}/content`}      label="Content"      Icon={FileText} />
-              <Item href={`${ws}/participants`} label="Participants" Icon={Users} />
-              <Item href={`${ws}/team`}         label="Team"         Icon={UserRoundCog} />
-            </div>
+        <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Management
+        </p>
 
-            <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Insights
-            </p>
-            <div className="space-y-0.5">
-              <Item href={`${ws}/analytics`} label="Analytics" Icon={BarChart3} />
-            </div>
-          </>
+        {/* Creating a challenge is the one thing here that cannot be done for
+            the agency as a whole — a challenge lives in one workspace. So this
+            asks which, rather than choosing one silently. */}
+        {workspaces.length > 0 && (
+          <div className="pb-1 pt-0.5">
+            {workspaces.length === 1 ? (
+              <Link
+                href={`/ws/${workspaces[0]!.slug}/challenges/new`}
+                className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" /> Create challenge
+              </Link>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-indigo-400">
+                  <Plus className="h-4 w-4" /> Create challenge
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[231px]">
+                  <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    In which workspace?
+                  </DropdownMenuLabel>
+                  {workspaces.map((w) => (
+                    <DropdownMenuLink key={w.slug} href={`/ws/${w.slug}/challenges/new`}>
+                      <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                        {w.name.trim().charAt(0).toUpperCase() || 'W'}
+                      </span>
+                      <span className="truncate">{w.name}</span>
+                    </DropdownMenuLink>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         )}
+
+        {/* Every row below is the agency view of that word: all workspaces at
+            once, with the workspace named on each item. None of them enters a
+            single workspace. */}
+        <div className="space-y-0.5">
+          <Item href="/dashboard/content"      label="Content"      Icon={FileText}
+                active={isHere('/dashboard/content')} />
+          <Item href="/dashboard/participants" label="Participants" Icon={Users}
+                active={isHere('/dashboard/participants')} />
+          <Item href="/dashboard/team"         label="Team"         Icon={UserRoundCog}
+                active={isHere('/dashboard/team')} />
+        </div>
+
+        <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Insights
+        </p>
+        <div className="space-y-0.5">
+          <Item href="/dashboard/analytics" label="Analytics" Icon={BarChart3}
+                active={isHere('/dashboard/analytics')} />
+        </div>
 
         {createSlot && <div className="px-1 pt-2">{createSlot}</div>}
 
@@ -122,7 +174,8 @@ export function GlobalSidebar({
           System
         </p>
         <div className="space-y-0.5">
-          <Item href="/account/profile" label="Settings" Icon={Settings} />
+          <Item href="/account/profile" label="Settings" Icon={Settings}
+                active={isHere('/account')} />
         </div>
       </nav>
 

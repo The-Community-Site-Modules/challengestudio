@@ -279,6 +279,7 @@ export function DaySettings({
               <UploadField
                 kind="image"
                 label={step.dayImageUrl ? 'Replace image' : 'Upload image'}
+                adjust={{ aspect: 16 / 9, outputWidth: 1600 }}
                 onUploaded={(url) => onUpdate({ dayImageUrl: url })}
               />
             </div>

@@ -24,6 +24,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 import { signOutAction } from '@/app/(auth)/auth/actions'
 
 interface NavItem {
@@ -168,16 +169,12 @@ function AccountMenu({ initials, displayName }: { initials: string; displayName:
         <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem asChild>
-          <Link href="/account/profile">
-            <User className="mr-2 h-4 w-4" aria-hidden="true" /> Your profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/account/notifications">
-            <Settings className="mr-2 h-4 w-4" aria-hidden="true" /> Notifications
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuLink href="/account/profile">
+          <User className="mr-2 h-4 w-4" aria-hidden="true" /> Your profile
+        </DropdownMenuLink>
+        <DropdownMenuLink href="/account/notifications">
+          <Settings className="mr-2 h-4 w-4" aria-hidden="true" /> Notifications
+        </DropdownMenuLink>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={isSigningOut}

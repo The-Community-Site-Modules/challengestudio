@@ -74,6 +74,27 @@ function startOfDayUTC(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
 }
 
+/**
+ * What to call somebody in the activity feed.
+ *
+ * Falls back to the local part of the address rather than the whole thing: a
+ * feed is read over someone's shoulder, and the rest of the address is not
+ * needed to know who is meant.
+ */
+function personName(p: { fullName: string | null; email: string } | null) {
+  return p?.fullName?.trim() || p?.email?.split('@')[0] || 'Someone'
+}
+
+/** How long ago, in the words a person would use. */
+function relativeDay(then: Date) {
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 7)  return `${days} days ago`
+  if (days < 30) return `${Math.floor(days / 7)} week${days < 14 ? '' : 's'} ago`
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export default async function WorkspaceDashboardPage({ params, searchParams }: Props) {
   const { workspaceSlug } = await params
   const { filter: rawFilter } = await searchParams
@@ -86,7 +107,10 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
 
   // Explicit selects: the live database is still missing the columns from
   // add_challenge_fields.sql, and selecting the whole row would fail on them.
-  const [challenges, participantCount, completedCount, activeThisWeek, pendingReview, recent] =
+  const [
+    challenges, participantCount, completedCount, activeThisWeek, pendingReview,
+    recent, pendingApprovals, recentSubmissions,
+  ] =
     await Promise.all([
       db.challenge.findMany({
         where:   { workspaceId: workspace.id },
@@ -110,9 +134,35 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
       db.submission.count({
         where: { participant: { challenge: { workspaceId: workspace.id } }, reviewedAt: null },
       }),
+      // Drives both the chart below and the "who just joined" half of the
+      // activity feed, so the names are selected here rather than fetched
+      // again — 30 days of registrations is the same set either way.
       db.participant.findMany({
         where:  { challenge: { workspaceId: workspace.id }, registeredAt: { gte: since30 } },
-        select: { registeredAt: true },
+        orderBy: { registeredAt: 'desc' },
+        select: {
+          id: true, registeredAt: true,
+          profile:   { select: { fullName: true, email: true } },
+          challenge: { select: { title: true } },
+        },
+      }),
+      // Waiting to be let in, where the challenge asks for approval.
+      db.participant.count({
+        where: { challenge: { workspaceId: workspace.id }, status: 'PENDING' },
+      }),
+      db.submission.findMany({
+        where: { participant: { challenge: { workspaceId: workspace.id } } },
+        orderBy: { submittedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true, submittedAt: true,
+          participant: {
+            select: {
+              profile:   { select: { fullName: true, email: true } },
+              challenge: { select: { title: true } },
+            },
+          },
+        },
       }),
     ])
 
@@ -142,6 +192,26 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
   const activity: TimePoint[] = participantCount > 0
     ? [...buckets].map(([date, value]) => ({ date, value }))
     : []
+
+  // What just happened in this workspace, registrations and submissions mixed
+  // and sorted together — the same feed the agency dashboard shows, asked of
+  // one workspace.
+  const events = [
+    ...recent.slice(0, 10).map((r) => ({
+      id: `reg-${r.id}`,
+      who: personName(r.profile),
+      what: `joined ${r.challenge.title}`,
+      at: r.registeredAt,
+    })),
+    ...recentSubmissions.map((s) => ({
+      id: `sub-${s.id}`,
+      who: personName(s.participant.profile),
+      what: `submitted work in ${s.participant.challenge.title}`,
+      at: s.submittedAt,
+    })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, 8)
 
   const firstName = (user.fullName ?? user.email).split(/[\s@]/)[0]
   const stats = [
@@ -404,6 +474,28 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                     </div>
                   )}
 
+                  {pendingApprovals > 0 && (
+                    <div className="flex gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                        <Users className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {pendingApprovals} registration{pendingApprovals === 1 ? '' : 's'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Waiting for your approval.
+                        </p>
+                        <Link
+                          href={`/ws/${workspaceSlug}/participants`}
+                          className="mt-2 inline-block rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                        >
+                          Review registrations
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
                   {challenges.some((c) => c.status === 'DRAFT') && (
                     <div className="flex gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -425,13 +517,39 @@ export default async function WorkspaceDashboardPage({ params, searchParams }: P
                     </div>
                   )}
 
-                  {pendingReview === 0 && !challenges.some((c) => c.status === 'DRAFT') && (
+                  {pendingReview === 0 && pendingApprovals === 0 && !challenges.some((c) => c.status === 'DRAFT') && (
                     <p className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                       Nothing needs you right now.
                     </p>
                   )}
                 </div>
+              </section>
+
+              {/* What just happened, as against how much of it there has been
+                  — the chart below counts registrations, this says who. */}
+              <section aria-labelledby="recent" className="rounded-xl border border-border bg-card p-5">
+                <h2 id="recent" className="text-base font-semibold text-foreground">
+                  Recent activity
+                </h2>
+                {events.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Nothing yet. Registrations and submitted work appear here.
+                  </p>
+                ) : (
+                  <ul className="mt-3 space-y-2.5">
+                    {events.map((e) => (
+                      <li key={e.id} className="text-sm leading-snug">
+                        <span className="text-muted-foreground">
+                          <strong className="font-medium text-foreground">{e.who}</strong> {e.what}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                          {relativeDay(e.at)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
 
               <section aria-labelledby="activity" className="rounded-xl border border-border bg-card p-5">

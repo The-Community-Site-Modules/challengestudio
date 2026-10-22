@@ -10,6 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 
 interface Props {
   /** Shown after the product name, e.g. "Workspaces". */
@@ -84,16 +85,12 @@ export function AppHeader({ sectionLabel, userName = '', userEmail = '', userAva
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/account/profile">
-                <User className="mr-2 h-4 w-4" /> Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/account/notifications">
-                <Settings className="mr-2 h-4 w-4" /> Preferences
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink href="/account/profile">
+              <User className="mr-2 h-4 w-4" /> Profile
+            </DropdownMenuLink>
+            <DropdownMenuLink href="/account/notifications">
+              <Settings className="mr-2 h-4 w-4" /> Preferences
+            </DropdownMenuLink>
             <DropdownMenuSeparator />
             {/* preventDefault first — Radix closes the menu on select, and a
                 form that unmounts never gets to submit. */}

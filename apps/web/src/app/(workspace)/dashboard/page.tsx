@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { LayoutGrid, Zap, Users, UserRound } from 'lucide-react'
+import Link from 'next/link'
+import { LayoutGrid, Zap, Users, UserRound, Inbox } from 'lucide-react'
 import { requireUser } from '@/lib/auth/session'
 import { cn } from '@/lib/utils'
 import { UrlToast } from '@/components/shared/url-toast'
@@ -7,10 +8,26 @@ import { GlobalSidebar } from './_components/global-sidebar'
 import { createWorkspaceAction } from '../actions'
 import { CreateWorkspace } from './_components/create-workspace'
 import { WorkspaceBrowser, type WorkspaceCardData } from './_components/workspace-browser'
-import { getWorkspaceSummaries, getPickerTotals } from './_lib/queries'
+import { TimeSeriesChart } from '@/components/shared/time-series-chart'
+import { getWorkspaceSummaries, getPickerTotals, getAgencyOverview } from './_lib/queries'
 
-export const metadata = { title: 'Workspaces — Challenge Studio' }
+export const metadata = { title: 'Dashboard — Challenge Studio' }
 export const dynamic = 'force-dynamic'
+
+/**
+ * How long ago, in the words a person would use.
+ *
+ * Takes a Date rather than the ISO string the card list uses, because these
+ * rows come straight from the query and never cross into a client component.
+ */
+function relativeDay(then: Date) {
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 7)  return `${days} days ago`
+  if (days < 30) return `${Math.floor(days / 7)} week${days < 14 ? '' : 's'} ago`
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 /** Two digits below ten, the way a counter reads — 07 rather than 7. */
 function pad(n: number) {
@@ -37,7 +54,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect(`/ws/${summaries[0]!.slug}`)
   }
 
-  const totals = await getPickerTotals(user.id, summaries)
+  const [totals, agency] = await Promise.all([
+    getPickerTotals(user.id, summaries),
+    getAgencyOverview(summaries),
+  ])
   const firstName = (user.fullName ?? user.email).split(/[\s@]/)[0]
   const names = summaries.map((s) => s.name)
 
@@ -61,7 +81,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       {/* Same shell as a workspace: a full-height sidebar and scrolling that
           belongs to <main>, so the two levels read as one application. */}
       <GlobalSidebar
-        {...(summaries[0] ? { primarySlug: summaries[0].slug } : {})}
+        workspaces={summaries.map((s) => ({ slug: s.slug, name: s.name }))}
         userName={user.fullName ?? ''}
         userEmail={user.email}
         {...(user.avatarUrl ? { userAvatar: user.avatarUrl } : {})}
@@ -73,14 +93,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Workspaces
+                Dashboard
               </p>
               <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900">
                 Welcome back, {firstName}
               </h1>
               <p className="mt-1.5 max-w-xl text-sm text-slate-500">
-                Choose a workspace to continue building, or create a new one to start
-                something new.
+                Everything across your workspaces, in one place.
               </p>
             </div>
             <CreateWorkspace
@@ -144,7 +163,157 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 ))}
               </div>
 
-              <div className="mt-10">
+              {/* The agency view: every workspace at once. The same questions
+                  the per-workspace dashboard answers — what is running, who
+                  needs attention, what just happened — asked of the whole
+                  account, because an agency with five workspaces should not
+                  have to open five dashboards to find out. */}
+              {/* `items-start` so each column is as tall as its own content. Without
+                  it the grid row takes the height of the taller column and the
+                  shorter one stretches, leaving a pane of empty white under
+                  the last challenge. */}
+              <div className="mt-8 grid gap-4 lg:grid-cols-3 lg:items-start">
+                <div className="flex flex-col gap-4 lg:col-span-2">
+                <section className="rounded-xl border border-slate-200 bg-white">
+                  <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+                    <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                      Live challenges
+                    </h2>
+                    <span className="text-xs text-slate-500">across all workspaces</span>
+                  </header>
+
+                  {agency.challenges.length === 0 ? (
+                    <p className="px-5 py-10 text-center text-sm text-slate-500">
+                      Nothing is running yet. A challenge appears here once it is published.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {agency.challenges.map((c) => (
+                        <li key={c.id}>
+                          <Link
+                            href={`/ws/${c.workspaceSlug}/challenges/${c.slug}/overview`}
+                            className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-slate-900">
+                                {c.title}
+                              </span>
+                              <span className="mt-0.5 block truncate text-xs text-slate-500">
+                                {c.workspaceName} · {c.steps} {c.steps === 1 ? 'day' : 'days'}
+                                {c.startsAt ? ` · starts ${relativeDay(c.startsAt)}` : ''}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className="block text-sm font-semibold tabular-nums text-slate-900">
+                                {c.participants}
+                              </span>
+                              <span className="block text-[11px] text-slate-500">
+                                {c.participants === 1 ? 'person' : 'people'}
+                              </span>
+                            </span>
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                c.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                                  : 'bg-slate-100 text-slate-600'
+                              )}
+                            >
+                              {c.status === 'ACTIVE' ? 'Live' : 'Published'}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+                  <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                    Registrations
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Last 30 days, every workspace combined
+                  </p>
+                  <div className="mt-2">
+                    <TimeSeriesChart
+                      data={agency.registrations}
+                      seriesLabel="Registrations"
+                      height={170}
+                      emptyMessage="No registrations in the last 30 days."
+                    />
+                  </div>
+                </section>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <section className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+                    <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                      Needs your attention
+                    </h2>
+                    {agency.pendingReviews === 0 && agency.pendingApprovals === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        Nothing is waiting on you.
+                      </p>
+                    ) : (
+                      <ul className="mt-3 space-y-2.5">
+                        {agency.pendingReviews > 0 && (
+                          <li className="flex items-center gap-2.5 text-sm">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                              <Inbox className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="text-slate-700">
+                              <strong className="font-semibold tabular-nums">
+                                {agency.pendingReviews}
+                              </strong>{' '}
+                              {agency.pendingReviews === 1 ? 'submission' : 'submissions'} to review
+                            </span>
+                          </li>
+                        )}
+                        {agency.pendingApprovals > 0 && (
+                          <li className="flex items-center gap-2.5 text-sm">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+                              <UserRound className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="text-slate-700">
+                              <strong className="font-semibold tabular-nums">
+                                {agency.pendingApprovals}
+                              </strong>{' '}
+                              waiting for approval
+                            </span>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </section>
+
+                  <section className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+                    <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">
+                      Recent activity
+                    </h2>
+                    {agency.events.length === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">Nothing has happened yet.</p>
+                    ) : (
+                      <ul className="mt-3 space-y-2.5">
+                        {agency.events.map((e) => (
+                          <li key={e.id} className="text-sm leading-snug">
+                            <span className="text-slate-700">
+                              <strong className="font-medium text-slate-900">{e.who}</strong>{' '}
+                              {e.what}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] text-slate-500">
+                              {e.workspaceName} · {relativeDay(e.at)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </div>
+              </div>
+
+
+              <div id="workspaces" className="mt-10 scroll-mt-6">
                 <WorkspaceBrowser
                   workspaces={cards}
                   onCreate={

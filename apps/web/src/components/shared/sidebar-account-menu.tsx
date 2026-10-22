@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useTransition } from 'react'
 import { ChevronUp, LogOut, User as UserIcon, type LucideIcon } from 'lucide-react'
 import { signOutAction } from '@/app/(auth)/auth/actions'
@@ -9,6 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 
 /**
  * The account card pinned to the bottom of a full-height sidebar.
@@ -64,17 +64,13 @@ export function SidebarAccountMenu({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent side="top" align="start" className="w-[215px]">
-          <DropdownMenuItem asChild>
-            <Link href="/account/profile">
-              <UserIcon className="mr-2 h-4 w-4" /> Profile
-            </Link>
-          </DropdownMenuItem>
+          <DropdownMenuLink href="/account/profile">
+            <UserIcon className="mr-2 h-4 w-4" /> Profile
+          </DropdownMenuLink>
           {secondaryItem && (
-            <DropdownMenuItem asChild>
-              <Link href={secondaryItem.href}>
-                <secondaryItem.Icon className="mr-2 h-4 w-4" /> {secondaryItem.label}
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink href={secondaryItem.href}>
+              <secondaryItem.Icon className="mr-2 h-4 w-4" /> {secondaryItem.label}
+            </DropdownMenuLink>
           )}
           <DropdownMenuSeparator />
           {/* preventDefault first — Radix closes the menu on select, and an

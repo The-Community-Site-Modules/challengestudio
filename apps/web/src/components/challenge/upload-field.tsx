@@ -16,20 +16,32 @@ import { useRef, useState, useTransition } from 'react'
 import { useParams } from 'next/navigation'
 import { Upload, Loader2, Check } from 'lucide-react'
 import { uploadWorkspaceFileAction } from '@/app/(workspace)/ws/[workspaceSlug]/upload-actions'
+import { ImageAdjuster, isAdjustable, type AdjustTarget } from '@/components/shared/image-adjuster'
 
 interface Props {
   kind?: 'image' | 'file'
   /** Called with the stored file's public URL. */
   onUploaded: (url: string, filename: string) => void
   label?: string
+  /**
+   * How an image should be framed before it is sent. Omitted means the
+   * picture's own shape, which still allows zooming in on part of it — the
+   * right default where the slot has no fixed proportions, like an image
+   * block in a day. A banner or a thumbnail passes its real aspect so what is
+   * uploaded is what the page will show.
+   */
+  adjust?: AdjustTarget
 }
 
-export function UploadField({ kind = 'image', onUploaded, label }: Props) {
+export function UploadField({ kind = 'image', onUploaded, label, adjust }: Props) {
   const params = useParams<{ workspaceSlug?: string }>()
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [isUploading, startUploading] = useTransition()
+  // Held between picking the file and framing it; nothing is sent until the
+  // adjuster hands back the version the person approved.
+  const [adjusting, setAdjusting] = useState<File | null>(null)
 
   const workspaceSlug = params?.workspaceSlug
 
@@ -71,8 +83,23 @@ export function UploadField({ kind = 'image', onUploaded, label }: Props) {
 
   const accept = kind === 'image' ? 'image/png,image/jpeg,image/webp,image/gif' : undefined
 
+  /** Images get framed first; a worksheet has nothing to frame. */
+  function handlePicked(file: File) {
+    if (kind === 'image' && isAdjustable(file)) setAdjusting(file)
+    else handleFile(file)
+  }
+
   return (
     <div>
+      {kind === 'image' && (
+        <ImageAdjuster
+          file={adjusting}
+          target={adjust ?? { aspect: 'source' }}
+          onCancel={() => setAdjusting(null)}
+          onConfirm={(framed) => { setAdjusting(null); handleFile(framed) }}
+        />
+      )}
+
       <input
         ref={inputRef}
         type="file"
@@ -80,7 +107,7 @@ export function UploadField({ kind = 'image', onUploaded, label }: Props) {
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0]
-          if (file) handleFile(file)
+          if (file) handlePicked(file)
           // Cleared so picking the same file twice still fires a change.
           e.target.value = ''
         }}

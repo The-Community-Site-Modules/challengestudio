@@ -1,14 +1,19 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import {
-  Loader2, KeyRound, Link2, Lock, BadgeCheck, ImageOff, X, Camera,
+  Loader2, KeyRound, Lock, BadgeCheck, ImageOff, X, Camera, Upload,
 } from 'lucide-react'
 import { Button }    from '@/components/ui/button'
 import { Input }     from '@/components/ui/input'
 import { Label }     from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { uploadAvatarAction } from '../../upload-actions'
+import { ImageAdjuster, isAdjustable } from '@/components/shared/image-adjuster'
+
+/** Mirrors IMAGE_TYPES on the server; the picker filters, the action decides. */
+const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 
 interface Props {
   initialName:      string
@@ -30,10 +35,17 @@ function initialsOf(name: string, email: string) {
     .slice(0, 2)
 }
 
-/** Mirrors the server's rule, so the form refuses what the action would reject. */
+/**
+ * Mirrors the server's rule, so the form refuses what the action would reject.
+ *
+ * Nothing in the UI can produce a bad address any more — the only way to set
+ * one is an upload, which returns a storage URL. The check stays because the
+ * value also arrives as a prop from a row written before this page existed,
+ * and because the server still enforces it either way.
+ */
 function avatarUrlProblem(url: string): string | null {
   if (!url.trim()) return null
-  if (!/^https:\/\/\S+$/i.test(url.trim())) return 'Enter a full https:// image address.'
+  if (!/^https:\/\/\S+$/i.test(url.trim())) return 'That photo address is not usable.'
   return null
 }
 
@@ -95,12 +107,43 @@ export function ProfileForm({
   // A URL that is well-formed but does not resolve to an image looks identical
   // until the browser tries to load it, so the preview reports that itself.
   const [imageBroken, setImageBroken] = useState(false)
+  const [isUploading, setIsUploading]   = useState(false)
+  const [uploadError, setUploadError]   = useState<string | null>(null)
+  // Held between picking the file and framing it. Nothing is sent until the
+  // adjuster hands back the version the person approved.
+  const [adjusting, setAdjusting]       = useState<File | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  /**
+   * Send the file, then hold its address in state.
+   *
+   * The photo is stored as soon as it is picked — so the preview is the real
+   * image rather than a local blob that would vanish on reload — but the
+   * profile row is only written when Save changes is pressed. Cancelling
+   * leaves an unreferenced object in the bucket, which is the cheaper mistake
+   * than a photo that changes before the person agreed to it.
+   */
+  async function upload(file: File) {
+    setUploadError(null)
+    setIsUploading(true)
+    try {
+      const fd = new FormData()
+      fd.set('file', file)
+      const result = await uploadAvatarAction(fd)
+      if (result.error) setUploadError(result.error)
+      else if (result.url) setAvatarUrl(result.url)
+    } catch {
+      setUploadError('The upload did not complete. Try again.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const trimmedName = name.trim()
   const urlProblem  = avatarUrlProblem(avatarUrl)
   const isDirty     = trimmedName !== initialName.trim() || avatarUrl.trim() !== initialAvatarUrl.trim()
   const nameProblem = trimmedName.length === 0 ? 'Your name cannot be empty.' : null
-  const canSave     = isDirty && !urlProblem && !nameProblem && !isPending
+  const canSave     = isDirty && !urlProblem && !nameProblem && !isPending && !isUploading
 
   useEffect(() => { setImageBroken(false) }, [avatarUrl])
 
@@ -117,12 +160,22 @@ export function ProfileForm({
     setName(initialName)
     setAvatarUrl(initialAvatarUrl)
     setEditingPhoto(false)
+    setUploadError(null)
   }
 
   const showPreview = Boolean(avatarUrl.trim()) && !urlProblem && !imageBroken
 
   return (
     <div className="space-y-6">
+
+      {/* Framing happens before the upload, so what is stored is what was
+          seen in the circle rather than a centre crop of a phone photo. */}
+      <ImageAdjuster
+        file={adjusting}
+        target={{ aspect: 1, shape: 'circle', outputWidth: 512 }}
+        onCancel={() => setAdjusting(null)}
+        onConfirm={(framed) => { setAdjusting(null); void upload(framed) }}
+      />
 
       {/* ── Profile ──────────────────────────────────────────────────────── */}
       <Section
@@ -192,54 +245,66 @@ export function ProfileForm({
             </div>
           </div>
 
-          {/* Photo source.
-              Uploads need file storage, which this app does not have yet, so a
-              drop zone here would be a control that cannot do anything. The
-              address field is what actually works; it stays tucked behind
-              "Change photo" so it is not the first thing anyone sees. */}
+          {/* Photo source. This was an "Image address" field with a note saying
+              uploading would arrive with storage support. Storage arrived, so
+              the field is gone: nobody has a public https:// address for a
+              photo of themselves, they have a file. */}
           {editingPhoto && (
             <div className="border-t border-slate-100 bg-slate-50/60 px-7 py-6 sm:px-8">
-              <Label htmlFor="avatarUrl" className="text-[13px] font-medium text-slate-700">
-                Image address
+              <Label htmlFor="avatarFile" className="text-[13px] font-medium text-slate-700">
+                Upload a photo
               </Label>
-              <div className="mt-2 flex max-w-md items-center gap-2">
-                <div className="relative flex-1">
-                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                  <Input
-                    id="avatarUrl"
-                    name="avatarUrl"
-                    type="url"
-                    inputMode="url"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://example.com/photo.jpg"
-                    disabled={isPending}
-                    aria-invalid={urlProblem ? true : undefined}
-                    aria-describedby="avatarUrl-hint"
-                    className={cn(
-                      'h-10 bg-white pl-9 text-sm',
-                      urlProblem && 'border-red-300 focus-visible:ring-red-200'
-                    )}
-                  />
-                </div>
-                {avatarUrl && (
+              <div className="mt-2 flex max-w-md flex-wrap items-center gap-2">
+                <input
+                  ref={fileInput}
+                  id="avatarFile"
+                  type="file"
+                  accept={ACCEPT}
+                  className="sr-only"
+                  disabled={isPending || isUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    // Clear the input first: picking the same file twice in a
+                    // row fires no change event otherwise, so a failed upload
+                    // could not be retried with the same photo.
+                    e.target.value = ''
+                    if (!file) return
+                    // An animated GIF redrawn to a canvas keeps one frame, so
+                    // it goes up as it is.
+                    if (isAdjustable(file)) setAdjusting(file)
+                    else void upload(file)
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 bg-white"
+                  disabled={isPending || isUploading}
+                  onClick={() => fileInput.current?.click()}
+                >
+                  {isUploading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading…</>
+                  ) : (
+                    <><Upload className="mr-2 h-4 w-4" /> Choose image</>
+                  )}
+                </Button>
+                {avatarUrl.trim() && !isUploading && (
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 text-slate-500 hover:text-slate-700"
+                    className="h-10 text-slate-500 hover:text-slate-700"
+                    disabled={isPending}
                     onClick={() => setAvatarUrl('')}
                   >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Clear</span>
+                    <X className="mr-2 h-4 w-4" /> Remove photo
                   </Button>
                 )}
               </div>
               <p
-                id="avatarUrl-hint"
-                className={cn('mt-2 text-[13px]', urlProblem ? 'text-red-600' : 'text-slate-500')}
+                id="avatarFile-hint"
+                className={cn('mt-2 text-[13px]', uploadError ? 'text-red-600' : 'text-slate-500')}
               >
-                {urlProblem ?? 'Paste a link to an image. Uploading a file arrives with storage support.'}
+                {uploadError ?? 'PNG, JPEG, WebP or GIF, up to 5 MB. Save changes to keep it.'}
               </p>
             </div>
           )}

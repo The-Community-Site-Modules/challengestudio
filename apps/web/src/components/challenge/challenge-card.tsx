@@ -5,9 +5,9 @@ import { Users, Calendar, MoreHorizontal, Eye, Edit, Archive, ExternalLink, Sett
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 import { cn } from '@/lib/utils'
 
 type ChallengeStatus = 'draft' | 'scheduled' | 'published' | 'active' | 'closed' | 'completed' | 'archived'
@@ -90,40 +90,33 @@ export function ChallengeCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href={`${baseHref}/overview`}>
-                <Eye className="mr-2 h-4 w-4" /> View overview
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`${baseHref}/builder`}>
-                <Edit className="mr-2 h-4 w-4" /> Edit builder
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink href={`${baseHref}/overview`}>
+              <Eye className="mr-2 h-4 w-4" /> View overview
+            </DropdownMenuLink>
+            <DropdownMenuLink href={`${baseHref}/builder`}>
+              <Edit className="mr-2 h-4 w-4" /> Edit builder
+            </DropdownMenuLink>
             {/* Schedule, format, slug and access live here. Without this item
                 the settings page had no route into it from anywhere in the UI:
                 the page existed and could only be reached by typing its URL. */}
-            <DropdownMenuItem asChild>
-              <Link href={`${baseHref}/settings`}>
-                <Settings className="mr-2 h-4 w-4" /> Settings
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink href={`${baseHref}/settings`}>
+              <Settings className="mr-2 h-4 w-4" /> Settings
+            </DropdownMenuLink>
             {(status === 'published' || status === 'active') && (
-              <DropdownMenuItem asChild>
-                <Link href={`/c/${slug}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" /> View public page
-                </Link>
-              </DropdownMenuItem>
+              <DropdownMenuLink href={`/c/${slug}`} target="_blank">
+                <ExternalLink className="mr-2 h-4 w-4" /> View public page
+              </DropdownMenuLink>
             )}
             <DropdownMenuSeparator />
             {/* Was a menu item with no handler — it looked like a control and
                 was decoration. Deleting lives on the settings page, where
                 there is room to say what goes with it. */}
-            <DropdownMenuItem asChild className="text-muted-foreground">
-              <Link href={`${baseHref}/settings#danger`}>
-                <Archive className="mr-2 h-4 w-4" /> Archive or delete
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink
+              href={`${baseHref}/settings#danger`}
+              className="text-muted-foreground"
+            >
+              <Archive className="mr-2 h-4 w-4" /> Archive or delete
+            </DropdownMenuLink>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

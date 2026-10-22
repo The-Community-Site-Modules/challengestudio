@@ -254,6 +254,10 @@ export function Step1Foundation({ step, setStep }: StepProps) {
               <UploadField
                 kind="image"
                 label={data.coverImageUrl ? 'Replace image' : 'Upload an image'}
+                // The 1600 × 900 above is not a suggestion any more: the
+                // adjuster frames to it, so the card and the public page get
+                // the part of the photo that was chosen.
+                adjust={{ aspect: 16 / 9, outputWidth: 1600 }}
                 onUploaded={(url) => update({ coverImageUrl: url })}
               />
             </div>

@@ -11,9 +11,10 @@ import { cn } from '@/lib/utils'
 import { SidebarFrame } from '@/components/shared/sidebar-frame'
 import { SidebarAccountMenu } from '@/components/shared/sidebar-account-menu'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenu, DropdownMenuContent,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuLink } from '@/components/shared/menu-link'
 
 interface NavItem {
   label: string
@@ -30,7 +31,9 @@ interface NavItem {
 }
 
 const workspaceNav: NavItem[] = [
-  { label: 'Overview',     href: '',              Icon: LayoutDashboard },
+  // Named Dashboard, like the row at the agency level, because it is the same
+  // thing one scope down: the whole workspace at a glance.
+  { label: 'Dashboard',    href: '',              Icon: LayoutDashboard },
   { label: 'Challenges',   href: '/challenges',   Icon: Zap },
   { label: 'Content',      href: '/content',      Icon: FileText },
   { label: 'Participants', href: '/participants', Icon: Users },
@@ -164,15 +167,13 @@ export function WorkspaceSidebarNav({
                   Switch workspace
                 </DropdownMenuLabel>
                 {workspaces.map((ws) => (
-                  <DropdownMenuItem key={ws.id} asChild>
-                    <Link href={`/ws/${ws.slug}`}>
-                      <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
-                        {ws.name.trim().charAt(0).toUpperCase() || 'W'}
-                      </span>
-                      <span className="truncate">{ws.name}</span>
-                      {ws.slug === workspaceSlug && <Check className="ml-auto h-4 w-4 text-primary" />}
-                    </Link>
-                  </DropdownMenuItem>
+                  <DropdownMenuLink key={ws.id} href={`/ws/${ws.slug}`}>
+                    <span className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                      {ws.name.trim().charAt(0).toUpperCase() || 'W'}
+                    </span>
+                    <span className="truncate">{ws.name}</span>
+                    {ws.slug === workspaceSlug && <Check className="ml-auto h-4 w-4 text-primary" />}
+                  </DropdownMenuLink>
                 ))}
                 <DropdownMenuSeparator />
               </>
@@ -180,16 +181,12 @@ export function WorkspaceSidebarNav({
             {/* `?all` because /dashboard sends anyone with a single workspace
                 straight back into it — which is right as a default and wrong
                 for someone who just asked to see the list. */}
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard?all=1">
-                <LayoutGrid className="mr-2 h-4 w-4" /> All workspaces
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard?new=1">
-                <Plus className="mr-2 h-4 w-4" /> New workspace
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuLink href="/dashboard?all=1">
+              <LayoutGrid className="mr-2 h-4 w-4" /> All workspaces
+            </DropdownMenuLink>
+            <DropdownMenuLink href="/dashboard?new=1">
+              <Plus className="mr-2 h-4 w-4" /> New workspace
+            </DropdownMenuLink>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

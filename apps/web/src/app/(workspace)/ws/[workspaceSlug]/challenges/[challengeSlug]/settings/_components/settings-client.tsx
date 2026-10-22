@@ -284,6 +284,7 @@ export default function ChallengeSettingsClient({
               <UploadField
                 kind="image"
                 label={form.coverImageUrl ? 'Replace image' : 'Upload an image'}
+                adjust={{ aspect: 16 / 9, outputWidth: 1600 }}
                 onUploaded={(url) => set('coverImageUrl', url)}
               />
               <p className="mt-2 text-xs text-muted-foreground">
