@@ -114,17 +114,32 @@ function selectDriver(): EmailDriver {
 }
 
 /**
- * Who the message comes from.
+ * The platform's sending address.
  *
  * The fallback is Resend's shared testing address, which only delivers to the
  * address on the Resend account itself — fine for a first smoke test, useless
- * for inviting a colleague. Set EMAIL_FROM_ADDRESS to something on a domain
- * verified in Resend before expecting mail to reach anyone else.
+ * for anyone else. Set EMAIL_FROM_ADDRESS to an address on a domain verified
+ * in Resend.
+ *
+ * RESEND_FROM_EMAIL is read too: the production project was set up with that
+ * name, so for weeks every app email went out from the testing address and
+ * Resend refused it. A value written as `Name <address>` is accepted.
  */
+export function platformSenderAddress(): string {
+  const raw = (process.env.EMAIL_FROM_ADDRESS || process.env.RESEND_FROM_EMAIL || '').trim()
+  const address = /<([^<>\s]+@[^<>\s]+)>/.exec(raw)?.[1] ?? raw
+  return address || 'onboarding@resend.dev'
+}
+
+/** The platform's sender name, when a workspace has not set its own. */
+export function platformSenderName(): string {
+  return (process.env.EMAIL_FROM_NAME || process.env.RESEND_FROM_NAME || '').trim() || 'Challenge Studio'
+}
+
+/** Who the message comes from. */
 function fromAddress(fromName?: string | null): string {
-  const address = process.env.EMAIL_FROM_ADDRESS || 'onboarding@resend.dev'
-  const name = safeSenderName(fromName) ?? (process.env.EMAIL_FROM_NAME || 'Challenge Studio')
-  return `${name} <${address}>`
+  const name = safeSenderName(fromName) ?? platformSenderName()
+  return `${name} <${platformSenderAddress()}>`
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

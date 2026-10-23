@@ -75,3 +75,36 @@ describe('Reply-To', () => {
     expect(sentWith()).not.toHaveProperty('replyTo')
   })
 })
+
+describe('the platform address', () => {
+  it('reads RESEND_FROM_EMAIL when EMAIL_FROM_ADDRESS is not set', async () => {
+    // Production was configured with these names; without them every email
+    // left from Resend's testing address and was refused.
+    delete process.env.EMAIL_FROM_ADDRESS
+    delete process.env.EMAIL_FROM_NAME
+    process.env.RESEND_FROM_EMAIL = 'noreply@mychallengestudio.com'
+    process.env.RESEND_FROM_NAME = 'My Challenge Studio'
+    await sendEmail(base)
+    expect(sentWith().from).toBe('My Challenge Studio <noreply@mychallengestudio.com>')
+  })
+
+  it('accepts an address written as "Name <address>"', async () => {
+    delete process.env.EMAIL_FROM_ADDRESS
+    process.env.RESEND_FROM_EMAIL = 'Studio <noreply@mychallengestudio.com>'
+    await sendEmail(base)
+    expect(sentWith().from).toBe('Challenge Studio <noreply@mychallengestudio.com>')
+  })
+
+  it('prefers EMAIL_FROM_ADDRESS when both are set', async () => {
+    process.env.RESEND_FROM_EMAIL = 'other@mychallengestudio.com'
+    await sendEmail(base)
+    expect(sentWith().from).toBe('Challenge Studio <hello@mychallengestudio.com>')
+  })
+
+  it('falls back to the testing address only when neither is set', async () => {
+    delete process.env.EMAIL_FROM_ADDRESS
+    delete process.env.RESEND_FROM_EMAIL
+    await sendEmail(base)
+    expect(sentWith().from).toBe('Challenge Studio <onboarding@resend.dev>')
+  })
+})

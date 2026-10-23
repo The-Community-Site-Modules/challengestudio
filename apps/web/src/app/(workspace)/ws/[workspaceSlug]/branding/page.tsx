@@ -8,6 +8,7 @@
 // props, so the form showed "Acme Coaching" whatever the workspace was called.
 // It now hands the real values down, and whether this person may change them.
 
+import { platformSenderAddress, platformSenderName } from '@/lib/email'
 import { requireWorkspaceMember } from '@/lib/auth/session'
 import { roleCan } from '@/lib/permissions'
 import { db } from '@/lib/db'
@@ -43,8 +44,8 @@ export default async function BrandingPage({ params }: Props) {
         canEdit={roleCan(role, 'workspace.branding.manage')}
         // Shown in the sender preview, so the creator sees the whole From line
         // a participant will see rather than only the half they control.
-        platformSender={process.env.EMAIL_FROM_ADDRESS || 'onboarding@resend.dev'}
-        platformSenderName={process.env.EMAIL_FROM_NAME || 'Challenge Studio'}
+        platformSender={platformSenderAddress()}
+        platformSenderName={platformSenderName()}
       />
     </div>
   )

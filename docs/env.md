@@ -24,8 +24,8 @@ All variables are listed in `.env.example`. This document explains each one.
 | Variable | Purpose |
 |---|---|
 | `RESEND_API_KEY` | Resend API key from resend.com dashboard |
-| `EMAIL_FROM_ADDRESS` | Sender address e.g. `hello@challengestudio.com` |
-| `EMAIL_FROM_NAME` | Sender name e.g. `Challenge Studio` |
+| `EMAIL_FROM_ADDRESS` | Sender address e.g. `hello@challengestudio.com` (`RESEND_FROM_EMAIL` is also read) |
+| `EMAIL_FROM_NAME` | Sender name e.g. `Challenge Studio` (`RESEND_FROM_NAME` is also read) |
 
 ## File Storage (OD-2: Cloudflare R2)
 | Variable | Purpose |
