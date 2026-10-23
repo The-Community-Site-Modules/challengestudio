@@ -6,6 +6,7 @@ import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
 import { safeNext } from '@/lib/auth/redirect'
 import { requestOrigin } from '@/lib/auth/origin'
+import { scorePassword } from './signup/_components/password-strength'
 
 /**
  * PRD §22.2 asks for a limit on authentication attempts.
@@ -170,6 +171,41 @@ export async function resetPasswordAction(formData: FormData) {
   }
 
   redirect('/auth/login?message=' + encodeURIComponent('Password updated successfully! Please sign in with your new password.'))
+}
+
+// ── Create a password (after an email-link sign-in) ───────────────────────
+
+export type SetPasswordResult = { ok: true; next: string } | { ok: false; error: string }
+
+/**
+ * Give a link-only account a password.
+ *
+ * Reached from /auth/set-password, which the auth callback sends people to
+ * after an email-link sign-in when their account has none. Returns rather
+ * than redirects, so the form can say "Saved" before moving on.
+ *
+ * The rules are the sign-up form's, checked here as well as in the browser —
+ * a form's rules are a courtesy, this is the gate. Only a signed-in person can
+ * set a password, and only their own: `updateUser` acts on the session.
+ */
+export async function setPasswordAction(formData: FormData): Promise<SetPasswordResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Your sign-in has expired. Open a new link from your email.' }
+
+  const password = String(formData.get('password') ?? '')
+  const confirm  = String(formData.get('confirm') ?? '')
+  const next     = safeNext(formData.get('next') as string | null) ?? '/dashboard'
+
+  if (!scorePassword(password).valid) {
+    return { ok: false, error: 'Use at least 8 characters, including a number.' }
+  }
+  if (password !== confirm) return { ok: false, error: 'The two passwords do not match.' }
+
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { ok: false, error: error.message }
+
+  return { ok: true, next }
 }
 
 // ── Sign Out ──────────────────────────────────────────────────────────────
