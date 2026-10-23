@@ -34,6 +34,8 @@ export type EmailTrigger =
   | 'milestone_earned'
   | 'completion'
   | 'offer_closing'
+  | 'sign_in_link'
+  | 'password_reset'
 
 export interface EmailMessage {
   to: string
@@ -148,3 +150,4 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
 }
 
 export { renderWorkspaceInvitation } from './templates/workspace-invitation'
+export { renderAuthLink, type AuthLinkKind } from './templates/auth-link'

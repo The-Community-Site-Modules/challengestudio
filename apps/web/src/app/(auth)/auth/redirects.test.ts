@@ -35,6 +35,15 @@ const auth = {
   }),
 }
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ auth }) }))
+// Magic links and password resets are emailed by the app now (so they open on
+// any device); the URL they lead to is still the thing pinned here.
+vi.mock('@/lib/auth/send-link', () => ({
+  sendAuthLink: vi.fn(async (input: { kind: string; callbackUrl: string }) => {
+    calls.push({ method: `sendAuthLink:${input.kind}`, options: { emailRedirectTo: input.callbackUrl, redirectTo: input.callbackUrl } })
+    return { ok: true, via: 'app' }
+  }),
+  challengeContext: async () => ({}),
+}))
 
 class RedirectError extends Error {
   constructor(public destination: string) { super(`REDIRECT:${destination}`) }

@@ -30,14 +30,17 @@ vi.mock('next/navigation', () => ({
 }))
 
 const auth = { user: null as { id: string; email: string } | null, otpError: null as { message: string } | null }
-interface OtpArgs { email: string; options?: { emailRedirectTo?: string } }
-const signInWithOtp = vi.fn(async (_args: OtpArgs) => ({ error: auth.otpError }))
+// The link email is sent by the app (lib/auth/send-link), so it opens on any
+// device; `otpError` stands for it failing to go out.
+interface LinkArgs { kind: string; email: string; callbackUrl: string; challengeTitle?: string | null }
+const sendAuthLink = vi.fn(async (_args: LinkArgs) =>
+  auth.otpError ? { ok: false as const, error: auth.otpError.message } : { ok: true as const, via: 'app' as const })
+vi.mock('@/lib/auth/send-link', () => ({ sendAuthLink: (a: LinkArgs) => sendAuthLink(a) }))
 const updateUser = vi.fn(async (_args: { data: Record<string, unknown> }) => ({ error: null }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: {
       getUser:        async () => ({ data: { user: auth.user } }),
-      signInWithOtp,
       updateUser,
     },
   }),
@@ -252,7 +255,7 @@ describe('signed-in visitors', () => {
 
   it('enrols without sending a magic link', async () => {
     const { redirectedTo } = await register()
-    expect(signInWithOtp).not.toHaveBeenCalled()
+    expect(sendAuthLink).not.toHaveBeenCalled()
     expect(db.participant.upsert).toHaveBeenCalled()
     expect(redirectedTo).toContain('/confirm')
   })
@@ -266,7 +269,7 @@ describe('signed-in visitors', () => {
 describe('new visitors', () => {
   it('sends a magic link and enrols only after it is clicked', async () => {
     const { redirectedTo } = await register()
-    expect(signInWithOtp).toHaveBeenCalled()
+    expect(sendAuthLink).toHaveBeenCalled()
     // The participant row belongs to the callback; creating it here would
     // enrol an unverified email address.
     expect(db.participant.upsert).not.toHaveBeenCalled()
@@ -275,7 +278,7 @@ describe('new visitors', () => {
 
   it('carries the challenge into the callback so enrolment can finish', async () => {
     await register()
-    const redirectTo = signInWithOtp.mock.calls[0]?.[0]?.options?.emailRedirectTo ?? ''
+    const redirectTo = sendAuthLink.mock.calls[0]?.[0]?.callbackUrl ?? ''
     expect(redirectTo).toContain('challenge=ch1')
     expect(redirectTo).toContain('/api/auth/callback')
   })
@@ -320,7 +323,7 @@ describe('signed in, registering', () => {
     }))
     expect(db.profile.upsert.mock.calls[0]?.[0]?.update).toEqual({ fullName: 'Augusta King' })
     expect(updateUser).toHaveBeenCalledWith({ data: { full_name: 'Augusta King' } })
-    expect(signInWithOtp).not.toHaveBeenCalled()
+    expect(sendAuthLink).not.toHaveBeenCalled()
     expect(redirectedTo).toContain('/c/design-sprint/confirm')
   })
 
@@ -328,7 +331,7 @@ describe('signed in, registering', () => {
     auth.user = { id: 'u1', email: 'Ada@Example.com' }
     await register(form({ email: 'ada@example.com' }))
     expect(db.participant.upsert).toHaveBeenCalled()
-    expect(signInWithOtp).not.toHaveBeenCalled()
+    expect(sendAuthLink).not.toHaveBeenCalled()
   })
 
   it('leaves the signed-in account alone when the email is someone else', async () => {
@@ -339,8 +342,8 @@ describe('signed in, registering', () => {
     expect(db.profile.upsert).not.toHaveBeenCalled()
     expect(updateUser).not.toHaveBeenCalled()
     // …and the address typed is the one that gets the link.
-    expect(signInWithOtp).toHaveBeenCalledTimes(1)
-    expect(signInWithOtp.mock.calls[0]?.[0]?.email).toBe('friend@example.com')
+    expect(sendAuthLink).toHaveBeenCalledTimes(1)
+    expect(sendAuthLink.mock.calls[0]?.[0]?.email).toBe('friend@example.com')
   })
 
   it('sends no "registered" email to the signed-in account for someone else', async () => {

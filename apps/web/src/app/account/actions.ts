@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
+import { sendAuthLink } from '@/lib/auth/send-link'
 import { requestOrigin } from '@/lib/auth/origin'
 
 // ── Update profile ────────────────────────────────────────────────────────────
@@ -63,15 +64,16 @@ export async function updateProfileAction(formData: FormData) {
 export async function requestPasswordChangeAction() {
   const user = await requireUser()
 
-  const supabase = await createClient()
-  // Via the callback, which exchanges the PKCE code for a session first —
+  // Via the callback, which verifies the link and starts a session first —
   // see forgotPasswordAction.
-  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-    redirectTo: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
+  const sent = await sendAuthLink({
+    kind:        'reset',
+    email:       user.email,
+    callbackUrl: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
-  if (error) {
-    return redirect('/account/profile?error=' + encodeURIComponent(error.message))
+  if (!sent.ok) {
+    return redirect('/account/profile?error=' + encodeURIComponent(sent.error))
   }
 
   redirect('/account/profile?message=' + encodeURIComponent(

@@ -29,6 +29,7 @@ export type RateLimitAction =
   | 'social_comment'        // Comment on a post
   | 'social_reaction'       // Reaction (emoji)
   | 'auth_attempt'          // Login/signup attempts
+  | 'email_link'            // Sign-in / registration / reset emails, per address
 
 export interface RateLimitResult {
   allowed: boolean
@@ -45,6 +46,9 @@ export const RATE_LIMITS: Record<RateLimitAction, { requests: number; windowSeco
   social_comment:      { requests: 50,  windowSeconds: 3600 }, // 50 per hour per user
   social_reaction:     { requests: 100, windowSeconds: 3600 }, // 100 per hour per user
   auth_attempt:        { requests: 10,  windowSeconds: 900  }, // 10 per 15 min per IP
+  // Supabase capped its own link emails per address; sending them ourselves,
+  // so must we — otherwise a form can be used to flood someone's inbox.
+  email_link:          { requests: 5,   windowSeconds: 900  }, // 5 per 15 min per address
 }
 
 // ─── In-process sliding window ───────────────────────────────────────────────

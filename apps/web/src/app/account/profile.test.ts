@@ -32,6 +32,10 @@ const resetPasswordForEmail = vi.fn(async () => ({ error: null }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({ auth: { updateUser, resetPasswordForEmail } }),
 }))
+// The reset email is sent by the app (lib/auth/send-link), so it opens on any device.
+const sendAuthLink = vi.fn(async (_input: { kind: string; email: string; callbackUrl: string }) =>
+  ({ ok: true, via: 'app' }) as { ok: true; via: 'app' } | { ok: false; error: string })
+vi.mock('@/lib/auth/send-link', () => ({ sendAuthLink: (i: never) => sendAuthLink(i) }))
 
 const { updateProfileAction, requestPasswordChangeAction } = await import('./actions')
 
@@ -55,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   updateUser.mockResolvedValue({ error: null })
   resetPasswordForEmail.mockResolvedValue({ error: null })
+  sendAuthLink.mockResolvedValue({ ok: true, via: 'app' })
 })
 
 describe('updateProfileAction', () => {
@@ -132,11 +137,11 @@ describe('requestPasswordChangeAction', () => {
   it('sends the link to the session address, not one supplied by the caller', async () => {
     await redirectOf(() => requestPasswordChangeAction())
 
-    expect(resetPasswordForEmail).toHaveBeenCalledWith('me@example.com', expect.anything())
+    expect(sendAuthLink).toHaveBeenCalledWith(expect.objectContaining({ kind: 'reset', email: 'me@example.com' }))
   })
 
   it('surfaces a provider failure instead of claiming success', async () => {
-    resetPasswordForEmail.mockResolvedValue({ error: { message: 'rate limited' } } as never)
+    sendAuthLink.mockResolvedValue({ ok: false, error: 'rate limited' })
 
     const to = await redirectOf(() => requestPasswordChangeAction())
 

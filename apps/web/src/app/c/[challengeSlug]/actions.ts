@@ -9,6 +9,7 @@ import { dispatch } from '@/lib/communications'
 import { checkRateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { callerIp } from '@/lib/rate-limit/caller'
 import { requestOrigin } from '@/lib/auth/origin'
+import { sendAuthLink } from '@/lib/auth/send-link'
 import { initialParticipantStatus, isParticipating, registrationBlocker } from '@/lib/enrollment/register'
 import { submissionIsPrivate } from '@/lib/submissions/payload'
 import { streakDays } from '@/lib/gamification/streak'
@@ -41,7 +42,7 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
     select: {
       id: true, slug: true, title: true, status: true, workspaceId: true, startsAt: true, timezone: true,
       maxParticipants: true, requiresApproval: true, isPublic: true,
-      workspace: { select: { name: true } },
+      workspace: { select: { name: true, senderName: true, supportEmail: true, primaryColor: true } },
       registrationOpensAt: true, registrationClosesAt: true,
       _count: { select: { participants: true } },
     },
@@ -123,38 +124,40 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   // To the address typed. Opening it signs that person in (replacing any other
   // session in this browser) and enrols them in the callback.
   //
-  // Strategy: embed challengeId + fullName in the OTP redirect URL so the
-  // auth callback can create the participant row AFTER the user is authenticated.
+  // Strategy: embed challengeId + fullName in the link so the auth callback
+  // can create the participant row AFTER the user is authenticated.
   //
-  // Flow:  register form → OTP email → magic link click
-  //        → /api/auth/callback?next=/c/${slug}/welcome&challenge=${id}
+  // Flow:  register form → our email (lib/auth/send-link) → link opened on any
+  //        device → /api/auth/callback?…&challenge=${id}&token_hash=…
   //        → callback creates Profile + Participant → redirect to /welcome
 
   const callbackNext = `/c/${challengeSlug}/welcome`
-  // The domain this form was submitted on — the only one holding the PKCE
-  // verifier cookie this link needs. See lib/auth/origin.
   const callbackUrl  = `${await requestOrigin()}/api/auth/callback`
     + `?next=${encodeURIComponent(callbackNext)}`
     + `&challenge=${encodeURIComponent(challenge.id)}`
     + `&name=${encodeURIComponent(fullName)}`
 
-  const { error: otpError } = await supabase.auth.signInWithOtp({
+  const sent = await sendAuthLink({
+    kind:           'register',
     email,
-    options: {
-      shouldCreateUser: true,
-      data:             { full_name: fullName },
-      emailRedirectTo:  callbackUrl,
-    },
+    callbackUrl,
+    fullName,
+    challengeTitle: challenge.title,
+    workspaceName:  challenge.workspace.name,
+    senderName:     challenge.workspace.senderName,
+    replyTo:        challenge.workspace.supportEmail,
+    buttonColor:    challenge.workspace.primaryColor,
   })
 
-  if (otpError) {
-    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent(otpError.message))
+  if (!sent.ok) {
+    redirect(`/c/${challengeSlug}?error=` + encodeURIComponent(sent.error))
   }
 
   // Redirect to confirm page — the actual participant row is created in the
   // auth callback AFTER the user clicks their magic link
   redirect(
     `/c/${challengeSlug}/confirm?email=${encodeURIComponent(email)}&name=${encodeURIComponent(firstName)}`
+      + (sent.ok && sent.via === 'app' ? '&link=any' : '')
   )
 }
 

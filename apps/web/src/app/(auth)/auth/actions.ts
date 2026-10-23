@@ -8,6 +8,7 @@ import { safeNext } from '@/lib/auth/redirect'
 import { requestOrigin } from '@/lib/auth/origin'
 import { scorePassword } from './signup/_components/password-strength'
 import { PASSWORD_SET_FLAG } from '@/lib/auth/password'
+import { sendAuthLink, challengeContext } from '@/lib/auth/send-link'
 
 /**
  * PRD §22.2 asks for a limit on authentication attempts.
@@ -95,8 +96,6 @@ export async function signInAction(formData: FormData) {
 // ── Magic Link ────────────────────────────────────────────────────────────
 
 export async function signInWithMagicLinkAction(formData: FormData) {
-  const supabase = await createClient()
-
   const email = String(formData.get('email') ?? '').trim()
 
   const next = safeNext(formData.get('next') as string | null)
@@ -106,17 +105,20 @@ export async function signInWithMagicLinkAction(formData: FormData) {
   const blocked = await authAttemptBlocked(onError)
   if (blocked) return redirect(blocked)
 
-  const { error } = await supabase.auth.signInWithOtp({
+  // Sent by the app, so the link works on any device — see lib/auth/send-link.
+  // A link asked for on a challenge's page carries that challenge's name and
+  // branding.
+  const result = await sendAuthLink({
+    kind:        'sign_in',
     email,
-    options: {
-      emailRedirectTo: `${await requestOrigin()}/api/auth/callback`
-        + (next ? `?next=${encodeURIComponent(next)}` : ''),
-    },
+    callbackUrl: `${await requestOrigin()}/api/auth/callback`
+      + (next ? `?next=${encodeURIComponent(next)}` : ''),
+    ...(await challengeContext(next)),
   })
 
-  if (error) {
+  if (!result.ok) {
     const join = onError.includes('?') ? '&' : '?'
-    return redirect(`${onError}${join}error=${encodeURIComponent(error.message)}`)
+    return redirect(`${onError}${join}error=${encodeURIComponent(result.error)}`)
   }
 
   // Participants signing in from a challenge stay on that page to read the
@@ -136,20 +138,19 @@ export async function forgotPasswordAction(formData: FormData) {
   const blocked = await authAttemptBlocked('/auth/forgot-password')
   if (blocked) return redirect(blocked)
 
-  const supabase = await createClient()
-
   const email = String(formData.get('email') ?? '').trim()
 
-  // Through the callback, like every other emailed link. The server client
-  // uses the PKCE flow, so the link arrives with a `code` that has to be
-  // exchanged for a session — and /auth/reset-password never did that, so
-  // "Set a new password" always failed with no session.
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
+  // Through the callback, like every other emailed link: it verifies the
+  // token and starts the session /auth/reset-password needs. Sent by the app
+  // so it opens on any device — see lib/auth/send-link.
+  const sent = await sendAuthLink({
+    kind:        'reset',
+    email,
+    callbackUrl: `${await requestOrigin()}/api/auth/callback?next=${encodeURIComponent('/auth/reset-password')}`,
   })
 
-  if (error) {
-    return redirect(`/auth/forgot-password?error=${encodeURIComponent(error.message)}`)
+  if (!sent.ok) {
+    return redirect(`/auth/forgot-password?error=${encodeURIComponent(sent.error)}`)
   }
 
   redirect('/auth/forgot-password?sent=true')

@@ -24,14 +24,18 @@ import { isParticipating } from '@/lib/enrollment/register'
 
 interface Props {
   params:       Promise<{ challengeSlug: string }>
-  searchParams: Promise<{ email?: string; name?: string }>
+  searchParams: Promise<{ email?: string; name?: string; link?: string }>
 }
 
 const displayEmailFor = (email: string) => email.length > 0
 
 export default async function ConfirmPage({ params, searchParams }: Props) {
   const { challengeSlug }      = await params
-  const { email = '', name = '' } = await searchParams
+  const { email = '', name = '', link } = await searchParams
+  // `link=any`: the app sent the email itself, and its link works on any
+  // device. Otherwise Supabase sent it, and only this browser can open it —
+  // see lib/auth/send-link.
+  const anyDevice = link === 'any'
 
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
@@ -135,7 +139,9 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
                   <p className="text-sm font-medium text-foreground">Check your inbox</p>
                   <p className="text-xs text-muted-foreground">
                     We sent a sign-in link to <strong>{displayEmail}</strong>.
-                    Open it <strong>in this browser</strong> — it will not work in another one.
+                    {anyDevice
+                      ? <>Open it on <strong>any device</strong> — this one or your phone.</>
+                      : <>Open it <strong>in this browser</strong> — it will not work in another one.</>}
                   </p>
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Mail className="h-3.5 w-3.5" />
