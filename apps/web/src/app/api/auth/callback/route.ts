@@ -17,11 +17,18 @@ import { createClient }              from '@/lib/supabase/server'
 import { enrollAfterAuth, EnrollmentRefusedError } from '@/lib/enrollment/register'
 import { safeNext }                  from '@/lib/auth/redirect'
 import { knowsPassword, offersPassword, setPasswordPath } from '@/lib/auth/password'
+import { isEmailOtpType, linkParams } from '@/lib/auth/email-link'
+import type { EmailOtpType }        from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const { origin } = new URL(request.url)
+  // Our parameters may sit inside the template's `redirect_to` — see
+  // lib/auth/email-link.
+  const searchParams = linkParams(new URL(request.url).searchParams)
 
   const code             = searchParams.get('code')
+  const tokenHash        = searchParams.get('token_hash')
+  const otpType          = searchParams.get('type')
   // Only a path on this site. Taken raw, `?next=@evil.example` turned
   // `${origin}${next}` into a URL whose host is evil.example.
   const next             = safeNext(searchParams.get('next')) ?? '/dashboard'
@@ -40,9 +47,15 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (code) {
+  // A token hash (the current email templates) verifies in any browser; a code
+  // (older emails) only in the one holding its PKCE verifier cookie.
+  const byToken = !!tokenHash && isEmailOtpType(otpType)
+
+  if (code || byToken) {
     const supabase = await createClient()
-    const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: sessionData, error: exchangeError } = byToken
+      ? await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: otpType as EmailOtpType })
+      : await supabase.auth.exchangeCodeForSession(code!)
 
     if (exchangeError) {
       // The commonest failure is a link opened in a different browser or on a
@@ -52,10 +65,30 @@ export async function GET(request: NextRequest) {
       // wrong place to send someone who registered for a challenge.
       const verifierMissing =
         exchangeError.code === 'bad_code_verifier' || /code.verifier/i.test(exchangeError.message)
-      const message = verifierMissing
-        ? 'That link has to be opened in the same browser you used to request it. Ask for a new link here and open it in this browser.'
-        : exchangeError.message
       const challengePath = /^\/c\/[^/]+/.exec(next)?.[0]
+      // A token link fails only when it is expired or already used — say so
+      // rather than Supabase's "otp_expired".
+      const spent = 'That link has expired or has already been used.'
+
+      // A registration link (it carries ?challenge) goes back to the
+      // registration form. The challenge's sign-in page only signs people in,
+      // so a new link asked for there never enrolled them: a registrant who
+      // opened their email on their phone ended up with an account and no
+      // place in the challenge. A fresh link from the form enrols.
+      if (challengeId && challengePath) {
+        const message = byToken
+          ? `${spent} Register again below to get a new one.`
+          : verifierMissing
+            ? 'That link has to be opened in the same browser you registered in. Register again below, then open the new link in this browser.'
+            : exchangeError.message
+        return NextResponse.redirect(`${origin}${challengePath}?error=${encodeURIComponent(message)}`)
+      }
+
+      const message = byToken
+        ? `${spent} Ask for a new one here.`
+        : verifierMissing
+          ? 'That link has to be opened in the same browser you used to request it. Ask for a new link here and open it in this browser.'
+          : exchangeError.message
       const signIn = challengePath ? `${challengePath}/access` : '/auth/login'
       return NextResponse.redirect(`${origin}${signIn}?error=${encodeURIComponent(message)}`)
     }
