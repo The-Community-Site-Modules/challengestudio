@@ -10,6 +10,7 @@ import { Badge }     from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn }        from '@/lib/utils'
 import { ContentBlock } from '@/components/challenge/content-blocks'
+import { missingRequired, missingMessage } from '@/lib/submissions/required'
 import { completeStepAction } from '../../../actions'
 
 interface Block {
@@ -40,11 +41,15 @@ interface Props {
   step:          StepInfo
   isCompleted:   boolean
   participantId: string
+  /** Whether they have already posted in this day's discussion. */
+  postedHere?:   boolean
 }
 
 // ─── Main client component ────────────────────────────────────────────────
 
-export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, participantId }: Props) {
+export function DayClient({
+  challengeSlug, step, isCompleted: initialCompleted, participantId, postedHere = false,
+}: Props) {
   const [blockData,    setBlockData]    = useState<Record<string, unknown>>({})
   const [completed,    setCompleted]    = useState(initialCompleted)
   const [isCompleting, startCompleting] = useTransition()
@@ -55,6 +60,17 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
   function handleBlockInteract(blockId: string, value: unknown) {
     setBlockData(prev => ({ ...prev, [blockId]: value }))
   }
+
+  // The same rule completeStepAction enforces, run here so the button can say
+  // what is left instead of being pressed and refused. The server still
+  // decides: a discussion post counted here only because the block reported
+  // it is checked against the database there.
+  const postedNow = step.blocks.some(b =>
+    b.type === 'discussion_prompt' &&
+    typeof blockData[b.id] === 'object' && blockData[b.id] !== null &&
+    (blockData[b.id] as { posted?: unknown }).posted === true)
+  const missing = missingRequired(step.blocks, blockData, postedHere || postedNow)
+  const blocked = missing.length > 0
 
   function handleComplete() {
     setError(null)
@@ -159,8 +175,13 @@ export function DayClient({ challengeSlug, step, isCompleted: initialCompleted, 
               <CheckCircle className="h-6 w-6 text-primary" />
             </div>
             <h3 className="text-lg font-bold text-foreground">Mark step {dayNumber} complete</h3>
+            {blocked && (
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                {missingMessage(missing)}
+              </p>
+            )}
             <Button size="lg" className="w-full sm:w-auto gap-2 font-bold"
-              onClick={handleComplete} disabled={isCompleting}>
+              onClick={handleComplete} disabled={isCompleting || blocked}>
               {isCompleting ? 'Saving…' : `Complete Step ${dayNumber} — Earn ${xpValue} XP`}
             </Button>
             {error && (

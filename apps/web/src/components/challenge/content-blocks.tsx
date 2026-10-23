@@ -17,6 +17,7 @@ import { Switch }   from '@/components/ui/switch'
 import { cn }       from '@/lib/utils'
 import { safeHref } from '@/lib/safe-url'
 import { downloadUrl } from '@/lib/storage/download-url'
+import { isRequiredBlock } from '@/lib/submissions/required'
 
 /**
  * How a content block looks to a participant.
@@ -210,10 +211,10 @@ function AssignmentBlock({ data, blockId, onInteract }: {
       <Textarea placeholder="Write your response here..." rows={4} value={value}
         onChange={e => { setValue(e.target.value); onInteract?.(blockId, e.target.value) }}
         className="bg-white" />
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{wordCount} words</p>
-        <Badge variant="outline" className="text-xs">Required</Badge>
-      </div>
+      {/* This used to be a "Required" badge on every assignment, whether or
+          not the creator had made it required. Whether a block is required is
+          now shown once, above it, from the block's own flag. */}
+      <p className="text-xs text-muted-foreground">{wordCount} words</p>
     </div>
   )
 }
@@ -268,10 +269,12 @@ function ReflectionBlock({ data, blockId, onInteract }: {
  * it answers. The action checks it belongs to this challenge and is published;
  * this component does not have to be trusted with that.
  */
-function DiscussionBlock({ data, readOnly, stepId }: {
+function DiscussionBlock({ data, readOnly, stepId, blockId, onInteract }: {
   data: Record<string, string>
   readOnly?: boolean
   stepId?: string
+  blockId: string
+  onInteract?: Interact
 }) {
   const params = useParams<{ challengeSlug?: string }>()
   const challengeSlug = params?.challengeSlug
@@ -297,6 +300,9 @@ function DiscussionBlock({ data, readOnly, stepId }: {
         }
         setText('')
         setPosted(true)
+        // Lets the day page release a Complete button that was waiting on a
+        // required discussion. The server checks the post itself.
+        onInteract?.(blockId, { posted: true })
       } catch {
         // An action can reject outright — a dropped connection, a session
         // that expired mid-day. Uncaught, that reaches the error boundary
@@ -518,7 +524,27 @@ function ImageBlock({ data }: { data: Record<string, string> }) {
  * Renders one block. Pass `onInteract` for a live step, `readOnly` for preview.
  * `stepId` lets a discussion reply be filed under the day it answers.
  */
-export function ContentBlock({ block, onInteract, readOnly, stepId }: {
+export function ContentBlock(props: {
+  block: RenderableBlock
+  onInteract?: Interact
+  readOnly?: boolean
+  stepId?: string
+}) {
+  const rendered = <ContentBlockBody {...props} />
+  // Only where the creator ticked "Required", and only on a block with
+  // something to do — the same test the Complete button and the server use.
+  if (!isRequiredBlock(props.block)) return rendered
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">
+        Required
+      </p>
+      {rendered}
+    </div>
+  )
+}
+
+function ContentBlockBody({ block, onInteract, readOnly, stepId }: {
   block: RenderableBlock
   onInteract?: Interact
   readOnly?: boolean
@@ -531,7 +557,7 @@ export function ContentBlock({ block, onInteract, readOnly, stepId }: {
     case 'video':             return <VideoBlock        data={data} />
     case 'image':             return <ImageBlock        data={data} />
     case 'download':          return <DownloadBlock     data={data} />
-    case 'discussion_prompt': return <DiscussionBlock   data={data} readOnly={readOnly} {...(stepId ? { stepId } : {})} />
+    case 'discussion_prompt': return <DiscussionBlock   data={data} readOnly={readOnly} blockId={id} onInteract={onInteract} {...(stepId ? { stepId } : {})} />
     case 'file_upload':       return <FileUploadBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'checklist':         return <ChecklistBlock    data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />
     case 'assignment':        return <AssignmentBlock   data={data} blockId={id} onInteract={onInteract} readOnly={readOnly} />

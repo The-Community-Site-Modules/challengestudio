@@ -22,6 +22,8 @@ const db = {
   profile:       { findUnique: vi.fn() },
   feedPost:      { count: vi.fn() },
   feedComment:   { count: vi.fn() },
+  // The step's blocks, read to enforce the ones marked required.
+  contentBlock:  { findMany: vi.fn() },
 }
 vi.mock('@/lib/db', () => ({ db }))
 
@@ -89,6 +91,7 @@ beforeEach(() => {
   db.submission.findMany.mockResolvedValue([])
   db.feedPost.count.mockResolvedValue(0)
   db.feedComment.count.mockResolvedValue(0)
+  db.contentBlock.findMany.mockResolvedValue([])   // a day with nothing required
   db.badgeAward.createMany.mockResolvedValue({ count: 0 })
   db.badgeAward.findMany.mockResolvedValue([])
   db.profile.findUnique.mockResolvedValue({ email: 'ada@example.com', fullName: 'Ada Lovelace' })
@@ -340,5 +343,58 @@ describe('what this server-action module exposes', () => {
     const actions = await import('./actions')
     expect('getParticipantProgress' in actions).toBe(false)
     expect('enrollAfterAuthAction' in actions).toBe(false)
+  })
+})
+
+// ─── Required blocks ─────────────────────────────────────────────────────────
+//
+// The builder has always saved a "Required" flag on blocks, and nothing read
+// it: a day with a required assignment could be completed blank, points and
+// all. The day page now holds its button, but that only guards the page — work
+// can be posted to the action directly, so these go straight at the action.
+
+describe('required blocks', () => {
+  const ASSIGNMENT = { id: 'b1', type: 'ASSIGNMENT', data: { required: true, title: 'Your big idea' } }
+  const CHECKLIST  = { id: 'b2', type: 'CHECKLIST',  data: { required: true, items: 'Watch\nWrite' } }
+  const OPTIONAL   = { id: 'b3', type: 'REFLECTION', data: { required: false } }
+  const DISCUSSION = { id: 'b4', type: 'DISCUSSION_PROMPT', data: { required: true } }
+
+  it('refuses a day whose required assignment is blank, and stores and awards nothing', async () => {
+    db.contentBlock.findMany.mockResolvedValue([ASSIGNMENT, OPTIONAL])
+    const result = await completeStepAction('design-sprint', 'st1', { b1: '   ' })
+    expect(result).toEqual({ success: false, error: 'Finish Your big idea first.' })
+    expect(db.submission.upsert).not.toHaveBeenCalled()
+    expect(awardPoints).not.toHaveBeenCalled()
+  })
+
+  it('refuses a checklist with an item left unticked', async () => {
+    db.contentBlock.findMany.mockResolvedValue([CHECKLIST])
+    const result = await completeStepAction('design-sprint', 'st1', { b2: ['Watch'] })
+    expect(result).toMatchObject({ success: false })
+    expect(db.submission.upsert).not.toHaveBeenCalled()
+  })
+
+  it('accepts the day once every required block is done, and leaves optional ones optional', async () => {
+    db.contentBlock.findMany.mockResolvedValue([ASSIGNMENT, CHECKLIST, OPTIONAL])
+    const result = await completeStepAction('design-sprint', 'st1', { b1: 'An idea', b2: ['Watch', 'Write'] })
+    expect(result).toMatchObject({ success: true })
+    expect(db.submission.upsert).toHaveBeenCalled()
+  })
+
+  it("does not take the browser's word for a discussion post", async () => {
+    db.contentBlock.findMany.mockResolvedValue([DISCUSSION])
+    db.feedPost.count.mockResolvedValue(0)
+    const result = await completeStepAction('design-sprint', 'st1', { b4: { posted: true } })
+    expect(result).toEqual({ success: false, error: 'Finish a post in the discussion first.' })
+  })
+
+  it('accepts a required discussion once there is a post on this day', async () => {
+    db.contentBlock.findMany.mockResolvedValue([DISCUSSION])
+    db.feedPost.count.mockResolvedValue(1)
+    const result = await completeStepAction('design-sprint', 'st1', {})
+    expect(result).toMatchObject({ success: true })
+    expect(db.feedPost.count).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ stepId: 'st1', participantId: 'p1', isHidden: false }),
+    }))
   })
 })

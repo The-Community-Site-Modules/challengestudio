@@ -23,6 +23,7 @@ import {
   Sparkles, CircleCheck, CalendarDays, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isRequirable } from '@/lib/submissions/required'
 import { Button } from '@/components/ui/button'
 import { BLOCK_TYPES, BlockPayloadEditor, type BlockItem } from '@/components/challenge/content-block-editor'
 
@@ -493,7 +494,9 @@ function BlockCard({
   block, onChange, onDuplicate, onDelete, onDragStart, onDragOver, onDragEnd,
 }: BlockCardProps) {
   const [open, setOpen] = useState(false)
-  const required = block.required
+  // A heading saved as "required" before the toggle was limited still has the
+  // flag; it is ignored for completion, so the card must not claim it either.
+  const required = block.required && isRequirable(block.type)
   const points = block.points ?? 0
 
   return (
@@ -552,15 +555,21 @@ function BlockCard({
           />
 
           <div className="mt-5 flex flex-wrap items-center gap-5 border-t border-border pt-4">
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
-                checked={required}
-                onChange={(e) => onChange({ ...block, required: e.target.checked })}
-              />
-              Required
-            </label>
+            {/* Only on a block a participant does something in. "Required" on
+                a heading or a video has nothing to check, so it was a box
+                that saved and meant nothing. */}
+            {isRequirable(block.type) && (
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
+                  checked={required}
+                  onChange={(e) => onChange({ ...block, required: e.target.checked })}
+                />
+                Required
+                <span className="text-xs text-muted-foreground">— must be done to complete the day</span>
+              </label>
+            )}
 
             <label className="flex items-center gap-2 text-sm text-foreground">
               Points

@@ -13,6 +13,7 @@ import { initialParticipantStatus, isParticipating, registrationBlocker } from '
 import { submissionIsPrivate } from '@/lib/submissions/payload'
 import { streakDays } from '@/lib/gamification/streak'
 import { formatInZone } from '@/lib/time/zoned'
+import { isRequiredBlock, missingRequired, missingMessage } from '@/lib/submissions/required'
 
 // ─── Register (public — no auth required) ────────────────────────────────────
 
@@ -211,6 +212,25 @@ export async function completeStepAction(
 
   // Upsert submission (removes participantId helper field before storing)
   const { participantId: _removed, ...cleanData } = submissionData as Record<string, unknown> & { participantId?: string }
+
+  // Required blocks. The builder has always saved a "Required" flag on blocks
+  // and nothing ever read it, so a day with a required assignment could be
+  // completed — and its points collected — with the assignment blank. The day
+  // page holds its button until they are done, but that is a courtesy: work
+  // can be posted here directly, so the rule is enforced here.
+  const blocks = await db.contentBlock.findMany({
+    where:  { stepId: step.id },
+    orderBy: { order: 'asc' },
+    select: { id: true, type: true, data: true },
+  })
+  // A discussion prompt is answered by posting to the feed, not by anything in
+  // the payload — so the post is looked up, never taken from the browser.
+  const needsPost = blocks.some(b => isRequiredBlock(b) && b.type === 'DISCUSSION_PROMPT')
+  const postedHere = needsPost && (await db.feedPost.count({
+    where: { stepId: step.id, participantId: participant.id, isHidden: false },
+  })) > 0
+  const missing = missingRequired(blocks, cleanData, postedHere)
+  if (missing.length > 0) return { success: false, error: missingMessage(missing) }
 
   // The reflection block's privacy toggle rides in with the payload, nested
   // under the block's id. It lives in a column as well, because a flag buried

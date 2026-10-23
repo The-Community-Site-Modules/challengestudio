@@ -87,6 +87,13 @@ export default async function DayPage({ params }: Props) {
   const submittedStepIds = new Set(participant.submissions.map(s => s.stepId))
   const isCompleted = submittedStepIds.has(step.id)
 
+  // A required discussion prompt is answered by a feed post on this day. The
+  // page needs to know about one made on an earlier visit, or the Complete
+  // button would wait for a post that already exists.
+  const postedHere = (await db.feedPost.count({
+    where: { stepId: step.id, participantId: participant.id, isHidden: false },
+  })) > 0
+
   // Neighbours by position, not by order ± 1. Orders have gaps once a step is
   // deleted or left unpublished, and "Next" used to link to a day that 404s.
   const index = challenge.steps.findIndex(s => s.id === step.id)
@@ -116,6 +123,7 @@ export default async function DayPage({ params }: Props) {
       }}
       isCompleted={isCompleted}
       participantId={participant.id}
+      postedHere={postedHere}
     />
   )
 }
