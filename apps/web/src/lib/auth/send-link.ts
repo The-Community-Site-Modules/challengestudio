@@ -35,6 +35,9 @@ export interface SendAuthLinkInput {
   senderName?: string | null
   replyTo?: string | null
   buttonColor?: string | null
+  /** When the link belongs to a workspace, each send is logged in its message deliveries. */
+  workspaceId?: string | null
+  challengeId?: string | null
 }
 
 export type SendAuthLinkResult =
@@ -47,13 +50,13 @@ export type SendAuthLinkResult =
  * Nothing for any other destination.
  */
 export async function challengeContext(next: string | null | undefined): Promise<
-  Pick<SendAuthLinkInput, 'challengeTitle' | 'workspaceName' | 'senderName' | 'replyTo' | 'buttonColor'>
+  Pick<SendAuthLinkInput, 'challengeTitle' | 'workspaceName' | 'senderName' | 'replyTo' | 'buttonColor' | 'workspaceId' | 'challengeId'>
 > {
   const slug = next ? /^\/c\/([^/?#]+)/.exec(next)?.[1] : undefined
   if (!slug) return {}
   const challenge = await db.challenge.findFirst({
     where:  { slug },
-    select: { title: true, workspace: { select: { name: true, senderName: true, supportEmail: true, primaryColor: true } } },
+    select: { id: true, workspaceId: true, title: true, workspace: { select: { name: true, senderName: true, supportEmail: true, primaryColor: true } } },
   })
   if (!challenge) return {}
   return {
@@ -62,6 +65,8 @@ export async function challengeContext(next: string | null | undefined): Promise
     senderName:     challenge.workspace.senderName,
     replyTo:        challenge.workspace.supportEmail,
     buttonColor:    challenge.workspace.primaryColor,
+    workspaceId:    challenge.workspaceId,
+    challengeId:    challenge.id,
   }
 }
 
@@ -103,13 +108,48 @@ export async function sendAuthLink(input: SendAuthLinkInput): Promise<SendAuthLi
       buttonColor:    input.buttonColor,
     })
     const sent = await sendEmail({ ...message, fromName: input.senderName, replyTo: input.replyTo })
+    await logDelivery(input, email, message.trigger, sent.sent ? 'sent' : 'failed', sent.provider, sent.reason)
     if (sent.sent) return { ok: true, via: 'app' }
     console.error('[auth/send-link] app email not sent, falling back to Supabase', { kind: input.kind, reason: sent.reason })
   } else {
+    await logDelivery(input, email, input.kind === 'register' ? 'account_setup' : 'sign_in_link', 'failed', null, `link not generated: ${error?.message ?? 'no token'}`)
     console.error('[auth/send-link] could not generate a link, falling back to Supabase', { kind: input.kind, error: error?.message })
   }
 
   return supabaseFallback(input, email, data)
+}
+
+/**
+ * Record the send in the workspace's message deliveries, beside its other
+ * challenge mail, so a failure is visible rather than only in server logs.
+ * Never throws: the log must not stop the email.
+ */
+async function logDelivery(
+  input: SendAuthLinkInput,
+  email: string,
+  trigger: string,
+  status: 'sent' | 'failed',
+  provider: string | null,
+  error: string | undefined,
+): Promise<void> {
+  if (!input.workspaceId) return
+  try {
+    await db.messageDelivery.create({
+      data: {
+        workspaceId:    input.workspaceId,
+        challengeId:    input.challengeId ?? null,
+        recipientEmail: email,
+        trigger,
+        status,
+        provider,
+        error:          error ?? null,
+        // A link email is sent each time it is asked for, never deduplicated.
+        idempotencyKey: `auth-link:${crypto.randomUUID()}`,
+      },
+    })
+  } catch (e) {
+    console.error('[auth/send-link] could not log the delivery', e)
+  }
 }
 
 async function supabaseFallback(

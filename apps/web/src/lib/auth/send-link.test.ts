@@ -11,7 +11,8 @@ vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: () => ({ auth: { admin: { generateLink } } }),
   createClient: async () => ({ auth: { signInWithOtp, resetPasswordForEmail } }),
 }))
-vi.mock('@/lib/db', () => ({ db: { challenge: { findFirst: vi.fn(async () => null) } } }))
+const deliveries = vi.fn(async (_a: { data: Record<string, unknown> }) => ({}))
+vi.mock('@/lib/db', () => ({ db: { challenge: { findFirst: vi.fn(async () => null) }, messageDelivery: { create: (a: never) => deliveries(a) } } }))
 const sendEmail = vi.fn()
 vi.mock('@/lib/email', async (original) => ({
   ...(await original<typeof import('@/lib/email')>()),
@@ -90,6 +91,27 @@ describe('sendAuthLink', () => {
     const res = await sendAuthLink({ kind: 'sign_in', email: 'A@B.C', callbackUrl: CALLBACK })
     expect(res.ok).toBe(false)
     expect(sendEmail).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('the delivery log', () => {
+  it('records a failed send with its reason when the link belongs to a workspace', async () => {
+    sendEmail.mockResolvedValue({ sent: false, provider: 'resend', reason: 'domain not verified' })
+    await sendAuthLink({ kind: 'register', email: 'a@b.c', callbackUrl: CALLBACK, workspaceId: 'w1', challengeId: 'ch1' })
+    expect(deliveries).toHaveBeenCalledWith({ data: expect.objectContaining({
+      workspaceId: 'w1', challengeId: 'ch1', recipientEmail: 'a@b.c', status: 'failed', provider: 'resend', error: 'domain not verified',
+    }) })
+  })
+
+  it('records nothing for a link with no workspace', async () => {
+    await sendAuthLink({ kind: 'reset', email: 'a@b.c', callbackUrl: CALLBACK })
+    expect(deliveries).not.toHaveBeenCalled()
+  })
+
+  it('still sends when the log cannot be written', async () => {
+    deliveries.mockRejectedValueOnce(new Error('db down'))
+    const res = await sendAuthLink({ kind: 'register', email: 'a@b.c', callbackUrl: CALLBACK, workspaceId: 'w1' })
+    expect(res).toEqual({ ok: true, via: 'app' })
   })
 })
 

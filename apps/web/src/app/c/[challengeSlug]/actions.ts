@@ -147,6 +147,8 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
     senderName:     challenge.workspace.senderName,
     replyTo:        challenge.workspace.supportEmail,
     buttonColor:    challenge.workspace.primaryColor,
+    workspaceId:    challenge.workspaceId,
+    challengeId:    challenge.id,
   })
 
   if (!sent.ok) {
