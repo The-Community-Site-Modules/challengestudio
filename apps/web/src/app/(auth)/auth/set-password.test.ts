@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const auth = {
   getUser: vi.fn(async () => ({ data: { user: { id: 'u1', email: 'ada@example.com' } as unknown } })),
-  updateUser: vi.fn(async (_: { password: string }) => ({ error: null as null | { message: string } })),
+  updateUser: vi.fn(async (_: { password: string; data?: Record<string, unknown> }) => ({ error: null as null | { message: string } })),
 }
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ auth }) }))
 vi.mock('next/navigation', () => ({ redirect: (to: string) => { throw new Error(`REDIRECT:${to}`) } }))
@@ -32,7 +32,8 @@ describe('setPasswordAction', () => {
   it('saves a password that meets the rules, and says where to go next', async () => {
     const result = await setPasswordAction(form({ password: 'finish2things', confirm: 'finish2things', next: '/c/sprint/hub' }))
     expect(result).toEqual({ ok: true, next: '/c/sprint/hub' })
-    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'finish2things' })
+    // And records it, so the next link sign-in does not offer this page again.
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'finish2things', data: { password_set: true } })
   })
 
   it('refuses one under the rules — too short, or no number — and saves nothing', async () => {

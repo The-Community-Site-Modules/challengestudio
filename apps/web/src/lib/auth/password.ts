@@ -1,5 +1,5 @@
 /**
- * Whether someone who signed in by email link has a password yet.
+ * Whether someone who signed in by email link knows a password for it.
  *
  * Everyone who registers for a challenge arrives by magic link and never sets
  * a password. That works until the day they open the link on a different
@@ -7,25 +7,30 @@
  * on a sign-in page asking for a password they never had. Offering to create
  * one straight after a link sign-in is the way out of that.
  *
- * Supabase's client API does not say whether a user has a password, so this
- * asks the auth schema directly. The app connects as the database owner, which
- * can read it; nothing here is exposed to a browser.
+ * ── Why this does not look at the database ──────────────────────────────────
+ *
+ * The first version read `auth.users.encrypted_password` and offered the page
+ * when it was empty. It is never empty: Supabase gives every account it creates
+ * from a magic link a long random password, so the hash is always there and
+ * nobody knows the password behind it. Every real account checked on
+ * 2026-10-23 had one. The page was never shown to the people it was built for.
+ *
+ * So the app records the fact itself: `password_set: true` in the user's
+ * metadata, written by every path where a person chooses a password — sign-up,
+ * this page, and a password reset. No flag means nobody here has ever been
+ * asked for one, which is exactly the account that needs offering.
  */
 
-import { db } from '@/lib/db'
+interface WithMetadata {
+  user_metadata?: Record<string, unknown> | null
+}
 
-/**
- * True when the account has a password. Unknown users answer true — the
- * point is to offer, not to nag, and a lookup that finds nothing is no reason
- * to send someone to a form.
- */
-export async function hasPassword(userId: string): Promise<boolean> {
-  const rows = await db.$queryRaw<{ has: boolean }[]>`
-    select (encrypted_password is not null and encrypted_password <> '') as has
-      from auth.users
-     where id = ${userId}::uuid
-  `
-  return rows[0]?.has ?? true
+/** The metadata key, in one place so the writers and the reader agree. */
+export const PASSWORD_SET_FLAG = 'password_set'
+
+/** True once this person has chosen a password through one of our forms. */
+export function knowsPassword(user: WithMetadata | null | undefined): boolean {
+  return user?.user_metadata?.[PASSWORD_SET_FLAG] === true
 }
 
 const PASSWORD_PAGES = ['/auth/set-password', '/auth/reset-password']

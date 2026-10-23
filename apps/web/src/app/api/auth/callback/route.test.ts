@@ -15,22 +15,14 @@ vi.mock('@/lib/enrollment/register', () => ({
   EnrollmentRefusedError: class extends Error {},
 }))
 
-// Only the lookup is replaced; which pages are exempt, and the path built, are
-// the real thing.
-const hasPassword = vi.fn(async () => true)
-vi.mock('@/lib/auth/password', async (orig) => ({
-  ...(await orig<typeof import('@/lib/auth/password')>()),
-  hasPassword: (...a: unknown[]) => hasPassword(...(a as [])),
-}))
-
 const { GET } = await import('./route')
 const call = (qs: string) => GET(new Request(`https://www.site.test/api/auth/callback?${qs}`) as never)
 
-beforeEach(() => { vi.clearAllMocks(); hasPassword.mockResolvedValue(true) })
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('auth callback', () => {
   it('signs in, enrols and goes to the welcome page', async () => {
-    exchange.mockResolvedValue({ data: { user: { id: 'u1', email: 'a@b.c', user_metadata: {} } }, error: null })
+    exchange.mockResolvedValue({ data: { user: { id: 'u1', email: 'a@b.c', user_metadata: { password_set: true } } }, error: null })
     const res = await call('code=abc&challenge=ch1&name=Ada&next=%2Fc%2Fsprint%2Fwelcome')
     expect(enrollAfterAuth).toHaveBeenCalledWith('u1', 'a@b.c', 'Ada', 'ch1')
     expect(res.headers.get('location')).toBe('https://www.site.test/c/sprint/welcome')
@@ -64,16 +56,17 @@ describe('auth callback', () => {
 
 // ─── Offering a password after a link sign-in ────────────────────────────────
 //
-// Everyone who registers arrives by email link with no password, and a link
-// only completes in the browser that asked for it. Without a password, the day
-// they open one on another device there is no way in.
+// Everyone who registers arrives by email link, and Supabase gives such an
+// account a random password nobody knows — so the database cannot tell who
+// has one. The app records it as `password_set` in user metadata when a person
+// chooses one, and offers the page to everyone else.
 
 describe('after a link sign-in', () => {
-  const signedIn = { data: { user: { id: 'u1', email: 'a@b.c', user_metadata: {} } }, error: null }
+  const as = (metadata: Record<string, unknown>) =>
+    ({ data: { user: { id: 'u1', email: 'a@b.c', user_metadata: metadata } }, error: null })
 
-  it('offers a password to an account that has none, keeping the destination', async () => {
-    exchange.mockResolvedValue(signedIn)
-    hasPassword.mockResolvedValue(false)
+  it('offers a password to someone who has never chosen one, keeping the destination', async () => {
+    exchange.mockResolvedValue(as({ full_name: 'Ada' }))
     const res = await call('code=abc&next=%2Fdashboard')
     const location = new URL(res.headers.get('location')!)
     expect(location.pathname).toBe('/auth/set-password')
@@ -81,33 +74,27 @@ describe('after a link sign-in', () => {
   })
 
   it('still enrols a new participant first, then offers it', async () => {
-    exchange.mockResolvedValue(signedIn)
-    hasPassword.mockResolvedValue(false)
+    exchange.mockResolvedValue(as({}))
     const res = await call('code=abc&challenge=ch1&name=Ada&next=%2Fc%2Fsprint%2Fwelcome')
     expect(enrollAfterAuth).toHaveBeenCalledWith('u1', 'a@b.c', 'Ada', 'ch1')
     expect(new URL(res.headers.get('location')!).searchParams.get('next')).toBe('/c/sprint/welcome')
   })
 
-  it('goes straight on for an account that has one', async () => {
-    exchange.mockResolvedValue(signedIn)
-    hasPassword.mockResolvedValue(true)
+  it('goes straight on for someone who has chosen one', async () => {
+    exchange.mockResolvedValue(as({ password_set: true }))
     const res = await call('code=abc&next=%2Fdashboard')
     expect(res.headers.get('location')).toBe('https://www.site.test/dashboard')
+  })
+
+  it('does not take a truthy string for the flag', async () => {
+    exchange.mockResolvedValue(as({ password_set: 'yes' }))
+    const res = await call('code=abc&next=%2Fdashboard')
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/auth/set-password')
   })
 
   it('leaves a password-reset link alone — that is already where passwords are set', async () => {
-    exchange.mockResolvedValue(signedIn)
-    hasPassword.mockResolvedValue(false)
+    exchange.mockResolvedValue(as({}))
     const res = await call('code=abc&next=%2Fauth%2Freset-password')
     expect(res.headers.get('location')).toBe('https://www.site.test/auth/reset-password')
-    expect(hasPassword).not.toHaveBeenCalled()
-  })
-
-  it('never costs someone their sign-in when the lookup fails', async () => {
-    exchange.mockResolvedValue(signedIn)
-    hasPassword.mockRejectedValue(new Error('db down'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const res = await call('code=abc&next=%2Fdashboard')
-    expect(res.headers.get('location')).toBe('https://www.site.test/dashboard')
   })
 })

@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@/lib/supabase/server'
 import { enrollAfterAuth, EnrollmentRefusedError } from '@/lib/enrollment/register'
 import { safeNext }                  from '@/lib/auth/redirect'
-import { hasPassword, offersPassword, setPasswordPath } from '@/lib/auth/password'
+import { knowsPassword, offersPassword, setPasswordPath } from '@/lib/auth/password'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -83,20 +83,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // A link sign-in with no password behind it: offer to create one before
-    // going on. Without it, the same person opening a later link on another
-    // device lands on a sign-in page asking for a password they never had.
-    // The page has a "Skip for now", so this offers rather than blocks — and a
-    // failed lookup must never cost someone their sign-in, so it goes on.
+    // A link sign-in by someone who has never chosen a password: offer to
+    // create one before going on. Without it, the same person opening a later
+    // link on another device lands on a sign-in page asking for a password they
+    // never had. The page has "Skip for now", so this offers rather than
+    // blocks. Decided from the session's own metadata — see lib/auth/password
+    // for why the database cannot answer this.
     const signedIn = sessionData.user
-    if (signedIn && offersPassword(next)) {
-      try {
-        if (!(await hasPassword(signedIn.id))) {
-          return NextResponse.redirect(`${origin}${setPasswordPath(next)}`)
-        }
-      } catch (e) {
-        console.error('[auth/callback] password check failed; continuing', { userId: signedIn.id, error: e })
-      }
+    if (signedIn && offersPassword(next) && !knowsPassword(signedIn)) {
+      return NextResponse.redirect(`${origin}${setPasswordPath(next)}`)
     }
 
     return NextResponse.redirect(`${origin}${next}`)

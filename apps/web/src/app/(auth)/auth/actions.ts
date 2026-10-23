@@ -7,6 +7,7 @@ import { callerIp } from '@/lib/rate-limit/caller'
 import { safeNext } from '@/lib/auth/redirect'
 import { requestOrigin } from '@/lib/auth/origin'
 import { scorePassword } from './signup/_components/password-strength'
+import { PASSWORD_SET_FLAG } from '@/lib/auth/password'
 
 /**
  * PRD §22.2 asks for a limit on authentication attempts.
@@ -44,7 +45,9 @@ export async function signUpAction(formData: FormData) {
     email,
     password,
     options: {
-      data: { full_name: `${firstName} ${lastName}`.trim() },
+      // password_set: they chose this password, so a later link sign-in
+      // need not offer one — see lib/auth/password.
+      data: { full_name: `${firstName} ${lastName}`.trim(), [PASSWORD_SET_FLAG]: true },
       // /api/auth/callback, not /auth/verify. /auth/verify is the "check your
       // inbox" page — it reads email/error/message off the query string and
       // never touches the `code`, so clicking the confirmation link landed
@@ -164,7 +167,7 @@ export async function resetPasswordAction(formData: FormData) {
     return redirect(`/auth/reset-password?error=${encodeURIComponent('Passwords do not match')}`)
   }
 
-  const { error } = await supabase.auth.updateUser({ password })
+  const { error } = await supabase.auth.updateUser({ password, data: { [PASSWORD_SET_FLAG]: true } })
 
   if (error) {
     return redirect(`/auth/reset-password?error=${encodeURIComponent(error.message)}`)
@@ -202,7 +205,8 @@ export async function setPasswordAction(formData: FormData): Promise<SetPassword
   }
   if (password !== confirm) return { ok: false, error: 'The two passwords do not match.' }
 
-  const { error } = await supabase.auth.updateUser({ password })
+  // The flag is what stops the next link sign-in offering this page again.
+  const { error } = await supabase.auth.updateUser({ password, data: { [PASSWORD_SET_FLAG]: true } })
   if (error) return { ok: false, error: error.message }
 
   return { ok: true, next }
