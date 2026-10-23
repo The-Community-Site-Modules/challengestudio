@@ -62,14 +62,29 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
   const supabase = await createClient()
   const { data: { user: existingUser } } = await supabase.auth.getUser()
 
-  if (existingUser) {
-    // ── Already signed in ──────────────────────────────────────────────────
-    // Ensure profile exists
+  // ── The email decides who is registering ─────────────────────────────────
+  //
+  // This used to enrol whoever was signed in, whatever email the form said —
+  // and rename them to whatever name it said. A creator checking their own
+  // registration form with another address was enrolled themselves, renamed,
+  // and the address they typed got nothing.
+  //
+  // Now: if the typed email is the signed-in account's, it is that person, and
+  // the name follows the form (no comparison — the form is what they want to be
+  // called here). Any other email is someone else, so the signed-in account is
+  // left alone and the link goes to the address typed, below.
+  const sameAccount = !!existingUser && (existingUser.email ?? '').toLowerCase() === email
+
+  if (existingUser && sameAccount) {
+    // ── Signed in as the person registering ──────────────────────────────────
     await db.profile.upsert({
       where:  { id: existingUser.id },
       update: { fullName },
       create: { id: existingUser.id, email: existingUser.email ?? email, fullName },
     })
+    // Keep Supabase's copy in step, as the profile page does, so the two
+    // names never disagree.
+    await supabase.auth.updateUser({ data: { full_name: fullName } })
 
     // Create participant record (idempotent). A challenge that requires
     // approval admits nobody automatically — see initialParticipantStatus.
@@ -103,7 +118,10 @@ export async function registerAction(challengeSlug: string, formData: FormData) 
     redirect(`/c/${challengeSlug}/confirm?email=${encodeURIComponent(email)}&name=${encodeURIComponent(firstName)}`)
   }
 
-  // ── Not signed in — send OTP magic link ────────────────────────────────────
+  // ── Not signed in, or signed in as someone else — send a magic link ───────
+  //
+  // To the address typed. Opening it signs that person in (replacing any other
+  // session in this browser) and enrols them in the callback.
   //
   // Strategy: embed challengeId + fullName in the OTP redirect URL so the
   // auth callback can create the participant row AFTER the user is authenticated.

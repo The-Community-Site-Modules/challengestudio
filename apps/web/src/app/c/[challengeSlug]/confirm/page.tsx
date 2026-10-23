@@ -4,11 +4,30 @@ import { Button }  from '@/components/ui/button'
 import { Badge }   from '@/components/ui/badge'
 import { formatInZone } from '@/lib/time/zoned'
 import { db }      from '@/lib/db'
+import { createClient } from '@/lib/supabase/server'
+import { isParticipating } from '@/lib/enrollment/register'
+
+/**
+ * After the registration form — two different moments share this page.
+ *
+ * Signed in as the person registering: they are already enrolled, and the page
+ * says so and offers the hub. Not signed in, or signed in as someone else:
+ * nothing is enrolled yet — a sign-in link has gone to the address typed, and
+ * the place is only theirs once they open it.
+ *
+ * It used to say both at once to everybody: "You're registered!" and "we sent
+ * a magic link" (no link is sent to someone already signed in), plus a "Go to
+ * challenge hub" button that bounced anyone still waiting for their link back
+ * to the registration page. Which moment this is comes from the database, not
+ * the URL: is the person whose email this is, signed in here, enrolled?
+ */
 
 interface Props {
   params:       Promise<{ challengeSlug: string }>
   searchParams: Promise<{ email?: string; name?: string }>
 }
+
+const displayEmailFor = (email: string) => email.length > 0
 
 export default async function ConfirmPage({ params, searchParams }: Props) {
   const { challengeSlug }      = await params
@@ -17,10 +36,30 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
   const challenge = await db.challenge.findFirst({
     where: { slug: challengeSlug },
     select: {
-      title: true, startsAt: true, timezone: true, requiresApproval: true,
+      id: true, title: true, startsAt: true, timezone: true, requiresApproval: true,
       workspace: { select: { name: true } },
     },
   })
+
+  // Enrolled only counts for the person whose email was typed. Someone signed
+  // in as one account who registered another address is not looking at their
+  // own registration — that one is still waiting on its link.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isThem = !!user && !!email && (user.email ?? '').toLowerCase() === email.toLowerCase()
+  const participant = isThem && challenge
+    ? await db.participant.findUnique({
+        where:  { challengeId_profileId: { challengeId: challenge.id, profileId: user!.id } },
+        select: { status: true },
+      })
+    : null
+  const enrolled = !!participant
+  const canOpenHub = enrolled && isParticipating(participant!.status)
+
+  // Steps are numbered from whichever ones are showing.
+  const inboxStep = displayEmailFor(email) && !enrolled
+  const dateStepNo = inboxStep ? 2 : 1
+  const lastStepNo = dateStepNo + (challenge?.startsAt ? 1 : 0)
 
   const startDate = challenge?.startsAt
     ? formatInZone(challenge.startsAt, challenge.timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -47,7 +86,18 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
             <CheckCircle className={`h-8 w-8 ${needsApproval ? 'text-amber-600' : 'text-green-600'}`} />
           </div>
           <div>
-            {needsApproval ? (
+            {!enrolled ? (
+              <>
+                <Badge className="mb-2 bg-primary/10 text-primary">One more step</Badge>
+                <h1 className="text-2xl font-extrabold text-foreground">
+                  Check your email, {displayName}
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  Open the link we sent to finish registering for{' '}
+                  <strong>{challenge?.title ?? challengeSlug}</strong>.
+                </p>
+              </>
+            ) : needsApproval ? (
               <>
                 <Badge className="mb-2 bg-amber-100 text-amber-900">Request received</Badge>
                 <h1 className="text-2xl font-extrabold text-foreground">
@@ -78,14 +128,14 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
           <h2 className="font-bold text-foreground">What happens next</h2>
           <div className="space-y-3">
 
-            {displayEmail && (
+            {displayEmail && !enrolled && (
               <div className="flex items-start gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">1</div>
                 <div>
                   <p className="text-sm font-medium text-foreground">Check your inbox</p>
                   <p className="text-xs text-muted-foreground">
-                    We sent a magic link to <strong>{displayEmail}</strong>.
-                    Click it to verify your account and access the challenge.
+                    We sent a sign-in link to <strong>{displayEmail}</strong>.
+                    Open it <strong>in this browser</strong> — it will not work in another one.
                   </p>
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Mail className="h-3.5 w-3.5" />
@@ -97,7 +147,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
 
             {startDate && (
               <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">2</div>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">{dateStepNo}</div>
                 <div>
                   <p className="text-sm font-medium text-foreground">Day 1 unlocks on {startDate}</p>
                   <p className="text-xs text-muted-foreground">
@@ -108,7 +158,7 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
             )}
 
             <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">{startDate ? '3' : '2'}</div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold">{lastStepNo}</div>
               <div>
                 <p className="text-sm font-medium text-foreground">Show up every day</p>
                 <p className="text-xs text-muted-foreground">
@@ -121,11 +171,21 @@ export default async function ConfirmPage({ params, searchParams }: Props) {
 
         {/* CTAs */}
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button asChild className="flex-1 gap-2">
-            <Link href={`/c/${challengeSlug}/hub`}>
-              <Calendar className="h-4 w-4" /> Go to challenge hub
-            </Link>
-          </Button>
+          {canOpenHub && (
+            <Button asChild className="flex-1 gap-2">
+              <Link href={`/c/${challengeSlug}/hub`}>
+                <Calendar className="h-4 w-4" /> Go to challenge hub
+              </Link>
+            </Button>
+          )}
+          {enrolled && !canOpenHub && (
+            // Waiting for approval: the welcome page explains the wait.
+            <Button asChild className="flex-1 gap-2">
+              <Link href={`/c/${challengeSlug}/welcome`}>
+                <Calendar className="h-4 w-4" /> See your place
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" className="flex-1 gap-2" asChild>
             <Link href={`/c/${challengeSlug}?share=1`}>
               <Share2 className="h-4 w-4" /> Share this challenge

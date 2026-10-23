@@ -32,11 +32,13 @@ vi.mock('next/navigation', () => ({
 const auth = { user: null as { id: string; email: string } | null, otpError: null as { message: string } | null }
 interface OtpArgs { email: string; options?: { emailRedirectTo?: string } }
 const signInWithOtp = vi.fn(async (_args: OtpArgs) => ({ error: auth.otpError }))
+const updateUser = vi.fn(async (_args: { data: Record<string, unknown> }) => ({ error: null }))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: {
       getUser:        async () => ({ data: { user: auth.user } }),
       signInWithOtp,
+      updateUser,
     },
   }),
 }))
@@ -298,6 +300,52 @@ describe('registration confirmation', () => {
 
   it('is not sent on the magic-link path, where the link itself is the message', async () => {
     await register()
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+})
+
+// ─── The email decides who is registering ────────────────────────────────────
+//
+// Signed in as one account and typing another email used to enrol the signed-in
+// account, rename it to the name typed, and send the typed address nothing —
+// which is how a creator testing their own form with a second address ended up
+// enrolled and renamed themselves.
+
+describe('signed in, registering', () => {
+  it('enrols the signed-in account when the email is theirs, and the name follows the form', async () => {
+    auth.user = { id: 'u1', email: 'ada@example.com' }
+    const { redirectedTo } = await register(form({ firstName: 'Augusta', lastName: 'King' }))
+    expect(db.participant.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { challengeId_profileId: { challengeId: 'ch1', profileId: 'u1' } },
+    }))
+    expect(db.profile.upsert.mock.calls[0]?.[0]?.update).toEqual({ fullName: 'Augusta King' })
+    expect(updateUser).toHaveBeenCalledWith({ data: { full_name: 'Augusta King' } })
+    expect(signInWithOtp).not.toHaveBeenCalled()
+    expect(redirectedTo).toContain('/c/design-sprint/confirm')
+  })
+
+  it('matches the email whatever its case', async () => {
+    auth.user = { id: 'u1', email: 'Ada@Example.com' }
+    await register(form({ email: 'ada@example.com' }))
+    expect(db.participant.upsert).toHaveBeenCalled()
+    expect(signInWithOtp).not.toHaveBeenCalled()
+  })
+
+  it('leaves the signed-in account alone when the email is someone else', async () => {
+    auth.user = { id: 'creator', email: 'creator@studio.example' }
+    await register(form({ email: 'friend@example.com', firstName: 'Friend' }))
+    // Not enrolled, not renamed…
+    expect(db.participant.upsert).not.toHaveBeenCalled()
+    expect(db.profile.upsert).not.toHaveBeenCalled()
+    expect(updateUser).not.toHaveBeenCalled()
+    // …and the address typed is the one that gets the link.
+    expect(signInWithOtp).toHaveBeenCalledTimes(1)
+    expect(signInWithOtp.mock.calls[0]?.[0]?.email).toBe('friend@example.com')
+  })
+
+  it('sends no "registered" email to the signed-in account for someone else', async () => {
+    auth.user = { id: 'creator', email: 'creator@studio.example' }
+    await register(form({ email: 'friend@example.com' }))
     expect(dispatch).not.toHaveBeenCalled()
   })
 })
